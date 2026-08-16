@@ -26,19 +26,129 @@ Item {
     return Designs.DEFAULT_ID
   }
   readonly property string designId: designOverride.length > 0 ? designOverride : configuredDesignId
+
+  // "all" or an output name (see `omarchy-shell lock monitors`). Other
+  // monitors get the companion screen.
+  property string inputMonitorOverride: ""
+  readonly property string configuredInputMonitor: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.inputMonitor) return String(entry.inputMonitor)
+    }
+    return "all"
+  }
+  readonly property string inputMonitor: inputMonitorOverride.length > 0 ? inputMonitorOverride : configuredInputMonitor
+
+  function showsInput(screen) {
+    if (inputMonitor === "all" || !screen) return true
+    var names = []
+    var screens = Quickshell.screens || []
+    for (var i = 0; i < screens.length; i++) if (screens[i] && screens[i].name) names.push(screens[i].name)
+    if (names.indexOf(inputMonitor) === -1) return true
+    return screen.name === inputMonitor
+  }
+
+  function pluginEntry() {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++)
+      if (list[i] && String(list[i].id || "") === pluginId) return Util.cloneJson(list[i])
+    return {}
+  }
+
+  function setInputMonitor(name) {
+    var value = String(name || "all")
+    inputMonitorOverride = value
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (value === "all") delete current.inputMonitor
+      else current.inputMonitor = value
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("input-monitor=" + value)
+    return true
+  }
   property string previewDesignId: ""
   property string previewTyped: ""
+  property string previewFailure: ""
+  Timer { id: previewFailureTimer; interval: 2500; onTriggered: root.previewFailure = "" }
+
+  readonly property string userDesignsDir: home + "/.config/omarchy/lock-designs"
+  property int designsRevision: 0
+
+  function rescanUserDesigns() {
+    if (!userDesignsProc.running) userDesignsProc.running = true
+  }
+
+  // Bumps the revision so every LockHost showing a user design reloads it.
+  function reloadDesigns() {
+    designsRevision += 1
+  }
+
+  readonly property string pluginDir: {
+    var u = String(Qt.resolvedUrl("."))
+    return decodeURIComponent(u.replace(/^file:\/\//, "")).replace(/\/$/, "")
+  }
+
+  signal designCustomized(string id, string path)
+
+  function customizeDesign(id) {
+    var d = String(id || "") === "new"
+      ? { id: "new", file: "MyDesign.qml", name: "new", template: true }
+      : Designs.byId(String(id || ""))
+    if (!d) return false
+    if (d.path) { designCustomized(d.id, decodeURIComponent(d.path.replace(/^file:\/\//, ""))); return true }
+    var source = d.template ? pluginDir + "/extras/lock-designs/" + d.file : pluginDir + "/designs/" + d.file
+    if (customizeProc.running) return false
+    var importLine = 'import "../plugins/' + pluginId + '/designs"'
+    customizeProc.command = ["bash", "-c", customizeScript, "customize", source, userDesignsDir, d.file.replace(/\.qml$/, ""), d.template ? "" : importLine, d.name]
+    customizeProc.running = true
+    return true
+  }
+
+  readonly property string customizeScript: '
+set -e
+src="$1"; dir="$2"; base="$3"; imp="$4"; name="$5"
+mkdir -p "$dir"
+target="$dir/$base.qml"; n=2
+while [[ -e "$target" ]]; do target="$dir/$base$n.qml"; n=$((n+1)); done
+{
+  if [[ $name == new ]]; then echo "// New design. Edit it in the explorer (E) or with:"; else echo "// Customized copy of the $name design. Edit it here or with:"; fi
+  echo "//   omarchy-shell lock editDesign my-$(basename "$target" .qml | tr "[:upper:]" "[:lower:]")"
+  awk -v imp="$imp" \'
+    /^import / { last = NR }
+    { lines[NR] = $0 }
+    END { for (i = 1; i <= NR; i++) { print lines[i]; if (i == last && imp != "") print imp } }
+  \' "$src"
+} > "$target"
+echo "$target"
+'
+
+  Process {
+    id: customizeProc
+    stdout: StdioCollector {
+      id: customizeOut
+      waitForEnd: true
+      onStreamFinished: {
+        var target = String(customizeOut.text || "").trim()
+        if (target.length === 0) return
+        var d = Designs.fromUserFile(target)
+        Designs.setUser(Designs.USER.concat([d]))
+        root.designsRevision += 1
+        root.designCustomized(d.id, target)
+        root.rescanUserDesigns()
+      }
+    }
+  }
 
   function setDesign(id) {
     var d = Designs.byId(String(id || ""))
     if (!d) return false
     designOverride = d.id
     if (shell && typeof shell.updateEntryInline === "function") {
-      var current = {}
-      var cfg = shell.shellConfig
-      var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
-      for (var i = 0; i < list.length; i++)
-        if (list[i] && String(list[i].id || "") === pluginId) { current = Util.cloneJson(list[i]); break }
+      var current = pluginEntry()
       current.design = d.id
       shell.updateEntryInline(pluginId, current)
     }
@@ -175,6 +285,7 @@ Item {
     Qt.callLater(function() {
       root.refreshBackground()
       root.refreshFingerprintStatus()
+      root.rescanUserDesigns()
     })
 
     return true
@@ -303,7 +414,9 @@ Item {
       LockHost {
         id: lockView
         anchors.fill: parent
-        designId: root.designId
+        fadeIn: true
+        designId: root.showsInput(lockSurface.screen) ? root.designId : "companion"
+        revision: root.designsRevision
         backgroundPath: root.backgroundPath
         backgroundVersion: root.backgroundVersion
         fingerprintConfigured: root.fingerprintConfigured
@@ -335,12 +448,13 @@ Item {
     LockHost {
       anchors.fill: parent
       designId: root.previewDesignId.length > 0 ? root.previewDesignId : root.designId
+      revision: root.designsRevision
       backgroundPath: root.backgroundPath
       backgroundVersion: root.backgroundVersion
       fingerprintConfigured: root.fingerprintConfigured
       authenticatingPassword: false
-      failureMessage: ""
-      failedAttempts: 0
+      failureMessage: root.previewFailure
+      failedAttempts: root.previewFailure.length > 0 ? 1 : 0
       inputEnabled: root.previewVisible
       loadBackground: root.previewVisible
       passwordText: root.previewTyped
@@ -396,6 +510,21 @@ Item {
     interval: 250
     repeat: false
     onTriggered: root.startFingerprint()
+  }
+
+  Process {
+    id: userDesignsProc
+    command: ["bash", "-c", "ls -1 \"$0\"/*.qml 2>/dev/null", root.userDesignsDir]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var lines = String(text || "").split("\n").filter(function(l) { return l.trim().length > 0 })
+        var list = lines.map(function(p) { return Designs.fromUserFile(p.trim()) })
+        var before = JSON.stringify(Designs.USER)
+        Designs.setUser(list)
+        if (JSON.stringify(list) !== before) root.designsRevision += 1
+      }
+    }
   }
 
   Process {
@@ -542,6 +671,7 @@ Item {
   Component.onCompleted: {
     refreshBackground()
     refreshFingerprintStatus()
+    rescanUserDesigns()
     checkStrandedLock()
   }
 
@@ -605,6 +735,7 @@ Item {
     }
 
     function previewDesign(id: string): string {
+      root.rescanUserDesigns()
       if (!Designs.byId(String(id || ""))) return "unknown-design"
       root.previewDesignId = String(id)
       root.refreshBackground()
@@ -613,7 +744,49 @@ Item {
       return "ok"
     }
 
+    function monitors(): string {
+      var screens = Quickshell.screens || []
+      return JSON.stringify(screens.map(function(s) { return { name: s.name, width: s.width, height: s.height, input: root.showsInput(s) } }))
+    }
+
+    function inputMonitor(): string {
+      return root.inputMonitor
+    }
+
+    function setInputMonitor(name: string): string {
+      return root.setInputMonitor(name) ? "ok" : "failed"
+    }
+
+    function previewFail(): string {
+      root.previewFailure = ""
+      root.previewFailure = "Authentication failed (1)"
+      previewFailureTimer.restart()
+      return "ok"
+    }
+
+    function customize(id: string): string {
+      return root.customizeDesign(id) ? "ok" : "unknown-design"
+    }
+
+    function editDesign(id: string): string {
+      var d = Designs.byId(String(id || ""))
+      if (!d || !d.path) return "not-a-custom-design"
+      Quickshell.execDetached(["omarchy-launch-editor", decodeURIComponent(d.path.replace(/^file:\/\//, ""))])
+      return "ok"
+    }
+
+    function reloadDesigns(): string {
+      root.reloadDesigns()
+      return "ok"
+    }
+
+    function rescanDesigns(): string {
+      root.rescanUserDesigns()
+      return "ok"
+    }
+
     function explore(): string {
+      root.rescanUserDesigns()
       if (root.shell && typeof root.shell.summon === "function")
         return root.shell.summon(root.pluginId, "{}") ? "ok" : "failed"
       return "no-shell"

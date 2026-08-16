@@ -16,10 +16,15 @@ Item {
   property bool opened: false
   property int selectedIndex: 0
   property bool fullPreview: false
+  property bool editing: false
+  property var editingDesign: null
   property string category: "all"
 
   readonly property var categories: Designs.categories()
-  readonly property var designs: Designs.inCategory(category)
+  readonly property var designs: {
+    var r = service ? service.designsRevision : 0
+    return Designs.inCategory(category)
+  }
   readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "io.github.sirjul1337.lock-explorer"
   readonly property string activeDesignId: service ? service.designId : Designs.DEFAULT_ID
   readonly property var selectedDesign: designs.length > 0 ? designs[Math.max(0, Math.min(selectedIndex, designs.length - 1))] : null
@@ -53,6 +58,7 @@ Item {
     var idx = Designs.indexOf(root.activeDesignId)
     root.selectedIndex = idx >= 0 ? idx : 0
     if (root.service) {
+      if (typeof root.service.rescanUserDesigns === "function") root.service.rescanUserDesigns()
       if (typeof root.service.refreshBackground === "function") root.service.refreshBackground()
       if (typeof root.service.refreshFingerprintStatus === "function") root.service.refreshFingerprintStatus()
     }
@@ -74,6 +80,8 @@ Item {
   function dismiss() {
     root.opened = false
     root.fullPreview = false
+    root.editing = false
+    root.editingDesign = null
     if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
   }
 
@@ -127,6 +135,55 @@ Item {
     reveal(GridView.Contain)
   }
 
+  function selectById(id) {
+    var list = root.designs
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) { root.selectedIndex = i; reveal(GridView.Contain); return true }
+    return false
+  }
+
+  function customizeSelected() {
+    if (!root.selectedDesign || !root.service) return
+    if (root.selectedDesign.path) { openEditor(root.selectedDesign); return }
+    root.service.customizeDesign(root.selectedDesign.id)
+  }
+
+  function newDesign() {
+    if (root.service) root.service.customizeDesign("new")
+  }
+
+  function openEditor(design) {
+    if (!design || !design.path) return
+    root.editingDesign = design
+    root.editing = true
+    root.fullPreview = false
+    Qt.callLater(function() { editorView.focusCode() })
+  }
+
+  function closeEditor() {
+    root.editing = false
+    root.editingDesign = null
+    Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+  }
+
+  function openExternal(path) {
+    Quickshell.execDetached(["omarchy-launch-editor", path])
+    root.dismiss()
+  }
+
+  Connections {
+    target: root.service
+    ignoreUnknownSignals: true
+    function onDesignCustomized(id, path) {
+      if (!root.opened) return
+      root.setCategory("custom")
+      Qt.callLater(function() {
+        root.selectById(id)
+        var d = Designs.byId(id)
+        if (d) root.openEditor(d)
+      })
+    }
+  }
+
   function apply() {
     if (!selectedDesign) return
     if (root.service && typeof root.service.setDesign === "function") root.service.setDesign(selectedDesign.id)
@@ -152,6 +209,7 @@ Item {
       focus: true
       Keys.priority: Keys.BeforeItem
       Keys.onPressed: function(event) {
+        if (root.editing) return
         if (event.key === Qt.Key_Escape) {
           if (root.fullPreview) root.fullPreview = false
           else root.dismiss()
@@ -160,6 +218,14 @@ Item {
           root.apply(); event.accepted = true
         } else if (event.key === Qt.Key_Space || event.key === Qt.Key_P) {
           root.fullPreview = !root.fullPreview; event.accepted = true
+        } else if (event.key === Qt.Key_C) {
+          root.customizeSelected(); event.accepted = true
+        } else if (event.key === Qt.Key_E) {
+          if (root.selectedDesign && root.selectedDesign.path) root.openEditor(root.selectedDesign)
+          else root.customizeSelected()
+          event.accepted = true
+        } else if (event.key === Qt.Key_N) {
+          root.newDesign(); event.accepted = true
         } else if (event.key === Qt.Key_Tab) {
           root.cycleCategory(1); event.accepted = true
         } else if (event.key === Qt.Key_Backtab) {
@@ -188,7 +254,7 @@ Item {
 
     BorderSurface {
       id: card
-      visible: !root.fullPreview
+      visible: !root.fullPreview && !root.editing
       width: root.cardWidth
       height: root.cardHeight
       radius: root.cornerRadius
@@ -342,6 +408,7 @@ Item {
                 LockHost {
                   anchors.fill: parent
                   designId: cell.modelData.id
+                  revision: root.service ? root.service.designsRevision : 0
                   backgroundPath: root.service ? root.service.backgroundPath : ""
                   backgroundVersion: root.service ? root.service.backgroundVersion : 0
                   fingerprintConfigured: root.service ? root.service.fingerprintConfigured : false
@@ -386,6 +453,44 @@ Item {
               anchors.fill: parent
               onClicked: root.selectedIndex = cell.index
               onDoubleClicked: { root.selectedIndex = cell.index; root.apply() }
+            }
+
+            Row {
+              visible: cell.selected
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              anchors.margins: Style.space(10)
+              spacing: Style.space(6)
+              Rectangle {
+                width: useLabel.implicitWidth + Style.space(16); height: Style.space(26); radius: 6
+                color: root.accent
+                Text {
+                  id: useLabel
+                  anchors.centerIn: parent
+                  text: "Use  ⏎"
+                  color: Color.background
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                }
+                MouseArea { anchors.fill: parent; onClicked: { root.selectedIndex = cell.index; root.apply() } }
+              }
+              Rectangle {
+                width: custLabel.implicitWidth + Style.space(16); height: Style.space(26); radius: 6
+                color: Qt.rgba(0, 0, 0, 0.6)
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.25)
+                Text {
+                  id: custLabel
+                  anchors.centerIn: parent
+                  text: cell.modelData.path ? "Edit  E" : "Customize  C"
+                  color: "#ffffff"
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                }
+                MouseArea { anchors.fill: parent; onClicked: { root.selectedIndex = cell.index; root.customizeSelected() } }
+              }
             }
           }
 
@@ -473,10 +578,126 @@ Item {
         Text {
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-          text: "Arrows: browse   Tab: category   Space: preview   Enter: select   Esc: close"
+          text: "Arrows: browse   Tab: category   Space: preview   Enter: select   C: customize   E: edit   N: new   Esc: close"
           color: root.muted
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
+        }
+      }
+    }
+
+    BorderSurface {
+      id: editorCard
+      visible: root.editing
+      width: root.cardWidth
+      height: root.cardHeight
+      radius: root.cornerRadius
+      anchors.centerIn: parent
+      color: root.background
+      borderSpec: root.borderSpec
+
+      MouseArea { anchors.fill: parent; onClicked: {} }
+
+      Item {
+        anchors.fill: parent
+        anchors.topMargin: editorCard.contentTopInset + root.contentMargin
+        anchors.bottomMargin: editorCard.contentBottomInset + root.contentMargin
+        anchors.leftMargin: editorCard.contentLeftInset + root.contentMargin
+        anchors.rightMargin: editorCard.contentRightInset + root.contentMargin
+
+        Item {
+          id: editorHeader
+          anchors.top: parent.top
+          anchors.left: parent.left
+          anchors.right: parent.right
+          height: Style.space(48)
+          Column {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
+            Text {
+              text: root.editingDesign ? root.editingDesign.name : ""
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.display
+              font.weight: Font.DemiBold
+            }
+            Text {
+              text: "Custom design"
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+            }
+          }
+          Row {
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Style.space(8)
+            Rectangle {
+              width: saveLabel.implicitWidth + Style.space(20); height: Style.space(30); radius: 6
+              color: editorView.dirty ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.08)
+              Text {
+                id: saveLabel
+                anchors.centerIn: parent
+                text: "Save  Ctrl+S"
+                color: editorView.dirty ? Color.background : root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                font.bold: editorView.dirty
+              }
+              MouseArea { anchors.fill: parent; onClicked: editorView.save() }
+            }
+            Rectangle {
+              width: useLabel2.implicitWidth + Style.space(20); height: Style.space(30); radius: 6
+              color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.08)
+              Text {
+                id: useLabel2
+                anchors.centerIn: parent
+                text: "Use this design"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+              MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                  if (root.service && root.editingDesign) root.service.setDesign(root.editingDesign.id)
+                }
+              }
+            }
+            Rectangle {
+              width: backLabel.implicitWidth + Style.space(20); height: Style.space(30); radius: 6
+              color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.08)
+              Text {
+                id: backLabel
+                anchors.centerIn: parent
+                text: "Back  Esc"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+              MouseArea { anchors.fill: parent; onClicked: editorView.requestClose() }
+            }
+          }
+        }
+
+        Editor {
+          id: editorView
+          anchors.top: editorHeader.bottom
+          anchors.topMargin: Style.space(12)
+          anchors.bottom: parent.bottom
+          anchors.left: parent.left
+          anchors.right: parent.right
+          service: root.service
+          design: root.editing ? root.editingDesign : null
+          background: root.background
+          foreground: root.foreground
+          accent: root.accent
+          fontFamily: root.fontFamily
+          screenWidth: panel.width
+          screenHeight: panel.height
+          onCloseRequested: root.closeEditor()
+          onOpenExternalRequested: function(path) { root.openExternal(path) }
         }
       }
     }
@@ -488,6 +709,7 @@ Item {
       LockHost {
         anchors.fill: parent
         designId: root.selectedDesign ? root.selectedDesign.id : Designs.DEFAULT_ID
+        revision: root.service ? root.service.designsRevision : 0
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         fingerprintConfigured: root.service ? root.service.fingerprintConfigured : false

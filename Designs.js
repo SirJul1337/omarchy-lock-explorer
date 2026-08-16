@@ -9,7 +9,8 @@ var CATEGORIES = [
   { id: "clock", name: "Clock" },
   { id: "type", name: "Typography" },
   { id: "dark", name: "Dark" },
-  { id: "fun", name: "Fun" }
+  { id: "fun", name: "Fun" },
+  { id: "custom", name: "Custom" }
 ]
 
 var DESIGNS = [
@@ -32,28 +33,51 @@ var DESIGNS = [
   { id: "calendar", file: "Calendar.qml", name: "Calendar", description: "Month view next to the clock", tags: ["clock", "cards"] },
   { id: "frame", file: "Frame.qml", name: "Frame", description: "Wallpaper in a photo mat", tags: ["cards"] },
   { id: "dayline", file: "Dayline.qml", name: "Dayline", description: "Progress bar for the day", tags: ["clock"] },
-  { id: "profile", file: "Profile.qml", name: "Profile", description: "Big avatar, name and a pill field", tags: ["cards"] }
+  { id: "profile", file: "Profile.qml", name: "Profile", description: "Big avatar, name and a pill field", tags: ["cards"] },
+  { id: "weather", file: "Weather.qml", name: "Weather", description: "Current weather and 3 day forecast next to the clock", tags: ["cards", "clock"] },
+  { id: "music", file: "Music.qml", name: "Music", description: "What is playing, with cover art", tags: ["cards", "fun"] },
+  { id: "system", file: "System.qml", name: "System", description: "Uptime, memory, load and battery tiles", tags: ["cards", "dark"] },
+  { id: "rain", file: "Rain.qml", name: "Rain", description: "Falling glyphs, you know the movie", tags: ["dark", "fun"] }
 ]
 
-function all() { return DESIGNS }
+var USER = []
+
+// Not listed in the explorer, used for monitors without input.
+var HIDDEN = [
+  { id: "companion", file: "Companion.qml", name: "Companion", description: "Clock only, for secondary monitors", tags: [] }
+]
+
+// Designs found in ~/.config/omarchy/lock-designs, set by Service.qml.
+function setUser(list) { USER = list || [] }
+
+function all() { return DESIGNS.concat(USER) }
 
 function categories() { return CATEGORIES }
 
 function inCategory(category) {
-  if (!category || category === "all") return DESIGNS
-  return DESIGNS.filter(function(d) { return (d.tags || []).indexOf(category) !== -1 })
+  if (!category || category === "all") return all()
+  return all().filter(function(d) { return (d.tags || []).indexOf(category) !== -1 })
 }
 
 function byId(id) {
-  for (var i = 0; i < DESIGNS.length; i++) if (DESIGNS[i].id === id) return DESIGNS[i]
+  var list = all().concat(HIDDEN)
+  for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]
   return null
 }
 
 function indexOf(id) {
-  for (var i = 0; i < DESIGNS.length; i++) if (DESIGNS[i].id === id) return i
+  var list = all()
+  for (var i = 0; i < list.length; i++) if (list[i].id === id) return i
   return -1
 }
 
 function resolve(id) {
   return byId(id) || byId(DEFAULT_ID) || DESIGNS[0]
+}
+
+function fromUserFile(path) {
+  var name = String(path).split("/").pop().replace(/\.qml$/, "")
+  var id = "my-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+  var pretty = name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[-_]+/g, " ")
+  return { id: id, name: pretty, description: "Custom design from ~/.config/omarchy/lock-designs", tags: ["custom"], path: "file://" + path }
 }

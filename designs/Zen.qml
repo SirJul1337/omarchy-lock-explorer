@@ -5,6 +5,7 @@ import qs.Commons
 DesignBase {
   id: lock
   inputItem: input
+  shakeOnFail: true
 
   readonly property int dotCount: passwordText.length
   readonly property int maxDots: 24

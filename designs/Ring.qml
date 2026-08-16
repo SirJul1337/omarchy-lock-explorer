@@ -4,6 +4,7 @@ import qs.Commons
 DesignBase {
   id: lock
   inputItem: input
+  shakeOnFail: true
 
   readonly property int ringSize: 320
   readonly property int ringWidth: 8

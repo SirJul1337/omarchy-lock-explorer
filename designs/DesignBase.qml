@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.Commons
 
 Item {
   id: base
@@ -34,6 +35,36 @@ Item {
   }
 
   property Item inputItem: null
+  property bool shakeOnFail: false
+  property bool flashOnFail: true
+
+  transform: Translate { id: shakeTranslate }
+  SequentialAnimation {
+    id: shakeAnim
+    NumberAnimation { target: shakeTranslate; property: "x"; from: 0; to: -14; duration: 40 }
+    NumberAnimation { target: shakeTranslate; property: "x"; from: -14; to: 12; duration: 70 }
+    NumberAnimation { target: shakeTranslate; property: "x"; from: 12; to: -8; duration: 60 }
+    NumberAnimation { target: shakeTranslate; property: "x"; from: -8; to: 4; duration: 50 }
+    NumberAnimation { target: shakeTranslate; property: "x"; from: 4; to: 0; duration: 40 }
+  }
+  Rectangle {
+    id: failFlash
+    anchors.fill: parent
+    z: 1000
+    color: Color.lock.textError
+    opacity: 0
+    visible: opacity > 0
+  }
+  SequentialAnimation {
+    id: flashAnim
+    NumberAnimation { target: failFlash; property: "opacity"; from: 0; to: 0.22; duration: 80 }
+    NumberAnimation { target: failFlash; property: "opacity"; from: 0.22; to: 0; duration: 380; easing.type: Easing.OutCubic }
+  }
+  onFailureMessageChanged: {
+    if (failureMessage.length === 0) return
+    if (flashOnFail) flashAnim.restart()
+    if (shakeOnFail) shakeAnim.restart()
+  }
 
   property date now: new Date()
   Timer {

@@ -4,6 +4,7 @@ import qs.Commons
 DesignBase {
   id: lock
   inputItem: input
+  shakeOnFail: true
 
   readonly property int fontSize: Math.round(Style.font.baseSize * 1.6)
   readonly property int pad: Math.round(Math.min(width, height) * 0.08)

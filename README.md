@@ -5,7 +5,7 @@ Colors and fonts come from your Omarchy theme.
 
 ![preview](preview.png)
 
-Designs: Greeting Card, Classic (the stock one), Editorial, Zen, Split, Terminal.
+Designs: Greeting Card, Classic (the stock one), Editorial, Zen, Split, Terminal, Ring, Poster, Dock, Aurora, Analog, Flip, Island, Cinema, Sheet, Neon, Calendar, Frame, Dayline, Profile.
 
 ## Install
 
@@ -23,7 +23,7 @@ the plugin to get the stock lock screen back.
 omarchy-shell lock explore
 ```
 
-Arrows to browse, Space for full-size preview, Enter to select, Esc to close.
+Arrows to browse, Tab to switch category (or click the chips), Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown.
 
 To get it in the app launcher and the Omarchy menu (Style -> Lock Screen):
 

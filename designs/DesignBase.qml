@@ -62,7 +62,7 @@ Item {
   }
 
   function forcePasswordFocus() {
-    if (inputItem) inputItem.forceActiveFocus()
+    if (inputEnabled && inputItem) inputItem.forceActiveFocus()
   }
 
   function clearPassword() {

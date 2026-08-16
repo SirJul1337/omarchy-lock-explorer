@@ -65,7 +65,3 @@ omarchy plugin validate ~/.config/omarchy/plugins/io.github.sirjul1337.lock-expl
 qmllint -I "$OMARCHY_PATH/shell" ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer/{*.qml,designs/*.qml}
 omarchy restart shell
 ```
-
-## License
-
-MIT. `Service.qml` is based on the built-in `omarchy.lock` plugin from Omarchy.

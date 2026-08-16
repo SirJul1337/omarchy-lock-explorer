@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.sirjul1337.lock-explorer",
+  "name": "Lock Screen Explorer",
+  "version": "1.0.0",
+  "author": "Niklas",
+  "license": "MIT",
+  "description": "Lock screen designs for Omarchy with a picker to preview and switch between them",
+  "kinds": [
+    "service",
+    "overlay"
+  ],
+  "entryPoints": {
+    "service": "Service.qml",
+    "overlay": "Explorer.qml"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.lock"
+  }
+}

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Lock Screen Explorer
+GenericName=Lock screen designs
+Comment=Preview and choose your Omarchy lock screen design
+Exec=omarchy-shell lock explore
+Icon=lock-screen-explorer
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=lock;screen;lockscreen;design;theme;omarchy;
+StartupNotify=false

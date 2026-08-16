@@ -1,0 +1,5 @@
+{
+  // Adds Style -> Lock Screen to the Omarchy menu.
+  // Merge into ~/.config/omarchy/extensions/omarchy-menu.jsonc (install.sh does this).
+  "style.lockscreen": {"icon":"󰌾","label":"Lock Screen","aliases":["lockscreen","lock-screen"],"description":"Preview and choose a lock screen design","action":"omarchy-shell lock explore"}
+}

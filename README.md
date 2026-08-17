@@ -90,6 +90,31 @@ want to draw the input yourself, and point `inputItem` at it so it gets focus. S
 `shakeOnFail: true` on box-less designs (the base flashes red on a wrong password either way), and
 `showPasswordToggle: false` if you do not want the eye button.
 
+## Remove
+
+```sh
+omarchy plugin remove io.github.sirjul1337.lock-explorer
+omarchy restart shell
+```
+
+That restores the built-in Omarchy lock screen. Your own designs in
+`~/.config/omarchy/lock-designs/` are left alone, delete that folder if you want them gone.
+The optional launcher entry from `extras/install.sh` can be removed with
+`rm ~/.local/share/applications/lock-screen-explorer.desktop ~/.local/share/icons/hicolor/scalable/apps/lock-screen-explorer.svg`
+and by deleting the `style.lockscreen` line from `~/.config/omarchy/extensions/omarchy-menu.jsonc`.
+
+## Dependencies
+
+Nothing beyond Omarchy 4 itself, except the Weather design, which runs `curl` to fetch
+`https://wttr.in` (the same service and location file as the Omarchy weather widget). No other
+design makes network requests. The plugin writes only its own entry in
+`~/.config/omarchy/shell.json` (the design you pick) and files you create yourself under
+`~/.config/omarchy/lock-designs/`.
+
+## License
+
+MIT, see [LICENSE](LICENSE). `Service.qml` is based on the built-in `omarchy.lock` plugin from Omarchy (MIT).
+
 ## Development
 
 ```sh

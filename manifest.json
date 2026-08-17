@@ -4,6 +4,7 @@
   "name": "Lock Screen Explorer",
   "version": "1.2.1",
   "author": "SirJul1337",
+  "license": "MIT",
   "description": "Lock screen designs for Omarchy with a picker to preview and switch between them",
   "kinds": [
     "service",

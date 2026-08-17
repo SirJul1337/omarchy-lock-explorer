@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.sirjul1337.lock-explorer",
   "name": "Lock Screen Explorer",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "author": "SirJul1337",
   "description": "Lock screen designs for Omarchy with a picker to preview and switch between them",
   "kinds": [

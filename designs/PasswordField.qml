@@ -18,10 +18,12 @@ BorderSurface {
   readonly property bool errorState: lock ? lock.errorState : false
   readonly property bool authenticating: lock ? lock.authenticatingPassword : false
   readonly property bool fingerprint: lock ? lock.fingerprintConfigured : false
+  readonly property bool revealed: lock ? lock.passwordVisible : false
+  readonly property bool showToggle: lock ? lock.showPasswordToggle : true
   readonly property int fieldFontSize: Math.round(Style.font.heading * fontScale)
   readonly property int dotFontSize: Math.round(Style.font.heading * 1.25 * fontScale)
   readonly property int dotLetterSpacing: Math.round(Style.font.heading * 0.19 * fontScale)
-  readonly property real fingerprintReserve: fingerprint ? Math.round(fingerprintIcon.implicitWidth + 12) : 0
+  readonly property real fingerprintReserve: (fingerprint ? Math.round(fingerprintIcon.implicitWidth + 12) : 0) + (showToggle ? Math.round(eyeButton.width + 8) : 0)
   readonly property real glyphReserve: showLockGlyph ? Math.round(lockGlyph.implicitWidth + 12) : 0
   readonly property real dotScale: dotMetrics.advanceWidth > 0
     ? Math.min(1, (input.width - 4) / dotMetrics.advanceWidth)
@@ -85,8 +87,8 @@ BorderSurface {
     anchors.rightMargin: field.borderRight + field.sidePadding + Math.max(field.fingerprintReserve, field.glyphReserve)
     verticalAlignment: TextInput.AlignVCenter
     horizontalAlignment: field.textAlignment
-    font.pixelSize: text.length > 0 ? Math.max(1, Math.floor(field.dotFontSize * field.dotScale)) : field.fieldFontSize
-    font.letterSpacing: text.length > 0 ? field.dotLetterSpacing * field.dotScale : 0
+    font.pixelSize: text.length > 0 && !field.revealed ? Math.max(1, Math.floor(field.dotFontSize * field.dotScale)) : field.fieldFontSize
+    font.letterSpacing: text.length > 0 && !field.revealed ? field.dotLetterSpacing * field.dotScale : 0
     cursorVisible: activeFocus && text.length > 0 && !field.authenticating && !field.errorState
     cursorDelegate: Rectangle {
       width: 2
@@ -106,6 +108,31 @@ BorderSurface {
     horizontalAlignment: field.textAlignment
     verticalAlignment: Text.AlignVCenter
     elide: Text.ElideRight
+  }
+
+  Item {
+    id: eyeButton
+    visible: field.showToggle
+    width: Math.round(field.fieldFontSize * 1.6)
+    height: parent.height
+    anchors.right: parent.right
+    anchors.rightMargin: field.borderRight + field.sidePadding - 6 + (field.fingerprint ? Math.round(fingerprintIcon.implicitWidth + 12) : 0)
+    Text {
+      anchors.centerIn: parent
+      text: field.revealed ? "󰈉" : "󰈈"
+      color: field.revealed ? Color.lock.borderActive : Color.lock.placeholder
+      font.family: Style.font.family
+      font.pixelSize: Math.round(field.fieldFontSize * 1.1)
+    }
+    MouseArea {
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: {
+        if (field.lock) field.lock.togglePasswordVisible()
+        input.forceActiveFocus()
+      }
+    }
   }
 
   Text {

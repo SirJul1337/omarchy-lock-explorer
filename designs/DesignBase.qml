@@ -38,6 +38,14 @@ Item {
   property bool shakeOnFail: false
   property bool flashOnFail: true
 
+  // Show/hide password toggle. Designs can turn the button off with
+  // showPasswordToggle: false. Resets to hidden on a failed attempt and
+  // when the field is cleared.
+  property bool showPasswordToggle: true
+  property bool passwordVisible: false
+  function togglePasswordVisible() { passwordVisible = !passwordVisible }
+  onPasswordTextChanged: if (passwordText.length === 0) passwordVisible = false
+
   transform: Translate { id: shakeTranslate }
   SequentialAnimation {
     id: shakeAnim
@@ -62,6 +70,7 @@ Item {
   }
   onFailureMessageChanged: {
     if (failureMessage.length === 0) return
+    passwordVisible = false
     if (flashOnFail) flashAnim.restart()
     if (shakeOnFail) shakeAnim.restart()
   }

@@ -44,15 +44,20 @@ DesignBase {
       font.pixelSize: Style.font.display
     }
     Item { width: 1; height: 16 }
-    Text {
+    Row {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: lock.errorState ? lock.failureMessage
-        : (lock.authenticatingPassword ? "Checking…"
-        : (lock.passwordText.length > 0 ? "●".repeat(Math.min(lock.passwordText.length, 24)) : "󰌾"))
-      color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
-      font.family: Style.font.family
-      font.pixelSize: Style.font.heading
-      font.letterSpacing: 4
+      spacing: 8
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: lock.errorState ? lock.failureMessage
+          : (lock.authenticatingPassword ? "Checking…"
+          : (lock.passwordText.length > 0 ? (lock.passwordVisible ? lock.passwordText : "●".repeat(Math.min(lock.passwordText.length, 24))) : "󰌾"))
+        color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, lock.passwordVisible ? 0.9 : 0.55)
+        font.family: Style.font.family
+        font.pixelSize: Style.font.heading
+        font.letterSpacing: lock.passwordVisible ? 1 : 4
+      }
+      EyeButton { lock: lock; anchors.verticalCenter: parent.verticalCenter; visible: lock.passwordText.length > 0 && lock.showPasswordToggle }
     }
   }
 }

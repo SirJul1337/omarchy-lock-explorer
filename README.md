@@ -9,6 +9,8 @@ Designs: Greeting Card, Classic (the stock one), Editorial, Zen, Split, Terminal
 
 Weather fetches from wttr.in (same location as the bar widget), Music reads MPRIS players, System shows uptime, memory, load and battery.
 
+Every password field has an eye button to show what you typed (Ctrl+E does the same). It hides again after a failed attempt or when the field is cleared.
+
 ## Install
 
 ```sh
@@ -85,7 +87,8 @@ A design is a `DesignBase` item. It gets `passwordText`, `failureMessage`, `fail
 `authenticatingPassword`, `fingerprintConfigured`, `inputEnabled`, a ticking `now`, `userName`,
 `hostName` and `greeting()`. Use `PasswordField` for a normal input box or `LockInput` if you
 want to draw the input yourself, and point `inputItem` at it so it gets focus. Set
-`shakeOnFail: true` on box-less designs (the base flashes red on a wrong password either way).
+`shakeOnFail: true` on box-less designs (the base flashes red on a wrong password either way), and
+`showPasswordToggle: false` if you do not want the eye button.
 
 ## Development
 

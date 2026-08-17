@@ -133,16 +133,22 @@ DesignBase {
       font.pixelSize: Style.font.heading
       font.weight: Font.DemiBold
     }
-    Text {
+    Row {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: lock.authenticatingPassword ? "Checking…"
-        : (lock.errorState ? lock.failureMessage
-        : (lock.passwordText.length > 0 ? lock.passwordText.length + " characters, Enter to unlock"
-        : (lock.fingerprintConfigured ? "Type your password or touch the sensor" : "Type your password")))
-      color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
-      font.italic: lock.errorState
+      spacing: 6
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: lock.authenticatingPassword ? "Checking…"
+          : (lock.errorState ? lock.failureMessage
+          : (lock.passwordText.length > 0
+            ? (lock.passwordVisible ? lock.passwordText : lock.passwordText.length + " characters, Enter to unlock")
+            : (lock.fingerprintConfigured ? "Type your password or touch the sensor" : "Type your password")))
+        color: lock.errorState ? Color.lock.textError : (lock.passwordVisible && lock.passwordText.length > 0 ? Color.lock.text : lock.withAlpha(Color.lock.text, 0.55))
+        font.family: Style.font.family
+        font.pixelSize: lock.passwordVisible && lock.passwordText.length > 0 ? Style.font.heading : Style.font.body
+        font.italic: lock.errorState
+      }
+      EyeButton { lock: lock; anchors.verticalCenter: parent.verticalCenter; size: Style.font.title }
     }
   }
 }

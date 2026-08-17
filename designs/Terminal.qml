@@ -10,7 +10,7 @@ DesignBase {
   readonly property int pad: Math.round(Math.min(width, height) * 0.08)
   readonly property color fg: Color.lock.text
   readonly property color dimFg: withAlpha(Color.lock.text, 0.55)
-  readonly property string masked: "*".repeat(passwordText.length)
+  readonly property string masked: passwordVisible ? passwordText : "*".repeat(passwordText.length)
 
   Rectangle { anchors.fill: parent; color: Color.background }
 
@@ -82,6 +82,8 @@ DesignBase {
           PauseAnimation { duration: 150 }
         }
       }
+      Item { width: 14; height: 1 }
+      EyeButton { lock: lock; anchors.verticalCenter: parent.verticalCenter; size: lock.fontSize }
     }
 
     Text {

@@ -64,8 +64,19 @@ DesignBase {
       width: Math.max(260, Math.min(lock.dotCount, lock.maxDots) * (lock.dotSize + lock.dotGap) + 40)
       height: 40
 
+      Text {
+        anchors.centerIn: parent
+        visible: lock.passwordVisible && lock.dotCount > 0
+        text: lock.passwordText
+        color: lock.errorState ? Color.lock.textError : Color.lock.text
+        font.family: Style.font.family
+        font.pixelSize: Style.font.display
+        font.letterSpacing: 2
+      }
+
       Row {
         anchors.centerIn: parent
+        visible: !lock.passwordVisible
         spacing: lock.dotGap
         Repeater {
           model: Math.min(lock.dotCount, lock.maxDots)
@@ -90,6 +101,13 @@ DesignBase {
           NumberAnimation { from: 1; to: 0; duration: 500 }
           NumberAnimation { from: 0; to: 1; duration: 500 }
         }
+      }
+
+      EyeButton {
+        lock: lock
+        anchors.left: parent.right
+        anchors.leftMargin: 6
+        anchors.verticalCenter: parent.verticalCenter
       }
 
       Rectangle {

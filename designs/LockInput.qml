@@ -7,7 +7,7 @@ TextInput {
   property var lock: null
   property bool syncing: false
 
-  echoMode: TextInput.Password
+  echoMode: lock && lock.passwordVisible ? TextInput.Normal : TextInput.Password
   passwordCharacter: "●"
   passwordMaskDelay: 0
   activeFocusOnPress: true
@@ -55,6 +55,9 @@ TextInput {
     lock.wakeRequested()
     if (event.key === Qt.Key_Escape || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_U)) {
       lock.passwordTextEdited("")
+      event.accepted = true
+    } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_E) {
+      if (lock.showPasswordToggle) lock.togglePasswordVisible()
       event.accepted = true
     }
   }

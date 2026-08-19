@@ -15,7 +15,12 @@ Every password field has an eye button to show what you typed (Ctrl+E does the s
 
 ```sh
 omarchy plugin add https://github.com/SirJul1337/omarchy-lock-explorer.git --enable
+omarchy restart shell
 ```
+
+The restart is needed: the shell loads this service before it unloads the stock one, so for a
+moment both claim the `lock` IPC target and the stock one keeps it. Until you restart,
+`omarchy-shell lock explore` answers `Function not found`.
 
 This replaces the built-in `omarchy.lock` service (the manifest has `clonedFrom: omarchy.lock`
 so the shell swaps them and everything that locks the screen keeps working). Disable or remove
@@ -28,6 +33,11 @@ omarchy-shell lock explore
 ```
 
 Arrows to browse, Tab to switch category (or click the chips), Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown.
+
+`A` picks a profile picture with the normal file dialog (the explorer steps aside while the
+dialog is up and comes back when you are done), `Shift+A` clears it again. The designs that show
+the user — Greeting Card, Split, Dock, Poster, Sheet, Island and Profile — use it, and fall back
+to your initial when there is none.
 
 `C` on any design copies it to `~/.config/omarchy/lock-designs/` (it shows up under Custom) and opens it in the
 built-in editor. `E` edits a custom design, `N` starts a new one from the template. The editor has the code on
@@ -57,12 +67,21 @@ omarchy-shell lock previewFail           # show the failure state in the preview
 omarchy-shell lock hidePreview
 omarchy-shell lock monitors
 omarchy-shell lock setInputMonitor DP-1  # or "all"
+omarchy-shell lock avatar
+omarchy-shell lock pickAvatar            # the file dialog, same as A in the explorer
+omarchy-shell lock setAvatar ~/me.png
+omarchy-shell lock clearAvatar           # back to the initial
+omarchy-shell lock resetAvatar           # back to whatever is found automatically
 ```
 
 With more than one monitor you can pick which one shows the sign-in with `setInputMonitor`.
 The others get a clock only screen (typing still works there).
 
-The selected design is saved on the plugin entry in `~/.config/omarchy/shell.json`.
+The selected design and the avatar are saved on the plugin entry in `~/.config/omarchy/shell.json`.
+
+With no avatar set, the first of `~/.config/omarchy/lock-avatar.{png,jpg,jpeg,webp}`, `~/.face`,
+`~/.face.icon` and `/var/lib/AccountsService/icons/$USER` is used, so an existing profile picture
+shows up on its own.
 
 ## Your own designs
 
@@ -78,7 +97,7 @@ omarchy-shell lock rescanDesigns        # pick up files added by hand
 ```
 
 Keep the `import "../plugins/io.github.sirjul1337.lock-explorer/designs"` line, that is where
-`DesignBase`, `PasswordField`, `LockInput` and `Wallpaper` come from.
+`DesignBase`, `PasswordField`, `LockInput`, `Wallpaper` and `Avatar` come from.
 
 To add a design to the plugin itself, copy one of the files in `designs/`, add it to
 `Designs.js`, run `omarchy restart shell`.
@@ -89,6 +108,11 @@ A design is a `DesignBase` item. It gets `passwordText`, `failureMessage`, `fail
 want to draw the input yourself, and point `inputItem` at it so it gets focus. Set
 `shakeOnFail: true` on box-less designs (the base flashes red on a wrong password either way), and
 `showPasswordToggle: false` if you do not want the eye button.
+
+For the profile picture use `Avatar { lock: lock; width: 96 }`, which shows the chosen image
+masked to a circle and the user's initial when there is none. `fontSize`, `fillColor`,
+`textColor`, `borderWidth`, `borderColor` and `shadow` are there to fit it into a design. The raw
+values are on the base as `hasAvatar` and `avatarUrl` if you want to draw it yourself.
 
 ## Remove
 
@@ -103,13 +127,32 @@ The optional launcher entry from `extras/install.sh` can be removed with
 `rm ~/.local/share/applications/lock-screen-explorer.desktop ~/.local/share/icons/hicolor/scalable/apps/lock-screen-explorer.svg`
 and by deleting the `style.lockscreen` line from `~/.config/omarchy/extensions/omarchy-menu.jsonc`.
 
+## Troubleshooting
+
+`omarchy-shell lock explore` says `Function not found`: the stock lock service is still the one
+answering, so this plugin never took over the `lock` IPC target. Run `omarchy restart shell`.
+If it persists, check that the plugin is enabled and that the stock one got disabled:
+
+```sh
+omarchy plugin list
+jq '.plugins, .disabled' ~/.config/omarchy/shell.json
+```
+
+`io.github.sirjul1337.lock-explorer` should be enabled and `omarchy.lock` should be in `disabled`.
+
+`Target not found` instead means neither service is loaded, usually because this one failed to
+load. `omarchy plugin validate ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer`
+and the shell log will say why.
+
 ## Dependencies
 
 Nothing beyond Omarchy 4 itself, except the Weather design, which runs `curl` to fetch
 `https://wttr.in` (the same service and location file as the Omarchy weather widget). No other
-design makes network requests. The plugin writes only its own entry in
-`~/.config/omarchy/shell.json` (the design you pick) and files you create yourself under
-`~/.config/omarchy/lock-designs/`.
+design makes network requests. Picking an avatar runs `omarchy file select`, the desktop file
+chooser that ships with Omarchy. The plugin writes only its own entry in
+`~/.config/omarchy/shell.json` (the design you pick and the path to your avatar) and files you
+create yourself under `~/.config/omarchy/lock-designs/`. Avatar images are read where they are,
+nothing is copied.
 
 ## License
 

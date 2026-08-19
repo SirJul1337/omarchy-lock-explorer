@@ -32,7 +32,7 @@ the plugin to get the stock lock screen back.
 omarchy-shell lock explore
 ```
 
-Arrows to browse, Tab to switch category (or click the chips), Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown.
+Arrows to browse, Tab to switch category (or click the chips), Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` cycles the unlock animation and `Shift+U` its length, the same as clicking the Unlock chip in the header.
 
 `A` picks a profile picture with the normal file dialog (the explorer steps aside while the
 dialog is up and comes back when you are done), `Shift+A` clears it again. The designs that show
@@ -72,12 +72,30 @@ omarchy-shell lock pickAvatar            # the file dialog, same as A in the exp
 omarchy-shell lock setAvatar ~/me.png
 omarchy-shell lock clearAvatar           # back to the initial
 omarchy-shell lock resetAvatar           # back to whatever is found automatically
+omarchy-shell lock unlockAnimation
+omarchy-shell lock setUnlockAnimation fade   # none (default), fade, zoom or rise
+omarchy-shell lock setUnlockDuration 600     # milliseconds, 0-2000, 400 by default
+omarchy-shell lock previewUnlock             # play it on an open preview
 ```
 
 With more than one monitor you can pick which one shows the sign-in with `setInputMonitor`.
 The others get a clock only screen (typing still works there).
 
-The selected design and the avatar are saved on the plugin entry in `~/.config/omarchy/shell.json`.
+The unlock is instant unless you ask for an animation. The Unlock chip in the explorer header
+turns one on -- click it to cycle, click the milliseconds next to it for the length, or use `U`
+and `Shift+U`. With one on, the lock screen animates away rather than blinking out: the design fades into the plain wallpaper and the desktop is behind it on the
+same background. `fade` dissolves it, `zoom` fades with a slight push in and `rise` lifts it off
+the screen, `none` is the default instant one. `setUnlockDuration` takes milliseconds.
+`previewUnlock` plays the animation on the preview so you can see it without locking. The lock
+screen is held for the duration of the animation, so keep it short.
+
+Hyprland paints black under the lock screen, which is why the plain wallpaper is drawn behind the
+fade: the desktop comes back on the same background instead of through a dark flash. With
+`misc:session_lock_xray = true` the compositor keeps drawing the desktop under the lock screen
+instead, and the fade goes straight into it.
+
+The selected design, the avatar and the unlock animation are saved on the plugin entry in
+`~/.config/omarchy/shell.json`.
 
 With no avatar set, the first of `~/.config/omarchy/lock-avatar.{png,jpg,jpeg,webp}`, `~/.face`,
 `~/.face.icon` and `/var/lib/AccountsService/icons/$USER` is used, so an existing profile picture

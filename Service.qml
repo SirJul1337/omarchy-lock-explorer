@@ -41,6 +41,39 @@ Item {
   }
   readonly property string inputMonitor: inputMonitorOverride.length > 0 ? inputMonitorOverride : configuredInputMonitor
 
+  // How the lock screen leaves the screen when the password checks out. Off by
+  // default, the unlock stays instant until it is turned on. Saved on the
+  // plugin entry as `unlock` and `unlockMs`.
+  readonly property var unlockAnimations: ["fade", "zoom", "rise", "none"]
+  readonly property int defaultUnlockDuration: 400
+  property string unlockOverride: ""
+  property int unlockDurationOverride: -1
+  readonly property string configuredUnlock: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.unlock) return String(entry.unlock)
+    }
+    return "none"
+  }
+  readonly property int configuredUnlockDuration: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.unlockMs !== undefined)
+        return Math.max(0, Math.min(2000, Number(entry.unlockMs) || 0))
+    }
+    return defaultUnlockDuration
+  }
+  readonly property string unlockAnimation: {
+    var value = unlockOverride.length > 0 ? unlockOverride : configuredUnlock
+    return unlockAnimations.indexOf(value) === -1 ? "none" : value
+  }
+  readonly property int unlockDuration: unlockDurationOverride >= 0 ? unlockDurationOverride : configuredUnlockDuration
+  readonly property bool unlockAnimated: unlockAnimation !== "none" && unlockDuration > 0
+
   // Avatar picture for the designs that show the user. The chosen path lives on
   // the plugin entry in shell.json; "none" there means the user cleared it and
   // wants the initial back, an empty setting falls back to the usual dotfiles.
@@ -63,6 +96,12 @@ Item {
     if (avatarPath.length === 0) return ""
     var encoded = String(avatarPath).split("/").map(encodeURIComponent).join("/")
     return "file://" + encoded + "?v=" + avatarVersion
+  }
+
+  readonly property string backgroundUrl: {
+    if (backgroundPath.length === 0) return ""
+    var encoded = String(backgroundPath).split("/").map(encodeURIComponent).join("/")
+    return "file://" + encoded + "?v=" + backgroundVersion
   }
 
   function showsInput(screen) {
@@ -94,10 +133,56 @@ Item {
     logEvent("input-monitor=" + value)
     return true
   }
+
+  function setUnlockAnimation(name) {
+    var value = String(name || "").trim().toLowerCase()
+    if (unlockAnimations.indexOf(value) === -1) return false
+
+    unlockOverride = value
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (value === "none") delete current.unlock
+      else current.unlock = value
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("unlock=" + value)
+    return true
+  }
+
+  function setUnlockDuration(ms) {
+    var text = String(ms === undefined ? "" : ms).trim()
+    var value = Math.round(Number(text))
+    if (text.length === 0 || !isFinite(value) || value < 0 || value > 2000) return false
+
+    unlockDurationOverride = value
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (value === defaultUnlockDuration) delete current.unlockMs
+      else current.unlockMs = value
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("unlock-ms=" + value)
+    return true
+  }
+
   property string previewDesignId: ""
   property string previewTyped: ""
   property string previewFailure: ""
+  property bool previewUnlocking: false
   Timer { id: previewFailureTimer; interval: 2500; onTriggered: root.previewFailure = "" }
+
+  // Runs the unlock animation on the preview so it can be seen without locking.
+  Timer {
+    id: previewUnlockTimer
+    interval: Math.max(1, root.unlockDuration + 80)
+    repeat: false
+    onTriggered: {
+      root.previewVisible = false
+      root.previewDesignId = ""
+      root.previewTyped = ""
+      root.previewUnlocking = false
+    }
+  }
 
   readonly property string userDesignsDir: home + "/.config/omarchy/lock-designs"
   property int designsRevision: 0
@@ -292,6 +377,12 @@ done
   property string lastEventAt: ""
   property bool strandedLock: false
   property bool strandedLockResolved: false
+  property bool unlocking: false
+
+  // With `misc:session_lock_xray` the compositor keeps drawing the desktop
+  // under the lock surface, so the unlock fades straight into it and the
+  // wallpaper the animation otherwise lands on would only be in the way.
+  property bool sessionLockXray: false
 
   readonly property bool locked: lockRequested || sessionLock.locked || sessionLock.secure
   readonly property bool authenticating: authenticatingPassword || fingerprintAuthenticating
@@ -366,6 +457,10 @@ done
     if (!fingerprintCheckProc.running) fingerprintCheckProc.running = true
   }
 
+  function refreshSessionLockXray() {
+    if (!sessionLockXrayProc.running) sessionLockXrayProc.running = true
+  }
+
   function logEvent(event) {
     lastEvent = event
     lastEventAt = new Date().toISOString()
@@ -390,6 +485,7 @@ done
       return false
     }
 
+    cancelUnlockAnimation()
     resetAuthenticationState()
     lockRequested = true
     armBlankTimer()
@@ -399,6 +495,7 @@ done
     Qt.callLater(function() {
       root.refreshBackground()
       root.refreshFingerprintStatus()
+      root.refreshSessionLockXray()
       root.rescanUserDesigns()
     })
 
@@ -407,6 +504,7 @@ done
 
   function finishUnlock() {
     if (!root.locked && !lockRequested) return
+    if (unlocking) return
 
     lockRequested = false
     pendingSessionLock = false
@@ -414,9 +512,33 @@ done
     pendingSessionLockTimer.stop()
     resetAuthenticationState()
     idleBlankTimer.stop()
+    runWake()
+
+    // The surface has to stay up while it animates away -- dropping the lock
+    // first takes the screen with it. The timer also releases the lock if the
+    // animation never runs, so nothing can leave the session stuck behind it.
+    if (unlockAnimated && (sessionLock.locked || sessionLock.secure)) {
+      unlocking = true
+      logEvent("unlocking=" + unlockAnimation)
+      unlockTimer.restart()
+      return
+    }
+
+    releaseLock()
+  }
+
+  function releaseLock() {
+    unlockTimer.stop()
+    unlocking = false
     sessionLock.locked = false
     logEvent("unlocked")
-    runWake()
+  }
+
+  function cancelUnlockAnimation() {
+    if (!unlocking) return
+    unlockTimer.stop()
+    unlocking = false
+    logEvent("unlock-cancelled")
   }
 
   function armBlankTimer() {
@@ -525,29 +647,36 @@ done
       id: lockSurface
       color: Color.background
 
-      LockHost {
-        id: lockView
+      UnlockLayer {
         anchors.fill: parent
-        fadeIn: true
-        designId: root.showsInput(lockSurface.screen) ? root.designId : "companion"
-        revision: root.designsRevision
-        backgroundPath: root.backgroundPath
-        backgroundVersion: root.backgroundVersion
-        avatarPath: root.avatarPath
-        avatarVersion: root.avatarVersion
-        fingerprintConfigured: root.fingerprintConfigured
-        authenticatingPassword: root.authenticatingPassword
-        failureMessage: root.failureMessage
-        failedAttempts: root.failedAttempts
-        inputEnabled: root.lockRequested
-        loadBackground: root.locked
-        passwordText: root.enteredPassword
-        onPasswordTextEdited: function(password) { root.enteredPassword = password }
-        onSubmitPassword: function(password) { root.submitPassword(password) }
-        onClearFailureRequested: root.failureMessage = ""
-        onWakeRequested: root.runWake()
-      }
+        animation: root.unlockAnimation
+        duration: root.unlockDuration
+        active: root.unlocking
+        backgroundUrl: root.locked && !root.sessionLockXray ? root.backgroundUrl : ""
 
+        LockHost {
+          id: lockView
+          anchors.fill: parent
+          fadeIn: true
+          designId: root.showsInput(lockSurface.screen) ? root.designId : "companion"
+          revision: root.designsRevision
+          backgroundPath: root.backgroundPath
+          backgroundVersion: root.backgroundVersion
+          avatarPath: root.avatarPath
+          avatarVersion: root.avatarVersion
+          fingerprintConfigured: root.fingerprintConfigured
+          authenticatingPassword: root.authenticatingPassword
+          failureMessage: root.failureMessage
+          failedAttempts: root.failedAttempts
+          inputEnabled: root.lockRequested
+          loadBackground: root.locked
+          passwordText: root.enteredPassword
+          onPasswordTextEdited: function(password) { root.enteredPassword = password }
+          onSubmitPassword: function(password) { root.submitPassword(password) }
+          onClearFailureRequested: root.failureMessage = ""
+          onWakeRequested: root.runWake()
+        }
+      }
     }
   }
 
@@ -561,22 +690,29 @@ done
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore
 
-    LockHost {
+    UnlockLayer {
       anchors.fill: parent
-      designId: root.previewDesignId.length > 0 ? root.previewDesignId : root.designId
-      revision: root.designsRevision
-      backgroundPath: root.backgroundPath
-      backgroundVersion: root.backgroundVersion
-      avatarPath: root.avatarPath
-      avatarVersion: root.avatarVersion
-      fingerprintConfigured: root.fingerprintConfigured
-      authenticatingPassword: false
-      failureMessage: root.previewFailure
-      failedAttempts: root.previewFailure.length > 0 ? 1 : 0
-      inputEnabled: root.previewVisible
-      loadBackground: root.previewVisible
-      passwordText: root.previewTyped
-      onPasswordTextEdited: function(password) { root.previewTyped = password }
+      animation: root.unlockAnimation
+      duration: root.unlockDuration
+      active: root.previewUnlocking
+
+      LockHost {
+        anchors.fill: parent
+        designId: root.previewDesignId.length > 0 ? root.previewDesignId : root.designId
+        revision: root.designsRevision
+        backgroundPath: root.backgroundPath
+        backgroundVersion: root.backgroundVersion
+        avatarPath: root.avatarPath
+        avatarVersion: root.avatarVersion
+        fingerprintConfigured: root.fingerprintConfigured
+        authenticatingPassword: false
+        failureMessage: root.previewFailure
+        failedAttempts: root.previewFailure.length > 0 ? 1 : 0
+        inputEnabled: root.previewVisible && !root.previewUnlocking
+        loadBackground: root.previewVisible
+        passwordText: root.previewTyped
+        onPasswordTextEdited: function(password) { root.previewTyped = password }
+      }
     }
 
     MouseArea {
@@ -624,6 +760,13 @@ done
   }
 
   Timer {
+    id: unlockTimer
+    interval: Math.max(1, root.unlockDuration + 80)
+    repeat: false
+    onTriggered: root.releaseLock()
+  }
+
+  Timer {
     id: fingerprintRetryTimer
     interval: 250
     repeat: false
@@ -668,6 +811,22 @@ done
       root.fingerprintConfigured = String(fingerprintCheckStdout.text || "").trim() === "yes"
       if (root.lockRequested && root.fingerprintConfigured) root.startFingerprint()
       else if (!root.fingerprintConfigured && fingerprintPam.active) fingerprintPam.abort()
+    }
+  }
+
+  Process {
+    id: sessionLockXrayProc
+    command: ["hyprctl", "getoption", "misc:session_lock_xray", "-j"]
+    stdout: StdioCollector {
+      id: sessionLockXrayOut
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          root.sessionLockXray = JSON.parse(String(sessionLockXrayOut.text || "{}")).bool === true
+        } catch (e) {
+          root.sessionLockXray = false
+        }
+      }
     }
   }
 
@@ -789,6 +948,7 @@ done
   Component.onCompleted: {
     refreshBackground()
     refreshFingerprintStatus()
+    refreshSessionLockXray()
     rescanUserDesigns()
     detectAvatar()
     checkStrandedLock()
@@ -821,11 +981,16 @@ done
         lastEvent: root.lastEvent,
         lastEventAt: root.lastEventAt,
         design: root.designId,
+        unlock: root.unlockAnimation,
+        unlockMs: root.unlockDuration,
+        unlockAnimated: root.unlockAnimated,
+        unlocking: root.unlocking,
         previewTyped: root.previewTyped.length
       })
     }
 
     function preview(): string {
+      root.previewUnlocking = false
       root.refreshBackground()
       root.refreshFingerprintStatus()
       root.previewVisible = true
@@ -833,6 +998,8 @@ done
     }
 
     function hidePreview(): string {
+      previewUnlockTimer.stop()
+      root.previewUnlocking = false
       root.previewVisible = false
       root.previewDesignId = ""
       root.previewTyped = ""
@@ -857,6 +1024,7 @@ done
       root.rescanUserDesigns()
       if (!Designs.byId(String(id || ""))) return "unknown-design"
       root.previewDesignId = String(id)
+      root.previewUnlocking = false
       root.refreshBackground()
       root.refreshFingerprintStatus()
       root.previewVisible = true
@@ -874,6 +1042,31 @@ done
 
     function setInputMonitor(name: string): string {
       return root.setInputMonitor(name) ? "ok" : "failed"
+    }
+
+    function unlockAnimation(): string {
+      return root.unlockAnimated ? root.unlockAnimation + " " + root.unlockDuration + "ms" : "none"
+    }
+
+    function setUnlockAnimation(name: string): string {
+      return root.setUnlockAnimation(name) ? "ok" : "unknown-animation"
+    }
+
+    function setUnlockDuration(ms: string): string {
+      return root.setUnlockDuration(ms) ? "ok" : "out-of-range"
+    }
+
+    function previewUnlock(): string {
+      if (!root.previewVisible) return "no-preview"
+      if (!root.unlockAnimated) {
+        root.previewVisible = false
+        root.previewDesignId = ""
+        root.previewTyped = ""
+        return "ok"
+      }
+      root.previewUnlocking = true
+      previewUnlockTimer.restart()
+      return "ok"
     }
 
     function previewFail(): string {

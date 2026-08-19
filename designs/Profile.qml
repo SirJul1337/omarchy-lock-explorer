@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import qs.Commons
 
 DesignBase {
@@ -41,20 +40,11 @@ DesignBase {
         border.width: 3
         border.color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.35)
       }
-      Rectangle {
+      Avatar {
         anchors.centerIn: parent
-        width: 130; height: 130; radius: 65
-        color: Color.lock.borderActive
-        layer.enabled: true
-        layer.effect: MultiEffect { shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.5); shadowBlur: 1.0; shadowVerticalOffset: 8 }
-        Text {
-          anchors.centerIn: parent
-          text: lock.userInitial
-          color: Color.background
-          font.family: Style.font.family
-          font.pixelSize: Math.round(Style.font.baseSize * 5)
-          font.weight: Font.Bold
-        }
+        lock: lock
+        width: 130
+        fontSize: Math.round(Style.font.baseSize * 5)
       }
     }
 

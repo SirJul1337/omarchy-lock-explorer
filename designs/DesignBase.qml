@@ -8,6 +8,8 @@ Item {
 
   property string backgroundPath: ""
   property int backgroundVersion: 0
+  property string avatarPath: ""
+  property int avatarVersion: 0
   property bool fingerprintConfigured: false
   property bool authenticatingPassword: false
   property string failureMessage: ""
@@ -24,6 +26,15 @@ Item {
   readonly property bool errorState: failureMessage.length > 0
   readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"
   readonly property string userInitial: userName.length > 0 ? userName.charAt(0).toUpperCase() : "?"
+
+  // Set with `omarchy-shell lock pickAvatar` or the A key in the explorer.
+  // Designs show it with Avatar, which falls back to userInitial when unset.
+  readonly property bool hasAvatar: avatarPath.length > 0
+  readonly property string avatarUrl: {
+    if (avatarPath.length === 0) return ""
+    var encoded = String(avatarPath).split("/").map(encodeURIComponent).join("/")
+    return "file://" + encoded + "?v=" + avatarVersion
+  }
   property string hostName: Quickshell.env("HOSTNAME") || Quickshell.env("HOST") || "omarchy"
   FileView {
     path: "/etc/hostname"

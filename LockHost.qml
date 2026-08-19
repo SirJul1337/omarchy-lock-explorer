@@ -11,6 +11,8 @@ Item {
 
   property string backgroundPath: ""
   property int backgroundVersion: 0
+  property string avatarPath: ""
+  property int avatarVersion: 0
   property bool fingerprintConfigured: false
   property bool authenticatingPassword: false
   property string failureMessage: ""
@@ -46,6 +48,8 @@ Item {
   function attach(it) {
     it.backgroundPath = Qt.binding(function() { return host.backgroundPath })
     it.backgroundVersion = Qt.binding(function() { return host.backgroundVersion })
+    it.avatarPath = Qt.binding(function() { return host.avatarPath })
+    it.avatarVersion = Qt.binding(function() { return host.avatarVersion })
     it.fingerprintConfigured = Qt.binding(function() { return host.fingerprintConfigured })
     it.authenticatingPassword = Qt.binding(function() { return host.authenticatingPassword })
     it.failureMessage = Qt.binding(function() { return host.failureMessage })

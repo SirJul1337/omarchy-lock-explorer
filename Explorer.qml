@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
+import "designs"
 import "Designs.js" as Designs
 
 Item {
@@ -28,6 +29,12 @@ Item {
   readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "io.github.sirjul1337.lock-explorer"
   readonly property string activeDesignId: service ? service.designId : Designs.DEFAULT_ID
   readonly property var selectedDesign: designs.length > 0 ? designs[Math.max(0, Math.min(selectedIndex, designs.length - 1))] : null
+  readonly property string avatarUrl: service ? service.avatarUrl : ""
+  readonly property bool hasAvatar: avatarUrl.length > 0
+  readonly property string userInitial: {
+    var name = Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"
+    return name.length > 0 ? name.charAt(0).toUpperCase() : "?"
+  }
 
   readonly property color background: Color.menu.background
   readonly property color foreground: Color.menu.text
@@ -141,6 +148,18 @@ Item {
     return false
   }
 
+  // The overlay owns the keyboard, so the file dialog needs it out of the way.
+  // The service brings the explorer back when the dialog is answered.
+  function pickAvatar() {
+    if (!root.service) return
+    root.dismiss()
+    root.service.pickAvatar(true)
+  }
+
+  function clearAvatar() {
+    if (root.service) root.service.clearAvatar()
+  }
+
   function customizeSelected() {
     if (!root.selectedDesign || !root.service) return
     if (root.selectedDesign.path) { openEditor(root.selectedDesign); return }
@@ -226,6 +245,10 @@ Item {
           event.accepted = true
         } else if (event.key === Qt.Key_N) {
           root.newDesign(); event.accepted = true
+        } else if (event.key === Qt.Key_A) {
+          if (event.modifiers & Qt.ShiftModifier) root.clearAvatar()
+          else root.pickAvatar()
+          event.accepted = true
         } else if (event.key === Qt.Key_Tab) {
           root.cycleCategory(1); event.accepted = true
         } else if (event.key === Qt.Key_Backtab) {
@@ -294,19 +317,86 @@ Item {
           }
         }
 
-        Rectangle {
+        Row {
           anchors.right: parent.right
           anchors.top: parent.top
-          width: activeLabel.implicitWidth + Style.space(20); height: Style.space(28); radius: height / 2
-          color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
-          border.width: 1; border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.5)
-          Text {
-            id: activeLabel
-            anchors.centerIn: parent
-            text: "Active: " + (Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : root.activeDesignId)
-            color: root.foreground
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.bodySmall
+          spacing: Style.space(8)
+
+          // Avatar button: click to pick a picture with the normal file
+          // dialog, the x clears it back to the user's initial.
+          Rectangle {
+            id: avatarButton
+            height: Style.space(28)
+            width: avatarRow.implicitWidth + Style.space(16)
+            radius: height / 2
+            color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, avatarArea.containsMouse ? 0.14 : 0.07)
+            border.width: 1
+            border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.15)
+            Behavior on color { ColorAnimation { duration: 100 } }
+
+            Row {
+              id: avatarRow
+              anchors.centerIn: parent
+              spacing: Style.space(8)
+
+              Avatar {
+                anchors.verticalCenter: parent.verticalCenter
+                width: Style.space(20)
+                source: root.avatarUrl
+                initial: root.userInitial
+                fontSize: Style.font.caption
+                fillColor: root.accent
+                textColor: Color.background
+                shadow: false
+              }
+
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.hasAvatar ? "Avatar" : "Add avatar"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.hasAvatar
+                text: "✕"
+                color: clearArea.containsMouse ? root.foreground : root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                MouseArea {
+                  id: clearArea
+                  anchors.fill: parent
+                  anchors.margins: -Style.space(4)
+                  hoverEnabled: true
+                  onClicked: root.clearAvatar()
+                }
+              }
+            }
+
+            MouseArea {
+              id: avatarArea
+              anchors.fill: parent
+              hoverEnabled: true
+              z: -1
+              onClicked: root.pickAvatar()
+            }
+          }
+
+          Rectangle {
+            anchors.verticalCenter: avatarButton.verticalCenter
+            width: activeLabel.implicitWidth + Style.space(20); height: Style.space(28); radius: height / 2
+            color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
+            border.width: 1; border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.5)
+            Text {
+              id: activeLabel
+              anchors.centerIn: parent
+              text: "Active: " + (Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : root.activeDesignId)
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+            }
           }
         }
 
@@ -411,6 +501,8 @@ Item {
                   revision: root.service ? root.service.designsRevision : 0
                   backgroundPath: root.service ? root.service.backgroundPath : ""
                   backgroundVersion: root.service ? root.service.backgroundVersion : 0
+                  avatarPath: root.service ? root.service.avatarPath : ""
+                  avatarVersion: root.service ? root.service.avatarVersion : 0
                   fingerprintConfigured: root.service ? root.service.fingerprintConfigured : false
                   inputEnabled: false
                   loadBackground: root.opened
@@ -578,7 +670,7 @@ Item {
         Text {
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-          text: "Arrows: browse   Tab: category   Space: preview   Enter: select   C: customize   E: edit   N: new   Esc: close"
+          text: "Arrows: browse   Tab: category   Space: preview   Enter: select   C: customize   E: edit   N: new   A: avatar   Esc: close"
           color: root.muted
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall

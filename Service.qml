@@ -41,6 +41,30 @@ Item {
   }
   readonly property string inputMonitor: inputMonitorOverride.length > 0 ? inputMonitorOverride : configuredInputMonitor
 
+  // Avatar picture for the designs that show the user. The chosen path lives on
+  // the plugin entry in shell.json; "none" there means the user cleared it and
+  // wants the initial back, an empty setting falls back to the usual dotfiles.
+  property string avatarOverride: ""
+  readonly property string configuredAvatar: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.avatar) return String(entry.avatar)
+    }
+    return ""
+  }
+  property string detectedAvatar: ""
+  property int avatarVersion: 0
+  readonly property string avatarSetting: avatarOverride.length > 0 ? avatarOverride : configuredAvatar
+  readonly property string avatarPath: avatarSetting === "none" ? ""
+    : (avatarSetting.length > 0 ? avatarSetting : detectedAvatar)
+  readonly property string avatarUrl: {
+    if (avatarPath.length === 0) return ""
+    var encoded = String(avatarPath).split("/").map(encodeURIComponent).join("/")
+    return "file://" + encoded + "?v=" + avatarVersion
+  }
+
   function showsInput(screen) {
     if (inputMonitor === "all" || !screen) return true
     var names = []
@@ -139,6 +163,96 @@ echo "$target"
         root.designsRevision += 1
         root.designCustomized(d.id, target)
         root.rescanUserDesigns()
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ avatar
+
+  function setAvatar(path) {
+    var value = String(path || "").trim()
+    if (value.indexOf("file://") === 0) value = decodeURIComponent(value.replace(/^file:\/\//, ""))
+    var setting = value.length > 0 ? value : "none"
+    avatarOverride = setting
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      current.avatar = setting
+      shell.updateEntryInline(pluginId, current)
+    }
+    avatarVersion += 1
+    logEvent("avatar=" + setting)
+    return true
+  }
+
+  function clearAvatar() {
+    return setAvatar("")
+  }
+
+  // Back to the detected ~/.face and friends.
+  function resetAvatar() {
+    avatarOverride = ""
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      delete current.avatar
+      shell.updateEntryInline(pluginId, current)
+    }
+    avatarVersion += 1
+    detectAvatar()
+    logEvent("avatar=auto")
+    return true
+  }
+
+  function detectAvatar() {
+    if (!detectAvatarProc.running) detectAvatarProc.running = true
+  }
+
+  // The desktop file chooser, so picking a picture is a normal file dialog.
+  // The explorer grabs the keyboard, so it closes itself before asking for one
+  // and comes back when the dialog is answered.
+  property bool avatarPickReopens: false
+  function pickAvatar(reopenExplorer) {
+    if (avatarPickProc.running) return false
+    avatarPickReopens = reopenExplorer === true
+    avatarPickProc.running = true
+    return true
+  }
+
+  readonly property string detectAvatarScript: '
+for f in "$HOME/.config/omarchy/lock-avatar.png" "$HOME/.config/omarchy/lock-avatar.jpg" \
+         "$HOME/.config/omarchy/lock-avatar.jpeg" "$HOME/.config/omarchy/lock-avatar.webp" \
+         "$HOME/.face" "$HOME/.face.icon" "/var/lib/AccountsService/icons/$USER"; do
+  [[ -f $f ]] && { echo "$f"; exit 0; }
+done
+'
+
+  Process {
+    id: detectAvatarProc
+    command: ["bash", "-c", root.detectAvatarScript]
+    stdout: StdioCollector {
+      id: detectAvatarOut
+      waitForEnd: true
+      onStreamFinished: {
+        var found = String(detectAvatarOut.text || "").trim().split("\n")[0] || ""
+        if (found !== root.detectedAvatar) {
+          root.detectedAvatar = found
+          root.avatarVersion += 1
+        }
+      }
+    }
+  }
+
+  Process {
+    id: avatarPickProc
+    command: ["omarchy-file-select", "--title", "Pick a lock screen avatar", "--extensions", "png jpg jpeg webp"]
+    stdout: StdioCollector {
+      id: avatarPickOut
+      waitForEnd: true
+      onStreamFinished: {
+        var picked = String(avatarPickOut.text || "").trim().split("\n")[0] || ""
+        if (picked.length > 0) root.setAvatar(picked)
+        if (root.avatarPickReopens && root.shell && typeof root.shell.summon === "function")
+          root.shell.summon(root.pluginId, "{}")
+        root.avatarPickReopens = false
       }
     }
   }
@@ -419,6 +533,8 @@ echo "$target"
         revision: root.designsRevision
         backgroundPath: root.backgroundPath
         backgroundVersion: root.backgroundVersion
+        avatarPath: root.avatarPath
+        avatarVersion: root.avatarVersion
         fingerprintConfigured: root.fingerprintConfigured
         authenticatingPassword: root.authenticatingPassword
         failureMessage: root.failureMessage
@@ -451,6 +567,8 @@ echo "$target"
       revision: root.designsRevision
       backgroundPath: root.backgroundPath
       backgroundVersion: root.backgroundVersion
+      avatarPath: root.avatarPath
+      avatarVersion: root.avatarVersion
       fingerprintConfigured: root.fingerprintConfigured
       authenticatingPassword: false
       failureMessage: root.previewFailure
@@ -672,6 +790,7 @@ echo "$target"
     refreshBackground()
     refreshFingerprintStatus()
     rescanUserDesigns()
+    detectAvatar()
     checkStrandedLock()
   }
 
@@ -783,6 +902,26 @@ echo "$target"
     function rescanDesigns(): string {
       root.rescanUserDesigns()
       return "ok"
+    }
+
+    function avatar(): string {
+      return root.avatarPath
+    }
+
+    function setAvatar(path: string): string {
+      return root.setAvatar(path) ? "ok" : "failed"
+    }
+
+    function clearAvatar(): string {
+      return root.clearAvatar() ? "ok" : "failed"
+    }
+
+    function resetAvatar(): string {
+      return root.resetAvatar() ? "ok" : "failed"
+    }
+
+    function pickAvatar(): string {
+      return root.pickAvatar(false) ? "ok" : "busy"
     }
 
     function explore(): string {

@@ -66,20 +66,14 @@ DesignBase {
       width: lock.fieldWidth
       spacing: 16
 
-      Rectangle {
+      Avatar {
         anchors.horizontalCenter: parent.horizontalCenter
-        width: 72; height: 72; radius: 36
-        color: Color.lock.borderActive
-        border.width: 3
-        border.color: lock.withAlpha(Color.lock.text, 0.25)
-        Text {
-          anchors.centerIn: parent
-          text: lock.userInitial
-          color: Color.background
-          font.family: Style.font.family
-          font.pixelSize: Math.round(Style.font.baseSize * 2.6)
-          font.weight: Font.Bold
-        }
+        lock: lock
+        width: 72
+        fontSize: Math.round(Style.font.baseSize * 2.6)
+        borderWidth: 3
+        borderColor: lock.withAlpha(Color.lock.text, 0.25)
+        shadow: false
       }
 
       Column {

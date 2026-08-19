@@ -34,18 +34,12 @@ DesignBase {
       anchors.centerIn: parent
       spacing: 14
 
-      Rectangle {
-        width: 40; height: 40; radius: 20
+      Avatar {
+        lock: lock
+        width: 40
+        fontSize: Style.font.heading
         anchors.verticalCenter: parent.verticalCenter
-        color: Color.lock.borderActive
-        Text {
-          anchors.centerIn: parent
-          text: lock.userInitial
-          color: Color.background
-          font.family: Style.font.family
-          font.pixelSize: Style.font.heading
-          font.weight: Font.Bold
-        }
+        shadow: false
       }
 
       PasswordField {

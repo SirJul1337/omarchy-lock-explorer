@@ -1,6 +1,6 @@
 // Copy this file to ~/.config/omarchy/lock-designs/ and edit it.
 // The import below points at the plugin's shared parts (DesignBase,
-// PasswordField, LockInput, Wallpaper). Keep it as is.
+// PasswordField, LockInput, Wallpaper, Avatar). Keep it as is.
 import QtQuick
 import qs.Commons
 import "../plugins/io.github.sirjul1337.lock-explorer/designs"
@@ -21,6 +21,13 @@ DesignBase {
   Column {
     anchors.centerIn: parent
     spacing: 24
+
+    // The user's picture, or their initial when none is set.
+    Avatar {
+      anchors.horizontalCenter: parent.horizontalCenter
+      lock: lock
+      width: 96
+    }
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter

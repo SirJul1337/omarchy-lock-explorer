@@ -37,18 +37,12 @@ DesignBase {
       anchors.leftMargin: lock.pad
       anchors.verticalCenter: parent.verticalCenter
       spacing: 12
-      Rectangle {
-        width: 34; height: 34; radius: 17
-        color: Color.lock.borderActive
+      Avatar {
+        lock: lock
+        width: 34
+        fontSize: Style.font.title
         anchors.verticalCenter: parent.verticalCenter
-        Text {
-          anchors.centerIn: parent
-          text: lock.userInitial
-          color: Color.background
-          font.family: Style.font.family
-          font.pixelSize: Style.font.title
-          font.weight: Font.Bold
-        }
+        shadow: false
       }
       Column {
         anchors.verticalCenter: parent.verticalCenter

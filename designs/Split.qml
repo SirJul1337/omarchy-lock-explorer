@@ -69,19 +69,13 @@ DesignBase {
       anchors.margins: lock.margin
       spacing: 22
 
-      Rectangle {
-        width: 84; height: 84; radius: 42
-        color: Color.lock.borderActive
-        border.width: 3
-        border.color: lock.withAlpha(Color.lock.text, 0.25)
-        Text {
-          anchors.centerIn: parent
-          text: lock.userInitial
-          color: Color.background
-          font.family: Style.font.family
-          font.pixelSize: Math.round(Style.font.baseSize * 3)
-          font.weight: Font.Bold
-        }
+      Avatar {
+        lock: lock
+        width: 84
+        fontSize: Math.round(Style.font.baseSize * 3)
+        borderWidth: 3
+        borderColor: lock.withAlpha(Color.lock.text, 0.25)
+        shadow: false
       }
 
       Column {

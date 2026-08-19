@@ -69,18 +69,12 @@ DesignBase {
       Row {
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: 14
-        Rectangle {
-          width: 48; height: 48; radius: 24
+        Avatar {
+          lock: lock
+          width: 48
+          fontSize: Style.font.display
           anchors.verticalCenter: parent.verticalCenter
-          color: Color.lock.borderActive
-          Text {
-            anchors.centerIn: parent
-            text: lock.userInitial
-            color: Color.background
-            font.family: Style.font.family
-            font.pixelSize: Style.font.display
-            font.weight: Font.Bold
-          }
+          shadow: false
         }
         Column {
           anchors.verticalCenter: parent.verticalCenter

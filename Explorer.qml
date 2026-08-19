@@ -30,6 +30,24 @@ Item {
   readonly property string activeDesignId: service ? service.designId : Designs.DEFAULT_ID
   readonly property var selectedDesign: designs.length > 0 ? designs[Math.max(0, Math.min(selectedIndex, designs.length - 1))] : null
   readonly property string avatarUrl: service ? service.avatarUrl : ""
+
+  // Quick setting for the unlock animation, the same one `omarchy-shell lock
+  // setUnlockAnimation` writes. Off by default.
+  readonly property var unlockOptions: [
+    { id: "none", name: "Off", hint: "The lock screen disappears at once" },
+    { id: "fade", name: "Fade", hint: "It fades into the wallpaper" },
+    { id: "zoom", name: "Zoom", hint: "It fades and pushes in a little" },
+    { id: "rise", name: "Rise", hint: "It fades upwards off the screen" }
+  ]
+  readonly property var unlockDurations: [200, 300, 400, 600, 800]
+  readonly property string unlockAnimation: service ? service.unlockAnimation : "none"
+  readonly property int unlockDuration: service ? service.unlockDuration : 400
+  readonly property string unlockLabel: {
+    for (var i = 0; i < unlockOptions.length; i++)
+      if (unlockOptions[i].id === unlockAnimation) return unlockOptions[i].name
+    return "Off"
+  }
+  property bool unlockMenuOpen: false
   readonly property bool hasAvatar: avatarUrl.length > 0
   readonly property string userInitial: {
     var name = Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"
@@ -61,6 +79,7 @@ Item {
   function open(payloadJson) {
     root.opened = true
     root.fullPreview = false
+    root.unlockMenuOpen = false
     root.category = "all"
     var idx = Designs.indexOf(root.activeDesignId)
     root.selectedIndex = idx >= 0 ? idx : 0
@@ -87,6 +106,7 @@ Item {
   function dismiss() {
     root.opened = false
     root.fullPreview = false
+    root.unlockMenuOpen = false
     root.editing = false
     root.editingDesign = null
     if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
@@ -160,6 +180,14 @@ Item {
     if (root.service) root.service.clearAvatar()
   }
 
+  function setUnlock(id) {
+    if (root.service) root.service.setUnlockAnimation(id)
+  }
+
+  function setUnlockDuration(ms) {
+    if (root.service) root.service.setUnlockDuration(ms)
+  }
+
   function customizeSelected() {
     if (!root.selectedDesign || !root.service) return
     if (root.selectedDesign.path) { openEditor(root.selectedDesign); return }
@@ -230,7 +258,8 @@ Item {
       Keys.onPressed: function(event) {
         if (root.editing) return
         if (event.key === Qt.Key_Escape) {
-          if (root.fullPreview) root.fullPreview = false
+          if (root.unlockMenuOpen) root.unlockMenuOpen = false
+          else if (root.fullPreview) root.fullPreview = false
           else root.dismiss()
           event.accepted = true
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -248,6 +277,9 @@ Item {
         } else if (event.key === Qt.Key_A) {
           if (event.modifiers & Qt.ShiftModifier) root.clearAvatar()
           else root.pickAvatar()
+          event.accepted = true
+        } else if (event.key === Qt.Key_U) {
+          root.unlockMenuOpen = !root.unlockMenuOpen
           event.accepted = true
         } else if (event.key === Qt.Key_Tab) {
           root.cycleCategory(1); event.accepted = true
@@ -286,10 +318,11 @@ Item {
       borderSpec: root.borderSpec
       padding: root.contentMargin
 
-      MouseArea { anchors.fill: parent; onClicked: {} }
+      MouseArea { anchors.fill: parent; onClicked: root.unlockMenuOpen = false }
 
       Item {
         id: header
+        z: 10
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
@@ -318,6 +351,7 @@ Item {
         }
 
         Row {
+          id: headerButtons
           anchors.right: parent.right
           anchors.top: parent.top
           spacing: Style.space(8)
@@ -384,6 +418,36 @@ Item {
             }
           }
 
+          // Opens the unlock animation menu below.
+          Rectangle {
+            id: unlockButton
+            anchors.verticalCenter: avatarButton.verticalCenter
+            height: Style.space(28)
+            width: unlockLabel.implicitWidth + Style.space(20)
+            radius: height / 2
+            color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b,
+                           root.unlockMenuOpen || unlockArea.containsMouse ? 0.14 : 0.07)
+            border.width: 1
+            border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.15)
+            Behavior on color { ColorAnimation { duration: 100 } }
+
+            Text {
+              id: unlockLabel
+              anchors.centerIn: parent
+              text: "Unlock effect: " + root.unlockLabel + "  ▾"
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+            }
+
+            MouseArea {
+              id: unlockArea
+              anchors.fill: parent
+              hoverEnabled: true
+              onClicked: root.unlockMenuOpen = !root.unlockMenuOpen
+            }
+          }
+
           Rectangle {
             anchors.verticalCenter: avatarButton.verticalCenter
             width: activeLabel.implicitWidth + Style.space(20); height: Style.space(28); radius: height / 2
@@ -433,6 +497,138 @@ Item {
                 hoverEnabled: true
                 onClicked: root.setCategory(chip.modelData.id)
               }
+            }
+          }
+        }
+
+        // What the lock screen does when the password checks out. Off means it
+        // is gone the moment the session unlocks, the way it always was.
+        Rectangle {
+          id: unlockMenu
+          visible: root.unlockMenuOpen
+          anchors.right: parent.right
+          anchors.top: headerButtons.bottom
+          anchors.topMargin: Style.space(8)
+          width: unlockMenuColumn.implicitWidth + Style.space(32)
+          height: unlockMenuColumn.implicitHeight + Style.space(28)
+          radius: Style.cornerRadius
+          color: Color.menu.background
+          border.width: Math.max(1, Style.space(2))
+          border.color: Color.menu.border
+          z: 20
+
+          MouseArea { anchors.fill: parent; onClicked: {} }
+
+          Column {
+            id: unlockMenuColumn
+            anchors.centerIn: parent
+            spacing: Style.space(10)
+
+            Text {
+              text: "When you unlock"
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              font.weight: Font.DemiBold
+            }
+
+            Column {
+              spacing: Style.space(4)
+              Repeater {
+                model: root.unlockOptions
+                Rectangle {
+                  id: option
+                  required property var modelData
+                  readonly property bool current: modelData.id === root.unlockAnimation
+                  width: Math.max(Style.space(280), optionName.implicitWidth + Style.space(28))
+                  height: Style.space(44)
+                  radius: Style.space(8)
+                  color: current ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.22)
+                                 : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, optionArea.containsMouse ? 0.10 : 0.0)
+                  border.width: 1
+                  border.color: current ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.6) : "transparent"
+                  Behavior on color { ColorAnimation { duration: 100 } }
+
+                  Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.leftMargin: Style.space(12)
+                    spacing: 1
+                    Text {
+                      id: optionName
+                      text: option.modelData.name
+                      color: root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                      font.weight: option.current ? Font.DemiBold : Font.Normal
+                    }
+                    Text {
+                      text: option.modelData.hint
+                      color: root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                    }
+                  }
+
+                  MouseArea {
+                    id: optionArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: root.setUnlock(option.modelData.id)
+                  }
+                }
+              }
+            }
+
+            Text {
+              visible: root.unlockAnimation !== "none"
+              text: "How long it takes"
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              font.weight: Font.DemiBold
+            }
+
+            Row {
+              visible: root.unlockAnimation !== "none"
+              spacing: Style.space(6)
+              Repeater {
+                model: root.unlockDurations
+                Rectangle {
+                  id: speed
+                  required property int modelData
+                  readonly property bool current: modelData === root.unlockDuration
+                  width: speedLabel.implicitWidth + Style.space(18)
+                  height: Style.space(28)
+                  radius: height / 2
+                  color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, speedArea.containsMouse ? 0.12 : 0.06)
+                  border.width: 1
+                  border.color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.15)
+                  Behavior on color { ColorAnimation { duration: 100 } }
+                  Text {
+                    id: speedLabel
+                    anchors.centerIn: parent
+                    text: (speed.modelData / 1000).toFixed(1) + "s"
+                    color: speed.current ? Color.background : root.foreground
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                    font.weight: speed.current ? Font.DemiBold : Font.Normal
+                  }
+                  MouseArea {
+                    id: speedArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: root.setUnlockDuration(speed.modelData)
+                  }
+                }
+              }
+            }
+
+            Text {
+              text: "The lock screen stays up while it plays."
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
             }
           }
         }
@@ -670,7 +866,7 @@ Item {
         Text {
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-          text: "Arrows: browse   Tab: category   Space: preview   Enter: select   C: customize   E: edit   N: new   A: avatar   Esc: close"
+          text: "Arrows: browse   Tab: category   Space: preview   Enter: select   C: customize   E: edit   N: new   A: avatar   U: unlock effect   Esc: close"
           color: root.muted
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall

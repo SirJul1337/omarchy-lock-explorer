@@ -6,6 +6,8 @@ TextInput {
 
   property var lock: null
   property bool syncing: false
+  // Hidden in boot-screen snapshots: the boot theme brings its own entry.
+  visible: !(lock && lock.snapshotMode === true)
 
   echoMode: lock && lock.passwordVisible ? TextInput.Normal : TextInput.Password
   passwordCharacter: "●"

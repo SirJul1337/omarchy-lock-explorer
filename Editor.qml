@@ -171,7 +171,9 @@ Item {
           anchors.fill: parent
           acceptedButtons: Qt.NoButton
           onWheel: function(wheel) {
-            var next = flick.contentY - wheel.angleDelta.y
+            // Pixels from a touchpad, the angle from a wheel, same as the grid.
+            var dy = wheel.pixelDelta.y !== 0 ? wheel.pixelDelta.y : wheel.angleDelta.y
+            var next = flick.contentY - dy
             flick.contentY = Math.max(0, Math.min(Math.max(0, flick.contentHeight - flick.height), next))
           }
         }

@@ -118,6 +118,7 @@ DesignBase {
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.bottom: parent.bottom
     anchors.bottomMargin: 40
+    opacity: lock.snapshotMode ? 0 : 1
     text: lock.failedAttempts > 0
       ? lock.failedAttempts + " failed " + (lock.failedAttempts === 1 ? "attempt" : "attempts")
       : (lock.fingerprintConfigured ? "Touch the sensor or press Enter" : "Press Enter to unlock")

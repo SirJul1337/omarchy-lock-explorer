@@ -1,8 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6d5efc"/><stop offset="1" stop-color="#22c1c3"/></linearGradient></defs>
-  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
-  <rect x="18" y="29" width="28" height="22" rx="5" fill="#fff" fill-opacity="0.95"/>
-  <path d="M23 29v-6a9 9 0 0 1 18 0v6" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/>
-  <circle cx="32" cy="39" r="3.2" fill="#3b3a8f"/>
-  <rect x="30.6" y="40" width="2.8" height="6" rx="1.2" fill="#3b3a8f"/>
+  <!-- Flat, abstract: a screen and a passphrase, in the explorer's own muted
+       terminal palette. No gradients, no padlock. -->
+  <rect x="2" y="2" width="60" height="60" rx="8" fill="#2d353b"/>
+  <rect x="14" y="17" width="36" height="26" fill="none" stroke="#d3c6aa" stroke-width="3"/>
+  <circle cx="25" cy="30" r="3" fill="#a7c080"/>
+  <circle cx="32" cy="30" r="3" fill="#a7c080"/>
+  <circle cx="39" cy="30" r="3" fill="#a7c080"/>
+  <rect x="14" y="49" width="14" height="3" fill="#a7c080"/>
+  <rect x="31" y="49" width="7" height="3" fill="#546063"/>
+  <rect x="41" y="49" width="9" height="3" fill="#546063"/>
 </svg>

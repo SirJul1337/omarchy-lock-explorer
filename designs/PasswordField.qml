@@ -6,6 +6,10 @@ BorderSurface {
   id: field
 
   property var lock: null
+  // In boot-screen snapshots the box itself stays -- the boot theme puts its
+  // passphrase bullets inside it -- but the contents (glyph, placeholder,
+  // eye, fingerprint) go.
+  readonly property bool snapshotBox: lock ? lock.snapshotMode === true : false
   property string placeholder: "Enter password"
   property bool showLockGlyph: true
   property bool shakeOnFail: true
@@ -100,7 +104,7 @@ BorderSurface {
   Text {
     anchors.fill: input
     text: field.authenticating ? "Checking…" : (field.errorState ? field.lock.failureMessage : field.placeholder)
-    visible: input.text.length === 0
+    visible: input.text.length === 0 && !field.snapshotBox
     color: field.authenticating ? Color.lock.text : (field.errorState ? Color.lock.textError : Color.lock.placeholder)
     font.family: Style.font.family
     font.pixelSize: field.fieldFontSize

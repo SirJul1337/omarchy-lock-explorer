@@ -1,4 +1,5 @@
 import QtQuick
+import QtMultimedia
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pam
@@ -26,6 +27,19 @@ Item {
     return Designs.DEFAULT_ID
   }
   readonly property string designId: designOverride.length > 0 ? designOverride : configuredDesignId
+  readonly property bool designHasClip: {
+    var r = designsRevision
+    var d = Designs.byId(designId)
+    return !!(d && d.clip)
+  }
+  // The video file behind the current clip design; user ClipDesigns get their
+  // clipFile filled in by the lock-designs scan.
+  readonly property string designClipPath: {
+    var r = designsRevision
+    var d = Designs.byId(designId)
+    if (!d || !d.clip || !d.clipFile) return ""
+    return home + "/.config/omarchy/lock-videos/" + d.clipFile
+  }
 
   // "all" or an output name (see `omarchy-shell lock monitors`). Other
   // monitors get the companion screen.
@@ -96,6 +110,87 @@ Item {
     if (avatarPath.length === 0) return ""
     var encoded = String(avatarPath).split("/").map(encodeURIComponent).join("/")
     return "file://" + encoded + "?v=" + avatarVersion
+  }
+
+  // A looping video for the designs that show one (Motion), and a clip that
+  // plays over the desktop right after the password checks out. Both live on
+  // the plugin entry in shell.json, as `video` and `sting`; "none" there means
+  // it was cleared on purpose.
+  property string videoOverride: ""
+  readonly property string configuredVideo: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.video) return String(entry.video)
+    }
+    return ""
+  }
+  readonly property string videoSetting: videoOverride.length > 0 ? videoOverride : configuredVideo
+  readonly property string videoPath: videoSetting === "none" ? "" : videoSetting
+
+  property string stingOverride: ""
+  readonly property string configuredSting: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.sting) return String(entry.sting)
+    }
+    return ""
+  }
+  readonly property string stingSetting: stingOverride.length > 0 ? stingOverride : configuredSting
+  readonly property string stingPath: stingSetting === "none" ? "" : stingSetting
+  readonly property string stingUrl: {
+    if (stingPath.length === 0) return ""
+    var encoded = String(stingPath).split("/").map(encodeURIComponent).join("/")
+    return "file://" + encoded
+  }
+
+  property int stingVolumeOverride: -1
+  readonly property int configuredStingVolume: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.stingVolume !== undefined)
+        return Math.max(0, Math.min(100, Number(entry.stingVolume) || 0))
+    }
+    return 0
+  }
+  readonly property int stingVolume: stingVolumeOverride >= 0 ? stingVolumeOverride : configuredStingVolume
+
+  // How fast unlock clips play, 1.0 is natural speed. Applies to the clip
+  // designs and the separate unlock clip. Saved on the plugin entry as
+  // `clipSpeed` when it is not 1.
+  property real clipSpeedOverride: -1
+  readonly property real configuredClipSpeed: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.clipSpeed !== undefined) {
+        var v = Number(entry.clipSpeed)
+        if (isFinite(v) && v > 0) return Math.max(0.25, Math.min(4, v))
+      }
+    }
+    return 1
+  }
+  readonly property real clipSpeed: clipSpeedOverride > 0 ? clipSpeedOverride : configuredClipSpeed
+
+  function setClipSpeed(v) {
+    var speed = Number(v)
+    if (!isFinite(speed) || speed <= 0) return false
+    speed = Math.max(0.25, Math.min(4, speed))
+    clipSpeedOverride = speed
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (speed === 1) delete current.clipSpeed
+      else current.clipSpeed = speed
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("clip-speed=" + speed)
+    return true
   }
 
   readonly property string backgroundUrl: {
@@ -189,6 +284,17 @@ Item {
 
   function rescanUserDesigns() {
     if (!userDesignsProc.running) userDesignsProc.running = true
+  }
+
+  // The clip designs' videos ship in <plugin>/videos; link any that are
+  // missing into ~/.config/omarchy/lock-videos, where ClipDesign and the
+  // boot twins resolve them. Idempotent, never overwrites a user's file.
+  Process {
+    id: shippedClipsProc
+    running: true
+    command: ["bash", "-c",
+      "dst=\"$HOME/.config/omarchy/lock-videos\"; mkdir -p \"$dst\"; for f in \"$0\"/videos/*.mp4; do [ -e \"$f\" ] || continue; b=$(basename \"$f\"); [ -e \"$dst/$b\" ] || ln -s \"$f\" \"$dst/$b\"; done",
+      root.pluginDir]
   }
 
   // Bumps the revision so every LockHost showing a user design reloads it.
@@ -342,6 +448,852 @@ done
     }
   }
 
+  // ------------------------------------------------------------------- video
+
+  function setVideo(path) {
+    var value = String(path || "").trim()
+    if (value.indexOf("file://") === 0) value = decodeURIComponent(value.replace(/^file:\/\//, ""))
+    var setting = value.length > 0 ? value : "none"
+    videoOverride = setting
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (setting === "none") delete current.video
+      else current.video = setting
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("video=" + setting)
+    return true
+  }
+
+  function clearVideo() { return setVideo("") }
+
+  function setSting(path) {
+    var value = String(path || "").trim()
+    if (value.indexOf("file://") === 0) value = decodeURIComponent(value.replace(/^file:\/\//, ""))
+    var setting = value.length > 0 ? value : "none"
+    stingOverride = setting
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (setting === "none") delete current.sting
+      else current.sting = setting
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("sting=" + setting)
+    return true
+  }
+
+  function clearSting() { return setSting("") }
+
+  function setStingVolume(value) {
+    var text = String(value === undefined ? "" : value).trim()
+    var v = Math.round(Number(text))
+    if (text.length === 0 || !isFinite(v) || v < 0 || v > 100) return false
+    stingVolumeOverride = v
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (v === 0) delete current.stingVolume
+      else current.stingVolume = v
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("sting-volume=" + v)
+    return true
+  }
+
+  // Same dance as the avatar picker: the explorer steps aside for the dialog.
+  property bool videoPickReopens: false
+  property string videoPickTarget: "video"
+  function pickVideo(reopenExplorer, target) {
+    if (videoPickProc.running) return false
+    videoPickTarget = String(target || "video")
+    videoPickReopens = reopenExplorer === true
+    videoPickProc.command = ["omarchy-file-select",
+      "--title", videoPickTarget === "sting" ? "Pick an unlock clip"
+        : videoPickTarget === "clip" ? "Pick a video for a new clip design"
+        : "Pick a lock screen video",
+      "--extensions", "mp4 mkv webm mov m4v"]
+    videoPickProc.running = true
+    return true
+  }
+
+  Process {
+    id: videoPickProc
+    stdout: StdioCollector {
+      id: videoPickOut
+      waitForEnd: true
+      onStreamFinished: {
+        var picked = String(videoPickOut.text || "").trim().split("\n")[0] || ""
+        if (picked.length > 0) {
+          if (root.videoPickTarget === "sting") root.setSting(picked)
+          else if (root.videoPickTarget === "clip") root.createClipDesign(picked)
+          else root.setVideo(picked)
+        }
+        if (root.videoPickReopens && root.shell && typeof root.shell.summon === "function")
+          root.shell.summon(root.pluginId, "{}")
+        root.videoPickReopens = false
+      }
+    }
+  }
+
+  // A picked video becomes a one-line ClipDesign in ~/.config/omarchy/lock-designs,
+  // with the file itself copied to ~/.config/omarchy/lock-videos where ClipDesign
+  // resolves clips from. Same freeze-then-play-on-unlock behavior as Storm.
+  signal clipDesignAdded(string id)
+
+  function createClipDesign(path) {
+    var src = String(path || "").trim()
+    if (src.indexOf("file://") === 0) src = decodeURIComponent(src.replace(/^file:\/\//, ""))
+    if (src.length === 0 || clipDesignProc.running) return false
+    var importLine = 'import "../plugins/' + pluginId + '/designs"'
+    clipDesignProc.command = ["bash", "-c", clipDesignScript, "clipdesign",
+      src, home + "/.config/omarchy/lock-videos", userDesignsDir, importLine]
+    clipDesignProc.running = true
+    return true
+  }
+
+  readonly property string clipDesignScript: '
+set -e
+src="$1"; videos="$2"; dir="$3"; imp="$4"
+mkdir -p "$videos" "$dir"
+base=$(basename "$src")
+if [[ -e "$videos/$base" ]] && ! cmp -s "$src" "$videos/$base"; then
+  stem="${base%.*}"; ext="${base##*.}"; n=2
+  while [[ -e "$videos/$stem-$n.$ext" ]]; do n=$((n+1)); done
+  base="$stem-$n.$ext"
+fi
+[[ -e "$videos/$base" ]] || cp "$src" "$videos/$base"
+stem="${base%.*}"
+name=$(printf %s "$stem" | tr -cd "[:alnum:]_-")
+[[ -n "$name" ]] || name=Clip
+target="$dir/$name.qml"; n=2
+while [[ -e "$target" ]]; do target="$dir/$name$n.qml"; n=$((n+1)); done
+q=\'"\'
+{
+  echo "// Clip design: $base holds its first frame while locked and plays"
+  echo "// through as the unlock. The video lives in ~/.config/omarchy/lock-videos."
+  echo "$imp"
+  echo ""
+  echo "ClipDesign { clipName: $q$base$q }"
+} > "$target"
+printf "%s\\t%s\\n" "$target" "$base"
+'
+
+  Process {
+    id: clipDesignProc
+    stdout: StdioCollector {
+      id: clipDesignOut
+      waitForEnd: true
+      onStreamFinished: {
+        var last = String(clipDesignOut.text || "").trim().split("\n").pop() || ""
+        var parts = last.split("\t")
+        var target = (parts[0] || "").trim()
+        if (target.length === 0) return
+        var d = Designs.fromUserFile(target)
+        d.anim = true
+        d.clip = true
+        if (parts.length > 1 && parts[1].trim().length > 0) d.clipFile = parts[1].trim()
+        Designs.setUser(Designs.USER.concat([d]))
+        root.designsRevision += 1
+        root.rescanUserDesigns()
+        root.clipDesignAdded(d.id)
+        root.logEvent("clip-design=" + target)
+      }
+    }
+  }
+
+  // Delete a user design from ~/.config/omarchy/lock-designs. A clip design's
+  // video goes with it, unless the boot screen, the Motion video or the unlock
+  // clip still point at it, or another design names it.
+  function deleteDesign(id) {
+    var d = Designs.byId(String(id || ""))
+    if (!d || !d.path) return false
+    var file = decodeURIComponent(String(d.path).replace(/^file:\/\//, ""))
+    if (file.indexOf(userDesignsDir + "/") !== 0) return false
+    var clip = String(d.clipFile || "")
+    if (clip.length > 0) {
+      var tail = "/" + clip
+      var keep = bootSetting === "video:" + clip
+        || (videoPath.length >= tail.length && videoPath.lastIndexOf(tail) === videoPath.length - tail.length)
+        || (stingPath.length >= tail.length && stingPath.lastIndexOf(tail) === stingPath.length - tail.length)
+      if (keep) clip = ""
+    }
+    if (designId === d.id) setDesign(Designs.DEFAULT_ID)
+    deleteDesignProc.command = ["bash", "-c", deleteDesignScript, "deldesign",
+      file, home + "/.config/omarchy/lock-videos", clip, userDesignsDir]
+    deleteDesignProc.running = true
+    logEvent("delete-design=" + d.id)
+    return true
+  }
+
+  readonly property string deleteDesignScript: '
+set -e
+file="$1"; videos="$2"; clip="$3"; dir="$4"
+rm -f -- "$file"
+if [[ -n $clip ]] && ! grep -qs -- "$clip" "$dir"/*.qml 2>/dev/null; then
+  rm -f -- "$videos/$clip"
+fi
+'
+
+  Process {
+    id: deleteDesignProc
+    onExited: function(exitCode) {
+      root.rescanUserDesigns()
+      root.refreshBootLists()
+    }
+  }
+
+  // Delete a boot card of the user's own: a video from
+  // ~/.config/omarchy/lock-videos (video:<file>) or a custom boot layout
+  // (custom:<name>, taking its generated lock design along). Videos still
+  // used as the Motion video or the unlock clip are left alone.
+  function deleteBootItem(id) {
+    var v = String(id || "")
+    if (v.indexOf("video:") !== 0 && v.indexOf("custom:") !== 0) return false
+    if (v.indexOf("video:") === 0) {
+      var tail = "/" + v.substring(6)
+      if ((videoPath.length >= tail.length && videoPath.lastIndexOf(tail) === videoPath.length - tail.length)
+        || (stingPath.length >= tail.length && stingPath.lastIndexOf(tail) === stingPath.length - tail.length)) return false
+    }
+    if (bootSetting === v) setBoot("stock")
+    deleteBootItemProc.command = ["bash", "-c", deleteBootItemScript, "delboot",
+      v, home + "/.config/omarchy/lock-videos", home + "/.config/omarchy/boot-designs",
+      home + "/.config/omarchy/lock-designs",
+      home + "/.local/state/omarchy/lock-explorer-boot-previews"]
+    deleteBootItemProc.running = true
+    logEvent("delete-boot=" + v)
+    return true
+  }
+
+  readonly property string deleteBootItemScript: '
+set -e
+id="$1"; videos="$2"; bootdir="$3"; lockdir="$4"; previews="$5"
+case "$id" in
+  video:*)
+    f="${id#video:}"
+    rm -f -- "$videos/$f"
+    rm -f -- "$previews/video-$f-"*.png
+    ;;
+  custom:*)
+    n="${id#custom:}"
+    rm -f -- "$bootdir/$n.conf"
+    rm -f -- "$lockdir/$n.qml"
+    rm -f -- "$previews/custom-$n-"*.png
+    ;;
+esac
+'
+
+  Process {
+    id: deleteBootItemProc
+    onExited: function(exitCode) {
+      root.refreshBootLists()
+      root.rescanUserDesigns()
+      root.refreshBootPreviews()
+    }
+  }
+
+  // The clip that plays once the lock surface is gone. It runs over the live
+  // desktop rather than holding the session lock, so nothing it does can leave
+  // the screen stuck: any key, any click, the end of the clip or the failsafe
+  // timer takes it away.
+  property bool stingPlaying: false
+
+  function playSting() {
+    if (stingPath.length === 0 || stingPlaying) return false
+    stingPlaying = true
+    logEvent("sting-playing")
+    return true
+  }
+
+  function endSting() {
+    if (!stingPlaying) return
+    stingPlaying = false
+    logEvent("sting-done")
+    commitClipWallpaper()
+  }
+
+  // "The last frame becomes your wallpaper": with clipWallpaper on, the frame
+  // the unlock video ends on is extracted while the screen is still locked and
+  // handed to omarchy-theme-bg-set the moment the clip gives the screen back,
+  // so the desktop opens exactly where the video stopped. Saved on the plugin
+  // entry as `clipWallpaper: true`, off by default.
+  property int clipWallpaperOverride: -1
+  readonly property bool configuredClipWallpaper: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.clipWallpaper === true) return true
+    }
+    return false
+  }
+  readonly property bool clipWallpaper: clipWallpaperOverride === -1 ? configuredClipWallpaper : clipWallpaperOverride === 1
+
+  function setClipWallpaper(on) {
+    var enabled = on === true || on === "true" || on === "on"
+    clipWallpaperOverride = enabled ? 1 : 0
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (enabled) current.clipWallpaper = true
+      else delete current.clipWallpaper
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("clip-wallpaper=" + enabled)
+    return true
+  }
+
+  property string preparedClipWallpaper: ""
+
+  function prepareClipWallpaper(path) {
+    if (!clipWallpaper || !path || String(path).length === 0) return
+    if (clipWallPrepProc.running) return
+    preparedClipWallpaper = ""
+    clipWallPrepProc.command = ["bash", "-c", clipWallScript, "clipwall",
+      String(path), home + "/.local/state/omarchy/lock-explorer-clip-wallpapers"]
+    clipWallPrepProc.running = true
+  }
+
+  function commitClipWallpaper() {
+    if (!clipWallpaper || preparedClipWallpaper.length === 0) return
+    Quickshell.execDetached(["omarchy-theme-bg-set", preparedClipWallpaper])
+    logEvent("clip-wallpaper-set=" + preparedClipWallpaper)
+  }
+
+  readonly property string clipWallScript: '
+set -e
+src="$1"; dir="$2"
+mkdir -p "$dir"
+stem=$(basename "$src"); stem="${stem%.*}"
+out="$dir/$stem.png"
+if [[ ! -s "$out" || "$src" -nt "$out" ]]; then
+  ffmpeg -y -loglevel error -sseof -1 -i "$src" -update 1 "$out" || true
+  [[ -s "$out" ]] || ffmpeg -y -loglevel error -i "$src" -update 1 "$out"
+fi
+echo "$out"
+'
+
+  Process {
+    id: clipWallPrepProc
+    stdout: StdioCollector {
+      id: clipWallPrepOut
+      waitForEnd: true
+      onStreamFinished: {
+        root.preparedClipWallpaper = String(clipWallPrepOut.text || "").trim().split("\n").pop() || ""
+      }
+    }
+  }
+
+  // The boot (LUKS decrypt) screen, styled with Plymouth. Saved on the plugin
+  // entry as `boot`: "follow" keeps it matched to the lock design whenever the
+  // design has a twin under plymouth/, a design id pins it to that design, and
+  // absent means the stock Omarchy boot theme is left alone. Applying bakes the
+  // current theme colors into a generated theme and rebuilds the initramfs
+  // through a single polkit prompt (see plymouth/apply.sh).
+  property string bootOverride: ""
+  readonly property string configuredBoot: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.boot) return String(entry.boot)
+    }
+    return "stock"
+  }
+  readonly property string bootSetting: {
+    var value = bootOverride.length > 0 ? bootOverride : configuredBoot
+    if (value === "follow" || value === "stock" || value === "theme" || value === "rotate") return value
+    if (value.indexOf("snapshot:") === 0 || value.indexOf("video:") === 0 || value.indexOf("custom:") === 0) return value
+    var d = Designs.byId(value)
+    return d && d.boot === true ? value : "stock"
+  }
+  property bool bootApplying: false
+  property string bootApplyTarget: ""
+  property string bootApplied: ""  // last installed twin, "" = stock/untouched
+  property int bootAppliedVersion: 0
+  readonly property string bootTarget: {
+    if (bootSetting === "stock") return "stock"
+    if (bootSetting === "theme") return "theme"
+    if (bootSetting === "rotate") return ""
+    if (bootSetting.indexOf("snapshot:") === 0) return bootSetting
+    if (bootSetting === "follow") {
+      var d = Designs.byId(designId)
+      return d && d.boot === true ? d.id : ""
+    }
+    return bootSetting
+  }
+
+  function setBoot(value) {
+    var v = String(value || "").trim().toLowerCase()
+    if (v !== "follow" && v !== "stock" && v !== "theme" && v !== "rotate" && v.indexOf("video:") !== 0 && v.indexOf("custom:") !== 0 && v.indexOf("snapshot:") !== 0) {
+      var d = Designs.byId(v)
+      if (!d || d.boot !== true) return false
+    }
+    if (bootApplying) return false
+    bootOverride = v
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (v === "stock") delete current.boot
+      else current.boot = v
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("boot=" + v)
+    // Redesign: picking a boot option only sets the desired choice; the
+    // rebuild happens when the Apply button is pressed.
+    return true
+  }
+
+  // force reapplies even when the target already matches, so a changed Omarchy
+  // theme gets its colors baked in again.
+  function applyBoot(force, explicitTarget) {
+    if (bootApplying) return
+    var target = explicitTarget !== undefined && String(explicitTarget).length > 0 ? String(explicitTarget) : bootTarget
+    if (target.length === 0) return  // follow, but this design has no twin
+    if (target === "stock" && bootApplied.length === 0) return  // nothing to restore
+    if (!force && target === bootApplied) return
+    bootApplying = true
+    bootApplyTarget = target
+    bootApplyProc.command = ["env", "BOOT_CLIP_SECONDS=" + bootClipSeconds, "bash", pluginDir + "/plymouth/apply.sh", target]
+    bootApplyProc.running = true
+  }
+
+  Process {
+    id: bootApplyProc
+    stdout: StdioCollector { }
+    stderr: StdioCollector {
+      id: bootApplyErr
+      waitForEnd: true
+    }
+    onExited: function(exitCode) {
+      root.bootApplying = false
+      if (exitCode === 0) {
+        root.bootApplied = root.bootApplyTarget === "stock" ? "" : root.bootApplyTarget
+        root.logEvent("boot-applied=" + (root.bootApplied.length > 0 ? root.bootApplied : "stock"))
+      } else {
+        root.logEvent("boot-apply-failed=" + exitCode)
+        console.warn("lock-explorer: plymouth apply failed:", String(bootApplyErr.text || "").trim())
+      }
+    }
+  }
+
+  // apply.sh records what it installed and which Omarchy theme the colors
+  // came from; picking it up here keeps the state right across shell restarts
+  // and command line applies.
+  FileView {
+    path: root.stateHome + "/omarchy/lock-explorer-boot"
+    watchChanges: true
+    printErrors: false
+    onLoaded: {
+      var parts = String(text()).trim().split(/\s+/)
+      var value = parts[0] || ""
+      root.bootApplied = value === "stock" ? "" : value
+      root.bootAppliedTheme = parts.length > 1 ? parts[1] : ""
+      // Cache-buster for the applied-boot preview image, which is rewritten
+      // on every apply (same-id re-applies included).
+      root.bootAppliedVersion += 1
+    }
+    onLoadFailed: { root.bootApplied = ""; root.bootAppliedTheme = "" }
+    onFileChanged: reload()
+  }
+
+  // The boot screen colors are baked in at apply time, so a theme switch
+  // would leave it in the old palette right until the retained last frame
+  // hands over to the new wallpaper. Regenerate when the theme changes,
+  // unless the user opted out (`bootResync: false` on the plugin entry).
+  property string bootAppliedTheme: ""
+  property string bootCurrentTheme: ""
+  property int bootResyncOverride: -1
+  readonly property bool configuredBootResync: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.bootResync === false) return false
+    }
+    return true
+  }
+  readonly property bool bootResync: bootResyncOverride === -1 ? configuredBootResync : bootResyncOverride === 1
+
+  function setBootResync(on) {
+    var enabled = on === true || on === "on" || on === "true"
+    bootResyncOverride = enabled ? 1 : 0
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (enabled) delete current.bootResync
+      else current.bootResync = false
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("boot-resync=" + (enabled ? "on" : "off"))
+    if (enabled) maybeResyncBoot()
+    return true
+  }
+
+  // Snapshot boot screens can't be re-baked from the old picture: the theme
+  // change moved the wallpaper and colors, so the explorer has to take a
+  // fresh snapshot (which also carries the entry geometry).
+  signal bootResnapshotRequested(string designId, bool persist)
+  signal exploreTabRequested(string tab)
+
+  function maybeResyncBoot() {
+    if (!bootResync || bootApplying || !bootResyncArmed) return
+    if (bootApplied.length === 0 || bootAppliedTheme.length === 0 || bootCurrentTheme.length === 0) return
+    if (bootAppliedTheme === bootCurrentTheme) return
+    logEvent("boot-resync " + bootAppliedTheme + " -> " + bootCurrentTheme)
+    if (bootApplied.indexOf("snapshot:") === 0) {
+      // The fresh snapshot carries the new background too.
+      bootBgResyncTimer.stop()
+      bootResnapshotRequested(bootApplied.substring(9), bootSetting !== "follow")
+      return
+    }
+    // Re-bake what is actually installed: with follow and a twin-less lock
+    // design the setting resolves to nothing, but the installed twin still
+    // needs the new colors.
+    applyBoot(true, bootApplied)
+  }
+
+  // Cycling the background inside a theme leaves an applied snapshot showing
+  // the old wallpaper. Retake it once the cycling settles; same opt-out as
+  // the theme resync.
+  property string bootLastBackground: ""
+
+  onBackgroundPathChanged: {
+    if (backgroundPath.length === 0) return
+    if (bootLastBackground.length === 0) { bootLastBackground = backgroundPath; return }
+    if (bootLastBackground === backgroundPath) return
+    bootLastBackground = backgroundPath
+    if (!bootResync || !bootResyncArmed) return
+    if (bootApplied.indexOf("snapshot:") !== 0) return
+    bootBgResyncTimer.restart()
+  }
+
+  Timer {
+    id: bootBgResyncTimer
+    interval: 8000
+    onTriggered: {
+      if (!root.bootResync || root.bootApplying) return
+      if (root.bootApplied.indexOf("snapshot:") !== 0) return
+      root.logEvent("boot-resync background")
+      root.bootResnapshotRequested(root.bootApplied.substring(9), root.bootSetting !== "follow")
+    }
+  }
+
+
+  // Thumbnails for the explorer's boot cards, one per option and theme,
+  // rendered in the background by plymouth/previews.sh.
+  property int bootPreviewsVersion: 0
+  property bool bootPreviewsRunning: false
+
+  property bool bootPreviewsPending: false
+
+  function refreshBootPreviews() {
+    refreshBootLists()
+    // A request landing mid-run must queue a follow-up: the running pass
+    // rendered the state before this change and would leave stale previews.
+    if (bootPreviewsRunning) { bootPreviewsPending = true; return }
+    bootPreviewsRunning = true
+    bootPreviewsProc.command = ["bash", pluginDir + "/plymouth/previews.sh"]
+    bootPreviewsProc.running = true
+  }
+
+  Process {
+    id: bootPreviewsProc
+    stdout: StdioCollector { }
+    stderr: StdioCollector { }
+    onExited: function(exitCode) {
+      root.bootPreviewsRunning = false
+      root.bootPreviewsVersion++
+      if (root.bootPreviewsPending) {
+        root.bootPreviewsPending = false
+        root.refreshBootPreviews()
+      }
+    }
+  }
+
+
+  // The user's own clips and boot layouts, listed as cards on the boot tab.
+  property var bootVideos: []
+  property var bootCustomDesigns: []
+
+  function refreshBootLists() { bootListsProc.running = true }
+
+  Process {
+    id: bootListsProc
+    command: ["bash", "-c", "ls -1 \"$HOME/.config/omarchy/lock-videos\" 2>/dev/null; echo ::; for f in \"$HOME\"/.config/omarchy/boot-designs/*.conf; do [ -f \"$f\" ] && basename \"$f\" .conf; done"]
+    stdout: StdioCollector {
+      id: bootListsOut
+      waitForEnd: true
+      onStreamFinished: {
+        var parts = String(bootListsOut.text || "").split("::")
+        root.bootVideos = (parts[0] || "").split("\n")
+          .map(function(l) { return l.trim() })
+          .filter(function(l) { return /\.(mp4|mkv|webm|mov|m4v)$/i.test(l) })
+        root.bootCustomDesigns = (parts.length > 1 ? parts[1] : "").split("\n")
+          .map(function(l) { return l.trim() })
+          .filter(function(l) { return l.length > 0 })
+      }
+    }
+  }
+
+  // How much of a clip boot screen plays, in seconds; 0 plays it all. Saved
+  // on the plugin entry as bootClipSeconds.
+  property int bootClipSecondsOverride: -1
+  readonly property int configuredBootClipSeconds: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.bootClipSeconds !== undefined)
+        return Math.max(0, Math.min(30, Number(entry.bootClipSeconds) || 0))
+    }
+    return 0
+  }
+  readonly property int bootClipSeconds: bootClipSecondsOverride >= 0 ? bootClipSecondsOverride : configuredBootClipSeconds
+
+  function setBootClipSeconds(n) {
+    var v = Math.max(0, Math.min(30, Math.round(Number(n) || 0)))
+    bootClipSecondsOverride = v
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (v === 0) delete current.bootClipSeconds
+      else current.bootClipSeconds = v
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("boot-clip=" + v)
+    var appliedIsClip = bootApplied.indexOf("video:") === 0
+    if (!appliedIsClip) {
+      var d = Designs.byId(bootApplied)
+      appliedIsClip = !!(d && d.bootKind === "clip")
+    }
+    if (appliedIsClip) applyBoot(true, bootApplied)
+    return true
+  }
+
+  // Plumbing for the boot layout editor in the explorer.
+  signal bootDesignLoaded(string name, string content)
+  property string bootDesignPendingLoad: ""
+
+  function loadBootDesign(name) {
+    bootDesignPendingLoad = String(name)
+    bootLoadProc.command = ["cat", home + "/.config/omarchy/boot-designs/" + bootDesignPendingLoad + ".conf"]
+    bootLoadProc.running = true
+  }
+
+  Process {
+    id: bootLoadProc
+    stdout: StdioCollector {
+      id: bootLoadOut
+      waitForEnd: true
+      onStreamFinished: root.bootDesignLoaded(root.bootDesignPendingLoad, String(bootLoadOut.text || ""))
+    }
+  }
+
+  property string bootSaveName: ""
+  function saveBootDesign(name, content) {
+    bootSaveName = String(name)
+    bootSaveProc.command = ["bash", "-c",
+      'mkdir -p "$HOME/.config/omarchy/boot-designs" && printf %s "$1" > "$HOME/.config/omarchy/boot-designs/$2.conf"',
+      "--", String(content), String(name)]
+    bootSaveProc.running = true
+  }
+
+  Process {
+    id: bootSaveProc
+    onExited: function(exitCode) {
+      // Generate the matching lock screen QML + its preview from the same
+      // layout, so the pair stays in sync.
+      var previews = root.stateHome + "/omarchy/lock-explorer-boot-previews"
+      lockGenProc.command = ["bash", "-c",
+        'mkdir -p "$3" && bash "$1" "$HOME/.config/omarchy/boot-designs/$2.conf" "$2" "$3/custom-$2-lock-$4.png"',
+        "--", root.pluginDir + "/plymouth/custom/genlock.sh", root.bootSaveName, previews, root.bootCurrentTheme]
+      lockGenProc.running = true
+    }
+  }
+
+  Process {
+    id: lockGenProc
+    onExited: function(exitCode) {
+      root.refreshBootPreviews()
+      root.rescanUserDesigns()
+      root.logEvent("boot-design-saved")
+    }
+  }
+
+  function createBootDesign() {
+    bootCreateProc.command = ["bash", "-c",
+      'dir="$HOME/.config/omarchy/boot-designs"; mkdir -p "$dir"; n="my-boot"; i=2; while [ -f "$dir/$n.conf" ]; do n="my-boot-$i"; i=$((i+1)); done; cp "$1" "$dir/$n.conf"; echo "$n"',
+      "--", pluginDir + "/plymouth/custom/template.conf"]
+    bootCreateProc.running = true
+  }
+
+  Process {
+    id: bootCreateProc
+    stdout: StdioCollector {
+      id: bootCreateOut
+      waitForEnd: true
+      onStreamFinished: {
+        var n = String(bootCreateOut.text || "").trim()
+        if (n.length > 0) {
+          root.refreshBootLists()
+          root.loadBootDesign(n)
+        }
+      }
+    }
+  }
+
+
+  // Boot screen rotation: a set of options that advances one step after
+  // every boot. The screen is baked into the boot image, so the swap happens
+  // in the background right after login -- silently through the root path
+  // unit rotate-setup.sh installs (one pkexec, once), with a normal polkit
+  // prompt as the fallback. Saved on the plugin entry as bootRotation.
+  property var bootRotationOverride: null
+  readonly property var configuredBootRotation: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && Array.isArray(entry.bootRotation)) return entry.bootRotation
+    }
+    return []
+  }
+  readonly property var bootRotation: bootRotationOverride !== null ? bootRotationOverride : configuredBootRotation
+  property bool bootRotateSilent: false
+  property string bootRotateNext: ""
+
+  function toggleBootRotation(id) {
+    var v = String(id || "")
+    if (v.length === 0 || v === "stock") return false
+    var list = bootRotation.slice()
+    var idx = list.indexOf(v)
+    if (idx === -1) list.push(v)
+    else list.splice(idx, 1)
+    bootRotationOverride = list
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (list.length === 0) delete current.bootRotation
+      else current.bootRotation = list
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("boot-rotation=" + list.join(","))
+    return true
+  }
+
+  // persist=false applies the snapshot as the on-disk artifact but leaves the
+  // saved boot setting alone (used by follow mode, which stays "follow").
+  // entryRect ("cx,cy,w,h" in percent) is where the design's own input box
+  // sits in the snapshot; the boot theme puts its bullets there.
+  function applyBootSnapshot(id, persist, entryRect) {
+    if (bootApplying) return
+    if (persist === undefined) persist = true
+    if (persist) {
+      bootOverride = "snapshot:" + id
+      if (shell && typeof shell.updateEntryInline === "function") {
+        var current = pluginEntry()
+        current.boot = "snapshot:" + id
+        shell.updateEntryInline(pluginId, current)
+      }
+    }
+    bootApplying = true
+    bootApplyTarget = "snapshot:" + id
+    bootApplyProc.command = ["env", "BOOT_CLIP_SECONDS=0",
+      "SNAPSHOT_ENTRY=" + String(entryRect || ""),
+      "bash", pluginDir + "/plymouth/apply.sh", "snapshot:" + id]
+    bootApplyProc.running = true
+    logEvent("boot-snapshot=" + id + (persist ? "" : " (follow)"))
+  }
+
+  function enableBootRotation() {
+    if (bootRotateSilent) { setBoot("rotate"); return }
+    bootRotateSetupProc.command = ["pkexec", "bash", pluginDir + "/plymouth/rotate-setup.sh", "install", home]
+    bootRotateSetupProc.running = true
+  }
+
+  Process {
+    id: bootRotateSetupProc
+    stdout: StdioCollector { }
+    stderr: StdioCollector { }
+    onExited: function(exitCode) {
+      if (exitCode === 0) {
+        root.bootRotateSilent = true
+        root.setBoot("rotate")
+        root.logEvent("boot-rotate-setup=ok")
+      } else {
+        root.logEvent("boot-rotate-setup-failed=" + exitCode)
+      }
+    }
+  }
+
+  Process {
+    id: bootRotateCheckProc
+    command: ["bash", "-c", "[ -f /etc/systemd/system/omarchy-lock-explorer-boot.path ] && echo yes || echo no"]
+    stdout: StdioCollector {
+      id: bootRotateCheckOut
+      waitForEnd: true
+      onStreamFinished: {
+        root.bootRotateSilent = String(bootRotateCheckOut.text || "").trim() === "yes"
+        root.maybeRotateBoot()
+      }
+    }
+  }
+
+  // Advance at most once per boot: the stamp file keeps the boot id, so
+  // shell restarts inside the same boot leave the rotation alone.
+  function maybeRotateBoot() {
+    if (bootSetting !== "rotate") return
+    var list = bootRotation
+    if (!list || list.length === 0) return
+    var idx = list.indexOf(bootApplied)
+    var next = list[(idx + 1) % list.length]
+    if (next === bootApplied) return
+    bootRotateNext = next
+    bootRotateStampProc.running = true
+  }
+
+  Process {
+    id: bootRotateStampProc
+    command: ["bash", "-c", "bid=$(cat /proc/sys/kernel/random/boot_id); f=\"$HOME/.local/state/omarchy/lock-explorer-boot-rotated\"; [ \"$(cat \"$f\" 2>/dev/null)\" = \"$bid\" ] && echo skip || { echo \"$bid\" > \"$f\"; echo go; }"]
+    stdout: StdioCollector {
+      id: bootRotateStampOut
+      waitForEnd: true
+      onStreamFinished: {
+        if (String(bootRotateStampOut.text || "").trim() !== "go") return
+        if (root.bootRotateNext.length === 0 || root.bootApplying) return
+        root.logEvent("boot-rotate -> " + root.bootRotateNext)
+        if (root.bootRotateSilent) {
+          root.bootApplying = true
+          root.bootApplyTarget = root.bootRotateNext
+          bootApplyProc.command = ["env", "BOOT_CLIP_SECONDS=" + root.bootClipSeconds, "bash", root.pluginDir + "/plymouth/apply.sh", root.bootRotateNext, "--spool"]
+          bootApplyProc.running = true
+        } else {
+          root.applyBoot(true, root.bootRotateNext)
+        }
+      }
+    }
+  }
+
+  // Armed a little after startup so a stale palette right after login gets
+  // one polkit prompt once the desktop has settled, not mid-splash.
+  property bool bootResyncArmed: false
+
+  Timer {
+    interval: 12000
+    running: true
+    onTriggered: {
+      root.bootResyncArmed = true
+      root.refreshBootLists()
+      // The silent-rotation check chains into maybeRotateBoot; the resync
+      // runs after so a rotation that just advanced satisfies it.
+      bootRotateCheckProc.running = true
+      root.maybeResyncBoot()
+    }
+  }
+
+  FileView {
+    path: root.stateHome + "/omarchy/current/theme.name"
+    watchChanges: true
+    printErrors: false
+    onLoaded: { root.bootCurrentTheme = String(text()).trim(); root.maybeResyncBoot() }
+    onLoadFailed: root.bootCurrentTheme = ""
+    onFileChanged: reload()
+  }
+
   function setDesign(id) {
     var d = Designs.byId(String(id || ""))
     if (!d) return false
@@ -352,6 +1304,7 @@ done
       shell.updateEntryInline(pluginId, current)
     }
     logEvent("design=" + d.id)
+    if (bootSetting === "follow") applyBoot(false)
     return true
   }
 
@@ -378,6 +1331,14 @@ done
   property bool strandedLock: false
   property bool strandedLockResolved: false
   property bool unlocking: false
+  // The clip designs (Storm, Eyes, ...) hold the lock surface while their
+  // video plays through as the unlock. unlockPlayback reaches the design,
+  // clipUnlocking is the hold, clipFailsafe the way out if the file misbehaves.
+  property bool clipUnlocking: false
+  property bool unlockPlayback: false
+  property bool previewClipPlaying: false
+  // Nothing should decode video into a screen that is switched off.
+  property bool screenBlanked: false
 
   // With `misc:session_lock_xray` the compositor keeps drawing the desktop
   // under the lock surface, so the unlock fades straight into it and the
@@ -497,6 +1458,9 @@ done
       root.refreshFingerprintStatus()
       root.refreshSessionLockXray()
       root.rescanUserDesigns()
+      // The frame is ready before the unlock needs it.
+      if (root.designHasClip) root.prepareClipWallpaper(root.designClipPath)
+      else if (root.stingPath.length > 0) root.prepareClipWallpaper(root.stingPath)
     })
 
     return true
@@ -504,7 +1468,7 @@ done
 
   function finishUnlock() {
     if (!root.locked && !lockRequested) return
-    if (unlocking) return
+    if (unlocking || clipUnlocking) return
 
     lockRequested = false
     pendingSessionLock = false
@@ -517,6 +1481,18 @@ done
     // The surface has to stay up while it animates away -- dropping the lock
     // first takes the screen with it. The timer also releases the lock if the
     // animation never runs, so nothing can leave the session stuck behind it.
+    // A clip design keeps the surface and plays its video as the unlock. The
+    // design says when it is done; the failsafe does not care what it thinks.
+    if (designHasClip && (sessionLock.locked || sessionLock.secure)) {
+      clipUnlocking = true
+      unlockPlayback = true
+      clipFailsafe.restart()
+      // Second chance for designs picked while already locked.
+      if (preparedClipWallpaper.length === 0) prepareClipWallpaper(designClipPath)
+      logEvent("unlocking=clip")
+      return
+    }
+
     if (unlockAnimated && (sessionLock.locked || sessionLock.secure)) {
       unlocking = true
       logEvent("unlocking=" + unlockAnimation)
@@ -529,15 +1505,25 @@ done
 
   function releaseLock() {
     unlockTimer.stop()
+    clipFailsafe.stop()
+    var hadClip = clipUnlocking
+    clipUnlocking = false
+    unlockPlayback = false
     unlocking = false
     sessionLock.locked = false
     logEvent("unlocked")
+    // The clip was the whole show, no second video on top of it.
+    if (hadClip) commitClipWallpaper()
+    else playSting()
   }
 
   function cancelUnlockAnimation() {
-    if (!unlocking) return
+    if (!unlocking && !clipUnlocking) return
     unlockTimer.stop()
+    clipFailsafe.stop()
     unlocking = false
+    clipUnlocking = false
+    unlockPlayback = false
     logEvent("unlock-cancelled")
   }
 
@@ -547,11 +1533,13 @@ done
   }
 
   function runWake() {
+    screenBlanked = false
     if (!wakeProcess.running) wakeProcess.running = true
     if (lockRequested) armBlankTimer()
   }
 
   function runBlank() {
+    screenBlanked = true
     if (!blankProcess.running) blankProcess.running = true
   }
 
@@ -671,6 +1659,11 @@ done
           inputEnabled: root.lockRequested
           loadBackground: root.locked
           passwordText: root.enteredPassword
+          videoPath: root.videoPath
+          videoPlaying: root.locked && !root.screenBlanked
+          unlockPlayback: root.unlockPlayback && root.showsInput(lockSurface.screen)
+          clipSpeed: root.clipSpeed
+          onUnlockFinished: root.releaseLock()
           onPasswordTextEdited: function(password) { root.enteredPassword = password }
           onSubmitPassword: function(password) { root.submitPassword(password) }
           onClearFailureRequested: root.failureMessage = ""
@@ -711,6 +1704,13 @@ done
         inputEnabled: root.previewVisible && !root.previewUnlocking
         loadBackground: root.previewVisible
         passwordText: root.previewTyped
+        videoPath: root.videoPath
+        videoPlaying: root.previewVisible
+        unlockPlayback: root.previewClipPlaying
+        clipSpeed: root.clipSpeed
+        // Hold the clip's last frame in the preview instead of snapping back
+        // to the start; Esc (hidePreview) resets it.
+        onUnlockFinished: {}
         onPasswordTextEdited: function(password) { root.previewTyped = password }
       }
     }
@@ -719,6 +1719,87 @@ done
       anchors.fill: parent
       acceptedButtons: Qt.LeftButton | Qt.RightButton
       onClicked: { root.previewVisible = false; root.previewDesignId = "" }
+    }
+  }
+
+  // The unlock clip. It sits over the unlocked desktop, never over the session
+  // lock, so a video that will not decode costs a black screen for a moment and
+  // nothing more. Four ways out: a key, a click, the end of the clip, and a
+  // failsafe timer that does not care what the player thinks.
+  PanelWindow {
+    id: stingWindow
+    visible: root.stingPlaying
+    anchors { top: true; bottom: true; left: true; right: true }
+    color: "black"
+    WlrLayershell.namespace: "omarchy-lock-explorer-sting"
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: root.stingPlaying ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    exclusionMode: ExclusionMode.Ignore
+
+    MediaPlayer {
+      id: stingPlayer
+      source: root.stingUrl
+      videoOutput: stingOutput
+      playbackRate: root.clipSpeed
+      audioOutput: AudioOutput { muted: root.stingVolume <= 0; volume: root.stingVolume / 100 }
+      onMediaStatusChanged: if (mediaStatus === MediaPlayer.EndOfMedia) stingFade.start()
+      onErrorOccurred: function(error, errorString) {
+        console.warn("lock-explorer: cannot play unlock clip", root.stingUrl, errorString)
+        root.endSting()
+      }
+    }
+
+    Item {
+      id: stingStage
+      anchors.fill: parent
+      focus: true
+      opacity: 1
+
+      VideoOutput {
+        id: stingOutput
+        anchors.fill: parent
+        fillMode: VideoOutput.PreserveAspectCrop
+      }
+
+      Keys.onPressed: function(event) { root.endSting(); event.accepted = true }
+      MouseArea { anchors.fill: parent; onClicked: root.endSting() }
+    }
+
+    NumberAnimation {
+      id: stingFade
+      target: stingStage
+      property: "opacity"
+      to: 0
+      duration: 450
+      easing.type: Easing.OutCubic
+      onFinished: root.endSting()
+    }
+
+    // Whatever the clip is doing, it is gone by the time this fires.
+    Timer {
+      id: stingFailsafe
+      interval: 20000
+      onTriggered: root.endSting()
+    }
+
+    Connections {
+      target: root
+      function onStingPlayingChanged() {
+        if (root.stingPlaying) {
+          stingFade.stop()
+          stingStage.opacity = 1
+          // stop first: position is read only, and a stopped player replays
+          // from the beginning.
+          stingPlayer.stop()
+          stingPlayer.play()
+          stingFailsafe.restart()
+          stingStage.forceActiveFocus()
+        } else {
+          stingFailsafe.stop()
+          stingFade.stop()
+          stingPlayer.stop()
+        }
+      }
     }
   }
 
@@ -766,6 +1847,14 @@ done
     onTriggered: root.releaseLock()
   }
 
+  // However long the clip claims to be, the screen comes back.
+  Timer {
+    id: clipFailsafe
+    interval: 15000
+    repeat: false
+    onTriggered: root.releaseLock()
+  }
+
   Timer {
     id: fingerprintRetryTimer
     interval: 250
@@ -775,12 +1864,21 @@ done
 
   Process {
     id: userDesignsProc
-    command: ["bash", "-c", "ls -1 \"$0\"/*.qml 2>/dev/null", root.userDesignsDir]
+    // Files built on ClipDesign are tagged (with their clip file when it is
+    // named inline) so they keep their animation flag and their video across
+    // rescans.
+    command: ["bash", "-c", "for f in \"$0\"/*.qml; do [ -e \"$f\" ] || continue; c=$(grep -o 'clipName: \"[^\"]*\"' \"$f\" 2>/dev/null | head -1 | cut -d'\"' -f2); if [ -n \"$c\" ]; then printf '%s\\tclip\\t%s\\n' \"$f\" \"$c\"; elif grep -q ClipDesign \"$f\" 2>/dev/null; then printf '%s\\tclip\\n' \"$f\"; else printf '%s\\n' \"$f\"; fi; done", root.userDesignsDir]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
         var lines = String(text || "").split("\n").filter(function(l) { return l.trim().length > 0 })
-        var list = lines.map(function(p) { return Designs.fromUserFile(p.trim()) })
+        var list = lines.map(function(l) {
+          var parts = l.split("\t")
+          var d = Designs.fromUserFile(parts[0].trim())
+          if (parts.length > 1 && parts[1].trim() === "clip") { d.anim = true; d.clip = true }
+          if (parts.length > 2 && parts[2].trim().length > 0) d.clipFile = parts[2].trim()
+          return d
+        })
         var before = JSON.stringify(Designs.USER)
         Designs.setUser(list)
         if (JSON.stringify(list) !== before) root.designsRevision += 1
@@ -801,6 +1899,16 @@ done
         }
       }
     }
+  }
+
+  // The background is a symlink retarget with no file content to watch, so
+  // poll it the way the stock background plugin does. Keeps backgroundPath
+  // live for the boot-screen background resync.
+  Timer {
+    interval: 5000
+    running: true
+    repeat: true
+    onTriggered: root.refreshBackground()
   }
 
   Process {
@@ -981,16 +2089,25 @@ done
         lastEvent: root.lastEvent,
         lastEventAt: root.lastEventAt,
         design: root.designId,
+        boot: root.bootSetting,
+        bootApplied: root.bootApplied,
+        bootApplying: root.bootApplying,
         unlock: root.unlockAnimation,
         unlockMs: root.unlockDuration,
         unlockAnimated: root.unlockAnimated,
         unlocking: root.unlocking,
+        clipDesign: root.designHasClip,
+        clipUnlocking: root.clipUnlocking,
+        video: root.videoPath,
+        sting: root.stingPath,
+        stingPlaying: root.stingPlaying,
         previewTyped: root.previewTyped.length
       })
     }
 
     function preview(): string {
       root.previewUnlocking = false
+      root.previewClipPlaying = false
       root.refreshBackground()
       root.refreshFingerprintStatus()
       root.previewVisible = true
@@ -1000,6 +2117,7 @@ done
     function hidePreview(): string {
       previewUnlockTimer.stop()
       root.previewUnlocking = false
+      root.previewClipPlaying = false
       root.previewVisible = false
       root.previewDesignId = ""
       root.previewTyped = ""
@@ -1018,6 +2136,37 @@ done
 
     function setDesign(id: string): string {
       return root.setDesign(id) ? "ok" : "unknown-design"
+    }
+
+    function boot(): string {
+      var applied = root.bootApplied.length > 0 ? root.bootApplied : "stock"
+      return root.bootSetting + " (applied: " + applied + (root.bootApplying ? ", rebuilding" : "") + ")"
+    }
+
+    function setBoot(value: string): string {
+      if (root.bootApplying) return "busy"
+      return root.setBoot(value) ? "ok" : "unknown-boot"
+    }
+
+    function setBootResync(value: string): string {
+      return root.setBootResync(value === "on" || value === "true") ? "ok" : "failed"
+    }
+
+    function bootRotation(): string {
+      return (root.bootRotation || []).join(",")
+    }
+
+    function toggleBootRotation(id: string): string {
+      return root.toggleBootRotation(id) ? "ok" : "failed"
+    }
+
+    function enableBootRotation(): string {
+      root.enableBootRotation()
+      return "ok"
+    }
+
+    function setBootClipSeconds(value: string): string {
+      return root.setBootClipSeconds(value) ? "ok" : "failed"
     }
 
     function previewDesign(id: string): string {
@@ -1058,6 +2207,11 @@ done
 
     function previewUnlock(): string {
       if (!root.previewVisible) return "no-preview"
+      var pd = Designs.byId(root.previewDesignId.length > 0 ? root.previewDesignId : root.designId)
+      if (pd && pd.clip) {
+        root.previewClipPlaying = true
+        return "ok"
+      }
       if (!root.unlockAnimated) {
         root.previewVisible = false
         root.previewDesignId = ""
@@ -1066,6 +2220,13 @@ done
       }
       root.previewUnlocking = true
       previewUnlockTimer.restart()
+      return "ok"
+    }
+
+    // Feeds the preview's password field, so a demo can type without hands.
+    function previewType(text: string): string {
+      if (!root.previewVisible) return "no-preview"
+      root.previewTyped = String(text || "")
       return "ok"
     }
 
@@ -1117,8 +2278,103 @@ done
       return root.pickAvatar(false) ? "ok" : "busy"
     }
 
+    function video(): string {
+      return root.videoPath.length > 0 ? root.videoPath : "none"
+    }
+
+    function setVideo(path: string): string {
+      return root.setVideo(path) ? "ok" : "failed"
+    }
+
+    function clearVideo(): string {
+      return root.clearVideo() ? "ok" : "failed"
+    }
+
+    function pickVideo(): string {
+      return root.pickVideo(false, "video") ? "ok" : "busy"
+    }
+
+    function sting(): string {
+      return root.stingPath.length > 0 ? root.stingPath : "none"
+    }
+
+    function setSting(path: string): string {
+      return root.setSting(path) ? "ok" : "failed"
+    }
+
+    function clearSting(): string {
+      return root.clearSting() ? "ok" : "failed"
+    }
+
+    function pickSting(): string {
+      return root.pickVideo(false, "sting") ? "ok" : "busy"
+    }
+
+    function newClipDesign(): string {
+      return root.pickVideo(false, "clip") ? "ok" : "busy"
+    }
+
+    function clipWallpaper(): string {
+      return root.clipWallpaper ? "on" : "off"
+    }
+
+    function setClipWallpaper(on: string): string {
+      return root.setClipWallpaper(on) ? "ok" : "failed"
+    }
+
+    function clipSpeed(): string {
+      return String(root.clipSpeed)
+    }
+
+    function setClipSpeed(v: string): string {
+      return root.setClipSpeed(v) ? "ok" : "failed"
+    }
+
+    function createClipDesign(path: string): string {
+      return root.createClipDesign(path) ? "ok" : "failed"
+    }
+
+    function deleteDesign(id: string): string {
+      return root.deleteDesign(id) ? "ok" : "failed"
+    }
+
+    function deleteBootItem(id: string): string {
+      return root.deleteBootItem(id) ? "ok" : "failed"
+    }
+
+    function stingVolume(): string {
+      return String(root.stingVolume)
+    }
+
+    function setStingVolume(value: string): string {
+      return root.setStingVolume(value) ? "ok" : "failed"
+    }
+
+    function previewSting(): string {
+      if (root.stingPath.length === 0) return "no-clip"
+      return root.playSting() ? "ok" : "busy"
+    }
+
     function explore(): string {
       root.rescanUserDesigns()
+      if (root.shell && typeof root.shell.summon === "function")
+        return root.shell.summon(root.pluginId, "{}") ? "ok" : "failed"
+      return "no-shell"
+    }
+
+    // Open the built-in editor on a custom boot layout.
+    function editBootLayout(name: string): string {
+      root.loadBootDesign(String(name || ""))
+      if (root.shell && typeof root.shell.summon === "function")
+        return root.shell.summon(root.pluginId, "{}") ? "ok" : "failed"
+      return "no-shell"
+    }
+
+    // Open the explorer on a specific tab: styling, animation, boot or
+    // settings. Also handy for scripting and screenshots.
+    function exploreTab(tab: string): string {
+      root.rescanUserDesigns()
+      root.exploreTabRequested(String(tab || "styling"))
       if (root.shell && typeof root.shell.summon === "function")
         return root.shell.summon(root.pluginId, "{}") ? "ok" : "failed"
       return "no-shell"

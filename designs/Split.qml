@@ -106,6 +106,7 @@ DesignBase {
       }
 
       Text {
+        opacity: lock.snapshotMode ? 0 : 1
         text: lock.failedAttempts > 0
           ? lock.failedAttempts + " failed " + (lock.failedAttempts === 1 ? "attempt" : "attempts")
           : (lock.fingerprintConfigured ? "󰆠  Touch the sensor or press Enter" : "Press Enter to unlock")
@@ -120,6 +121,7 @@ DesignBase {
       anchors.left: parent.left
       anchors.bottom: parent.bottom
       anchors.margins: lock.margin
+      opacity: lock.snapshotMode ? 0 : 1
       text: "󰌾  " + lock.hostName
       color: lock.withAlpha(Color.lock.text, 0.45)
       font.family: Style.font.family

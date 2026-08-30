@@ -18,6 +18,20 @@ Item {
   property bool loadBackground: true
   property string passwordText: ""
 
+  // Set with `omarchy-shell lock setVideo`. Designs show it with VideoWallpaper,
+  // which keeps the still wallpaper underneath when there is none. videoPlaying
+  // goes false while the screen is blanked so nothing decodes into a dark panel.
+  property string videoPath: ""
+  property bool videoPlaying: true
+
+  // Raised by the service instead of dropping the lock when the design is
+  // built around a clip (see UnlockClip): the clip plays through and
+  // unlockFinished() hands the screen back.
+  property bool unlockPlayback: false
+  // Playback rate for unlock clips, see `omarchy-shell lock setClipSpeed`.
+  property real clipSpeed: 1
+  signal unlockFinished()
+
   signal submitPassword(string password)
   signal passwordTextEdited(string password)
   signal clearFailureRequested()
@@ -35,6 +49,13 @@ Item {
     var encoded = String(avatarPath).split("/").map(encodeURIComponent).join("/")
     return "file://" + encoded + "?v=" + avatarVersion
   }
+
+  readonly property bool hasVideo: videoPath.length > 0
+  readonly property string videoUrl: {
+    if (videoPath.length === 0) return ""
+    var encoded = String(videoPath).split("/").map(encodeURIComponent).join("/")
+    return "file://" + encoded
+  }
   property string hostName: Quickshell.env("HOSTNAME") || Quickshell.env("HOST") || "omarchy"
   FileView {
     path: "/etc/hostname"
@@ -45,6 +66,9 @@ Item {
     }
   }
 
+  // True while the design is rendered as a boot-screen background: the boot
+  // theme draws its own passphrase entry, so input chrome hides itself.
+  property bool snapshotMode: false
   property Item inputItem: null
   property bool shakeOnFail: false
   property bool flashOnFail: true

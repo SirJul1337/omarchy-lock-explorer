@@ -138,6 +138,7 @@ DesignBase {
       spacing: 6
       Text {
         anchors.verticalCenter: parent.verticalCenter
+        opacity: lock.snapshotMode ? 0 : 1
         text: lock.authenticatingPassword ? "Checking…"
           : (lock.errorState ? lock.failureMessage
           : (lock.passwordText.length > 0

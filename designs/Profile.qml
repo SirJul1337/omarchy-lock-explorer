@@ -85,6 +85,7 @@ DesignBase {
     anchors.bottom: parent.bottom
     anchors.bottomMargin: 36
     anchors.horizontalCenter: parent.horizontalCenter
+    opacity: lock.snapshotMode ? 0 : 1
     text: lock.fingerprintConfigured ? "󰆠  Touch sensor or press Enter" : "Press Enter to unlock"
     color: lock.withAlpha(Color.lock.text, 0.45)
     font.family: Style.font.family

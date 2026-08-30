@@ -37,6 +37,7 @@ DesignBase {
     anchors.right: parent.right
     anchors.top: parent.top
     anchors.margins: lock.margin
+    opacity: lock.snapshotMode ? 0 : 1
     text: lock.fingerprintConfigured ? "󰆠  FINGERPRINT READY" : "󰌾  LOCKED"
     color: lock.withAlpha(Color.lock.text, 0.75)
     font.family: Style.font.family
@@ -100,6 +101,7 @@ DesignBase {
     }
 
     Text {
+      opacity: lock.snapshotMode ? 0 : 1
       text: lock.failedAttempts > 0
         ? lock.failedAttempts + " failed " + (lock.failedAttempts === 1 ? "attempt" : "attempts")
         : "Enter to unlock  ·  Esc to clear"

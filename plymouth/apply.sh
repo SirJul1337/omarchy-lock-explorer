@@ -129,8 +129,12 @@ if [[ $stage_only == --spool ]]; then
 fi
 
 # The theme background, so the bootloader screen matches the splash color.
+# Anything that is not a plain hex color is dropped: the value crosses the
+# pkexec boundary into a root sed on limine.conf, so it must never carry
+# sed syntax.
 theme_bg=$(awk -F= '/^[[:space:]]*background[[:space:]]*=/ {v=$2; gsub(/[[:space:]"]/,"",v); sub(/^#/,"",v); print v; exit}' \
   "$HOME/.local/state/omarchy/current/theme/colors.toml" 2>/dev/null || true)
+[[ $theme_bg =~ ^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$ ]] || theme_bg=""
 
 trap 'rm -rf "$staging"' EXIT
 if addon_capable; then

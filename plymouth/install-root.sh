@@ -16,6 +16,13 @@ mode="${1:?usage: install-root.sh addon <addon.efi> | theme <staging-dir> | stoc
 src="${2:?missing source}"
 bg_hex="${3:-}"   # theme background, so the bootloader matches the splash
 
+# The background lands in a sed expression run as root on limine.conf, so
+# refuse anything that is not a plain hex color instead of trying to escape.
+if [[ -n $bg_hex && ! ${bg_hex#\#} =~ ^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$ ]]; then
+  echo "Refusing background '$bg_hex': not a hex color" >&2
+  exit 1
+fi
+
 theme_root=/usr/share/plymouth/themes
 quit_dropin=/etc/systemd/system/plymouth-quit.service.d/omarchy-lock-explorer.conf
 limine_conf=/boot/limine.conf
@@ -54,6 +61,9 @@ restore_limine_backdrop() {
   local backdrop term_bg
   backdrop=$(awk -F: '/^[[:space:]]*backdrop:/ {gsub(/[[:space:]]/,"",$2); print $2; exit}' "$limine_colors_save")
   term_bg=$(awk -F: '/^[[:space:]]*term_background:/ {gsub(/[[:space:]]/,"",$2); print $2; exit}' "$limine_colors_save")
+  # Same rule as on install: only plain hex colors go into the sed below.
+  [[ $backdrop =~ ^#?[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$ ]] || backdrop=""
+  [[ $term_bg =~ ^#?[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$ ]] || term_bg=""
   [[ -n $backdrop ]] && sed -i -E "s/^([[:space:]]*backdrop:[[:space:]]*).*/\\1$backdrop/" "$limine_conf"
   [[ -n $term_bg ]] && sed -i -E "s/^([[:space:]]*term_background:[[:space:]]*).*/\\1$term_bg/" "$limine_conf"
   rm -f "$limine_colors_save"

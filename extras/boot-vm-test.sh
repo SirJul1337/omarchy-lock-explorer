@@ -42,6 +42,7 @@ fi
 rm -rf overlay extra.cpio
 install -d overlay/usr/share/plymouth/themes/"$THEME_NAME" overlay/etc/plymouth overlay/usr/share/fonts
 cp "$THEME_DIR"/* overlay/usr/share/plymouth/themes/"$THEME_NAME"/
+# sec-ok: THEME_NAME is a constant defined at the top of this test script
 sed -i "s|^ImageDir=.*|ImageDir=/usr/share/plymouth/themes/$THEME_NAME|;s|^ScriptFile=.*|ScriptFile=/usr/share/plymouth/themes/$THEME_NAME/$THEME_NAME.script|" \
   overlay/usr/share/plymouth/themes/"$THEME_NAME"/"$THEME_NAME".plymouth
 printf '[Daemon]\nTheme=%s\n' "$THEME_NAME" > overlay/etc/plymouth/plymouthd.conf

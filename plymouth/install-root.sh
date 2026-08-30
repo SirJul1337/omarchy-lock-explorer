@@ -47,10 +47,8 @@ sync_limine_backdrop() {
   rm -f "$limine_conf.omarchy-lock-explorer.bak"
   [[ -f $limine_colors_save ]] || \
     grep -E "^[[:space:]]*(backdrop|term_background):" "$limine_conf" > "$limine_colors_save" || true
-  sed -i -E \
-    -e "s/^([[:space:]]*backdrop:[[:space:]]*).*/\\1$hex/" \
-    -e "s/^([[:space:]]*term_background:[[:space:]]*).*/\\1$hex/" \
-    "$limine_conf"
+  sed -i -E "s/^([[:space:]]*backdrop:[[:space:]]*).*/\\1$hex/" "$limine_conf"          # sec-ok: hex validated on entry
+  sed -i -E "s/^([[:space:]]*term_background:[[:space:]]*).*/\\1$hex/" "$limine_conf"   # sec-ok: hex validated on entry
 }
 restore_limine_backdrop() {
   if [[ -f $limine_conf.omarchy-lock-explorer.bak && ! -f $limine_colors_save ]]; then
@@ -64,8 +62,8 @@ restore_limine_backdrop() {
   # Same rule as on install: only plain hex colors go into the sed below.
   [[ $backdrop =~ ^#?[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$ ]] || backdrop=""
   [[ $term_bg =~ ^#?[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$ ]] || term_bg=""
-  [[ -n $backdrop ]] && sed -i -E "s/^([[:space:]]*backdrop:[[:space:]]*).*/\\1$backdrop/" "$limine_conf"
-  [[ -n $term_bg ]] && sed -i -E "s/^([[:space:]]*term_background:[[:space:]]*).*/\\1$term_bg/" "$limine_conf"
+  [[ -n $backdrop ]] && sed -i -E "s/^([[:space:]]*backdrop:[[:space:]]*).*/\\1$backdrop/" "$limine_conf"   # sec-ok: hex validated above
+  [[ -n $term_bg ]] && sed -i -E "s/^([[:space:]]*term_background:[[:space:]]*).*/\\1$term_bg/" "$limine_conf"   # sec-ok: hex validated above
   rm -f "$limine_colors_save"
 }
 

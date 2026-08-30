@@ -25,10 +25,8 @@ bg_f=$(hex_floats "$bg")
 find "$stock_dir" -maxdepth 1 -type f ! -name '*.plymouth' -exec cp -t "$staging/" {} +
 mv "$staging/omarchy.script" "$staging/omarchy-boot.script"
 
-sed -i \
-  -e "s/^Window.SetBackgroundTopColor.*/Window.SetBackgroundTopColor($bg_f);/" \
-  -e "s/^Window.SetBackgroundBottomColor.*/Window.SetBackgroundBottomColor($bg_f);/" \
-  "$staging/omarchy-boot.script"
+sed -i "s/^Window.SetBackgroundTopColor.*/Window.SetBackgroundTopColor($bg_f);/" "$staging/omarchy-boot.script"         # sec-ok: bg_f is numeric hex_floats output
+sed -i "s/^Window.SetBackgroundBottomColor.*/Window.SetBackgroundBottomColor($bg_f);/" "$staging/omarchy-boot.script"   # sec-ok: bg_f is numeric hex_floats output
 
 for asset in bullet.png entry.png lock.png progress_bar.png; do
   [[ -f $staging/$asset ]] && magick "$staging/$asset" -channel RGB +level-colors "#$fg","#$fg" "$staging/$asset"

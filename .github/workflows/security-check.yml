@@ -1,0 +1,15 @@
+name: Security check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  security-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update -q && sudo apt-get install -qy shellcheck
+      - name: Run security check
+        run: bash extras/security-check.sh

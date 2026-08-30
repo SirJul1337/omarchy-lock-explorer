@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared helpers for the Plymouth boot screen generators. Sourced, not run.
 # Colors come from the active Omarchy theme so the boot screen matches the
 # shell, the same way omarchy-plymouth-set-by-theme reads them.
@@ -5,12 +6,16 @@
 omarchy_theme_dir="$HOME/.local/state/omarchy/current/theme"
 
 # theme_color <key> [fallback-key] -> hex without '#', empty if neither is set
+# or the value is not a plain hex color. Theme files are third-party input and
+# these values end up inside generated scripts and privileged commands, so
+# anything that is not hex is dropped here at the source.
 theme_color() {
   awk -F= -v key="$1" -v fallback="${2:-}" '
     function clean(raw) {
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", raw)
       if (raw ~ /^"/) { sub(/^"/, "", raw); sub(/".*$/, "", raw) }
       sub(/^#/, "", raw)
+      if (raw !~ /^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/) raw = ""
       return raw
     }
     {

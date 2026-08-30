@@ -1,0 +1,9 @@
+# Codes triaged 2026-08-30 as style noise for this repo; the injection
+# checks live in extras/security-check.sh.
+#   SC2206/SC2207  splitting of controlled numeric generator output
+#   SC1083         literal {} in fc-match/qemu format strings
+#   SC2034         palette variables kept for symmetry with the designs
+#   SC2054         commas inside single qemu -device arguments
+#   SC1010         'echo done' progress lines
+#   SC2140         ImageMagick "color","color" argument pairs
+disable=SC2206,SC2207,SC1083,SC2034,SC2054,SC1010,SC2140

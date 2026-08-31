@@ -1,5 +1,4 @@
 import QtQuick
-import QtMultimedia
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pam
@@ -698,6 +697,9 @@ esac
 
   function playSting() {
     if (stingPath.length === 0 || stingPlaying) return false
+    // No player without qt6-multimedia; setting stingPlaying anyway would
+    // stick, since only the window's timers ever call endSting().
+    if (!multimediaAvailable) return false
     stingPlaying = true
     logEvent("sting-playing")
     return true
@@ -1483,7 +1485,9 @@ echo "$out"
     // animation never runs, so nothing can leave the session stuck behind it.
     // A clip design keeps the surface and plays its video as the unlock. The
     // design says when it is done; the failsafe does not care what it thinks.
-    if (designHasClip && (sessionLock.locked || sessionLock.secure)) {
+    // Without qt6-multimedia a clip design has already fallen back to
+    // Classic, so unlock instantly instead of waiting on the clip failsafe.
+    if (designHasClip && multimediaAvailable && (sessionLock.locked || sessionLock.secure)) {
       clipUnlocking = true
       unlockPlayback = true
       clipFailsafe.restart()
@@ -1722,83 +1726,22 @@ echo "$out"
     }
   }
 
-  // The unlock clip. It sits over the unlocked desktop, never over the session
-  // lock, so a video that will not decode costs a black screen for a moment and
-  // nothing more. Four ways out: a key, a click, the end of the clip, and a
-  // failsafe timer that does not care what the player thinks.
-  PanelWindow {
-    id: stingWindow
-    visible: root.stingPlaying
-    anchors { top: true; bottom: true; left: true; right: true }
-    color: "black"
-    WlrLayershell.namespace: "omarchy-lock-explorer-sting"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: root.stingPlaying ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    exclusionMode: ExclusionMode.Ignore
+  // The unlock clip window (see StingWindow.qml). It is the only part of the
+  // service that touches QtMultimedia, so it loads through this Loader:
+  // without qt6-multimedia the load fails, the video features switch off and
+  // the rest of the service — the lock screen and the `lock` IPC target —
+  // carries on. Importing QtMultimedia at the top of this file instead would
+  // take the whole service down with a bare "Target not found".
+  readonly property bool multimediaAvailable: stingLoader.status === Loader.Ready
 
-    MediaPlayer {
-      id: stingPlayer
-      source: root.stingUrl
-      videoOutput: stingOutput
-      playbackRate: root.clipSpeed
-      audioOutput: AudioOutput { muted: root.stingVolume <= 0; volume: root.stingVolume / 100 }
-      onMediaStatusChanged: if (mediaStatus === MediaPlayer.EndOfMedia) stingFade.start()
-      onErrorOccurred: function(error, errorString) {
-        console.warn("lock-explorer: cannot play unlock clip", root.stingUrl, errorString)
-        root.endSting()
-      }
-    }
-
-    Item {
-      id: stingStage
-      anchors.fill: parent
-      focus: true
-      opacity: 1
-
-      VideoOutput {
-        id: stingOutput
-        anchors.fill: parent
-        fillMode: VideoOutput.PreserveAspectCrop
-      }
-
-      Keys.onPressed: function(event) { root.endSting(); event.accepted = true }
-      MouseArea { anchors.fill: parent; onClicked: root.endSting() }
-    }
-
-    NumberAnimation {
-      id: stingFade
-      target: stingStage
-      property: "opacity"
-      to: 0
-      duration: 450
-      easing.type: Easing.OutCubic
-      onFinished: root.endSting()
-    }
-
-    // Whatever the clip is doing, it is gone by the time this fires.
-    Timer {
-      id: stingFailsafe
-      interval: 20000
-      onTriggered: root.endSting()
-    }
-
-    Connections {
-      target: root
-      function onStingPlayingChanged() {
-        if (root.stingPlaying) {
-          stingFade.stop()
-          stingStage.opacity = 1
-          // stop first: position is read only, and a stopped player replays
-          // from the beginning.
-          stingPlayer.stop()
-          stingPlayer.play()
-          stingFailsafe.restart()
-          stingStage.forceActiveFocus()
-        } else {
-          stingFailsafe.stop()
-          stingFade.stop()
-          stingPlayer.stop()
-        }
+  Loader {
+    id: stingLoader
+    source: Qt.resolvedUrl("StingWindow.qml")
+    onLoaded: item.lock = root
+    onStatusChanged: {
+      if (status === Loader.Error) {
+        console.warn("lock-explorer: qt6-multimedia is not installed; video designs and unlock clips are disabled."
+          + " Install it with `sudo pacman -S qt6-multimedia`, then run `omarchy restart shell`.")
       }
     }
   }
@@ -2084,6 +2027,7 @@ echo "$out"
         secure: sessionLock.secure,
         realScreens: root.realScreenCount(),
         passwordPam: root.passwordPamConfigured,
+        multimedia: root.multimediaAvailable,
         fingerprint: root.fingerprintConfigured,
         authenticating: root.authenticating,
         lastEvent: root.lastEvent,

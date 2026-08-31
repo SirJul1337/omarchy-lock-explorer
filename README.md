@@ -234,6 +234,19 @@ safe: a broken Plymouth theme drops to a plain text passphrase prompt, and the b
 never touched. If the whole shell ever misbehaves, switch to a console with Ctrl+Alt+F3, log
 in, and run `omarchy restart shell` (or `omarchy plugin remove io.github.sirjul1337.lock-explorer`).
 
+Video designs fall back to Classic, or the clip designs and the unlock clip do nothing: stock
+Omarchy ships Qt without the multimedia module, so anything that plays a video needs
+`qt6-multimedia`. The rest of the plugin works without it (the shell log says
+`qt6-multimedia is not installed`, and `omarchy-shell lock status` shows `"multimedia": false`).
+Fix:
+
+```sh
+sudo pacman -S qt6-multimedia && omarchy restart shell
+```
+
+On plugin versions up to 1.5.1 the missing package took the whole service down, which is the
+other way `Target not found` used to happen.
+
 Designs show the theme color instead of your wallpaper (and the explorer header says the
 wallpaper failed to load): stock Omarchy ships Qt without a WebP decoder, so `.webp` wallpapers
 cannot be read by the shell even though the desktop shows them fine. Fix:
@@ -244,7 +257,10 @@ sudo pacman -S qt6-imageformats && omarchy restart shell
 
 ## Dependencies
 
-Nothing beyond Omarchy 4 itself, except the Weather design, which runs `curl` to fetch
+The video features — the clip designs (Storm, Eyes, River and your own), the Motion design and
+the unlock clip — need `qt6-multimedia`, which stock Omarchy does not install. Without it they
+are simply disabled and everything else works (see Troubleshooting). Beyond that, nothing
+outside Omarchy 4 itself, except the Weather design, which runs `curl` to fetch
 `https://wttr.in` (the same service and location file as the Omarchy weather widget). No other
 design makes network requests. Picking an avatar runs `omarchy file select`, the desktop file
 chooser that ships with Omarchy. The plugin writes only its own entry in

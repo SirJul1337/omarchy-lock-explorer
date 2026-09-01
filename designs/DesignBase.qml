@@ -146,4 +146,22 @@ Item {
 
   onInputEnabledChanged: if (inputEnabled) Qt.callLater(forcePasswordFocus)
   Component.onCompleted: if (inputEnabled) Qt.callLater(forcePasswordFocus)
+
+  // A suspend/resume cycle leaves the password field without item focus, and
+  // nothing here used to claim it back: inputEnabled stays true for the whole
+  // lock, so onInputEnabledChanged never fires, and Component.onCompleted ran
+  // long before. The lock screen then ignores the keyboard until the user
+  // clicks, or moves the pointer onto another output whose surface kept its
+  // focus.
+  //
+  // The surface keeps compositor keyboard focus across the cycle — only the
+  // item focus is lost — so the field itself is what has to be watched.
+  Connections {
+    target: base.inputItem
+    ignoreUnknownSignals: true
+    function onActiveFocusChanged() {
+      if (base.inputEnabled && base.inputItem && !base.inputItem.activeFocus)
+        Qt.callLater(base.forcePasswordFocus)
+    }
+  }
 }

@@ -71,6 +71,24 @@ mono_font_family() {
   fc-match -f '%{family}' monospace | cut -d, -f1
 }
 
+# The boot-chrome contract: plymouthd runs the applied theme on the way down
+# too (plymouth-reboot.service and friends), where no passphrase prompt ever
+# fires. Generators must keep all passphrase chrome -- entry, bullets,
+# placeholders, hints -- hidden until display_password_callback actually
+# fires; that also keeps dead entry boxes off boots that never prompt. Work
+# that must not happen on the way down at all (frame preloads, boxed
+# backgrounds) hangs off the gate fragment below.
+
+# emit_downward_gate <name> — plymouth-script fragment that sets global.<name>
+# to 0 when the theme runs on the way down (reboot/poweroff), 1 otherwise.
+emit_downward_gate() {
+  cat <<EOF
+mode = Plymouth.GetMode();
+global.$1 = 1;
+if (mode == "reboot" || mode == "shutdown") global.$1 = 0;
+EOF
+}
+
 # write_theme_ini <staging> <bg-hex> <family> — the .plymouth for the
 # omarchy-boot slot every generator installs into.
 write_theme_ini() {

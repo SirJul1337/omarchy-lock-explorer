@@ -116,9 +116,7 @@ still.sprite.SetPosition(0, 0, 1);
 # The clip only ever plays after a passphrase prompt on the way up; during
 # reboot/shutdown plymouthd runs this theme too, and decoding the whole
 # sequence there would waste the shutdown on frames never shown.
-mode = Plymouth.GetMode();
-global.boot_like = 1;
-if (mode == "reboot" || mode == "shutdown") global.boot_like = 0;
+$(emit_downward_gate boot_like)
 
 if (global.boot_like == 1) {
   for (i = 0; i < num_frames; i++) {

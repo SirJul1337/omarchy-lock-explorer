@@ -320,6 +320,7 @@ Item {
   // wallpaper loaded even when the explorer is closed (theme-change resyncs
   // arrive with the panel down).
   property bool snapshotBusy: false
+  property string snapshotRect: ""
 
   function snapshotAndApply(id, persist) {
     if (root.bootApplying) return
@@ -369,12 +370,18 @@ Item {
              + "," + align
       }
       var grabOk = snapshotSource.grabToImage(function(result) {
-        root.snapshotBusy = false
         var saved = result && result.saveToFile(path)
         if (root.service) root.service.logEvent("snapshot-grab " + id + (saved ? " ok rect=" + rect : " save-failed"))
-        if (saved) {
-          if (root.service && typeof root.service.applyBootSnapshot === "function")
-            root.service.applyBootSnapshot(id, root.snapshotPersist, rect)
+        if (!saved) { root.snapshotBusy = false; return }
+        root.snapshotRect = rect
+        // Second, box-free grab: apply.sh picks it up as the background for
+        // reboot/shutdown and promptless stretches of boot, so the splash
+        // never shows a dead entry box (see snapshotBare in DesignBase).
+        if (it && it.snapshotBare !== undefined) {
+          it.snapshotBare = true
+          snapshotBareTimer.restart()
+        } else {
+          root.snapshotFinish()
         }
       }, Qt.size(1920, 1080))
       if (!grabOk) {
@@ -388,6 +395,36 @@ Item {
             "The background changed. Open the lock screen explorer once and it refreshes itself."])
         }
       }
+    }
+  }
+
+  // Wraps up a snapshot flow: resets the bare flag and hands the grabbed
+  // frame(s) to the service. Split out because the box-free second grab
+  // arrives asynchronously.
+  function snapshotFinish() {
+    root.snapshotBusy = false
+    var it = snapshotHost.item
+    if (it && it.snapshotBare !== undefined) it.snapshotBare = false
+    if (root.service && typeof root.service.applyBootSnapshot === "function")
+      root.service.applyBootSnapshot(snapshotHost.designId, root.snapshotPersist, root.snapshotRect)
+  }
+
+  // One frame is not reliably enough for the opacity change to land in the
+  // next grab; a short settle keeps the box-free capture honest. If this grab
+  // fails, snapshotFinish still applies: apply.sh only trusts a plain capture
+  // newer than the snapshot, so a stale or missing file falls back cleanly.
+  Timer {
+    id: snapshotBareTimer
+    interval: 150
+    onTriggered: {
+      var id = snapshotHost.designId
+      var ppath = Quickshell.env("HOME") + "/.local/state/omarchy/lock-explorer-snapshots/" + id + "-plain.png"
+      var ok = snapshotSource.grabToImage(function(result) {
+        var saved = result && result.saveToFile(ppath)
+        if (root.service) root.service.logEvent("snapshot-grab-plain " + id + (saved ? " ok" : " save-failed"))
+        root.snapshotFinish()
+      }, Qt.size(1920, 1080))
+      if (!ok) root.snapshotFinish()
     }
   }
 

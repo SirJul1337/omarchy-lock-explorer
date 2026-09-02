@@ -85,16 +85,21 @@ case $target in
     # used as the boot background with a passphrase field on top.
     snap="$HOME/.local/state/omarchy/lock-explorer-snapshots/${target#snapshot:}.png"
     [[ -f $snap ]] || { echo "No snapshot for ${target#snapshot:}" >&2; exit 1; }
+    # The box-free companion grab (see the explorer's snapshot flow): shown
+    # whenever no prompt is up. Trusted only when newer than the snapshot
+    # itself -- an older file is a leftover from a previous grab.
+    plain="$HOME/.local/state/omarchy/lock-explorer-snapshots/${target#snapshot:}-plain.png"
+    [[ -f $plain && $plain -nt $snap ]] || plain=""
     tmpconf=$(mktemp)
     if [[ -n ${SNAPSHOT_ENTRY:-} ]]; then
       # The design's own input box is in the snapshot; put the bullets inside
       # its text area instead of drawing a pill.
       # SNAPSHOT_ENTRY = "cx,cy,w,h,align" (percent, align left|center|right).
       IFS=, read -r ex ey ew eh ea <<< "$SNAPSHOT_ENTRY"
-      printf 'background = %s\nlogo = none\ntitle =\nsubtitle =\nclock = off\nentry = embedded\nentry_x = %s\nentry_y = %s\nentry_wp = %s\nentry_hp = %s\nentry_align = %s\nhint =\n' \
-        "$snap" "$ex" "$ey" "$ew" "$eh" "${ea:-center}" > "$tmpconf"
+      printf 'background = %s\nbackground_plain = %s\nlogo = none\ntitle =\nsubtitle =\nclock = off\nentry = embedded\nentry_x = %s\nentry_y = %s\nentry_wp = %s\nentry_hp = %s\nentry_align = %s\nhint =\n' \
+        "$snap" "$plain" "$ex" "$ey" "$ew" "$eh" "${ea:-center}" > "$tmpconf"
     else
-      printf 'background = %s\nlogo = none\ntitle =\nsubtitle =\nclock = off\nentry = pill\nentry_y = 82\nhint =\n' "$snap" > "$tmpconf"
+      printf 'background = %s\nbackground_plain = %s\nlogo = none\ntitle =\nsubtitle =\nclock = off\nentry = pill\nentry_y = 82\nhint =\n' "$snap" "$plain" > "$tmpconf"
     fi
     bash "$here/custom/generate.sh" "$staging" "$tmpconf" "$target"
     rm -f "$tmpconf"

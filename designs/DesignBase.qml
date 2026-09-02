@@ -69,6 +69,10 @@ Item {
   // True while the design is rendered as a boot-screen background: the boot
   // theme draws its own passphrase entry, so input chrome hides itself.
   property bool snapshotMode: false
+  // Second stage of that grab: with snapshotBare also set, the input box
+  // disappears entirely. That capture becomes the splash for reboot/shutdown
+  // and for stretches of boot with no prompt up, where a box is dead chrome.
+  property bool snapshotBare: false
   property Item inputItem: null
   property bool shakeOnFail: false
   property bool flashOnFail: true

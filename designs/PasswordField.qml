@@ -10,6 +10,9 @@ BorderSurface {
   // passphrase bullets inside it -- but the contents (glyph, placeholder,
   // eye, fingerprint) go.
   readonly property bool snapshotBox: lock ? lock.snapshotMode === true : false
+  // The box-free boot capture (snapshotBare) hides the whole field; opacity
+  // instead of visible so surrounding layouts do not reflow between grabs.
+  opacity: lock && lock.snapshotBare === true ? 0 : 1
   property string placeholder: "Enter password"
   property bool showLockGlyph: true
   property bool shakeOnFail: true

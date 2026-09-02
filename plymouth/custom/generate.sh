@@ -48,6 +48,10 @@ resolve_color() {
 }
 
 background=$(val background theme)
+# Box-free companion capture of a snapshot background, see apply.sh: shown
+# whenever no passphrase prompt is up, so the painted-in input box never sits
+# on screen as dead chrome.
+background_plain=$(val background_plain "")
 scanlines=$(val scanlines off)
 logo=$(val logo none);            logo_y=$(val logo_y 36);        logo_h=$(val logo_height 120)
 title=$(expand_vars "$(val title "")");        title_y=$(val title_y 18)
@@ -78,6 +82,9 @@ case "$background" in
   '#'*) magick -size 64x64 "xc:$background" "$staging/bg.png" ;;
   *) [[ -f $background ]] && magick "$background" -resize 1920x1080^ -gravity center -extent 1920x1080 "$staging/bg.png" ;;
 esac
+
+[[ -n $background_plain && -f $background_plain ]] &&
+  magick "$background_plain" -resize 1920x1080^ -gravity center -extent 1920x1080 "$staging/bg-plain.png"
 
 [[ $scanlines == on ]] && magick -size 8x3 xc:none -fill 'rgba(0,0,0,0.12)' -draw 'rectangle 0,2 7,2' "$staging/scanline.png"
 
@@ -123,8 +130,8 @@ if [[ -f $staging/bg.png && ($id == snapshot:* || ($entry != none && ! -f $stagi
 fi
 bg_show=""; bg_rehide=""
 if [[ -n $bg_has_box ]]; then
-  bg_show="show_bg();"
-  bg_rehide="if (global.bg_wanted == 0) bg.sprite.SetOpacity(0);"
+  bg_show="bg_prompt();"
+  bg_rehide="bg_idle();"
 fi
 hint_show=""
 [[ -n $hint && $entry != none ]] && hint_show="hint.sprite.SetOpacity(1);"
@@ -144,28 +151,54 @@ screen.w = Window.GetWidth();
 screen.h = Window.GetHeight();
 EOF
 
-if [[ -n $bg_has_box ]]; then
+if [[ -n $bg_has_box && -f $staging/bg-plain.png ]]; then
 cat <<'EOF'
-# The design's input box is painted into bg.png itself, so no sprite toggle
-# can remove just the box. On the way down (plymouthd --mode=reboot/shutdown)
-# no prompt is expected: leave the image out and show the plain theme
-# background. A prompt that does fire brings it back -- the bullets belong
-# inside the painted box -- and loading lazily spares the decode entirely on
-# a promptless shutdown.
+# Two captures of the same design: bg-plain.png without the input box is the
+# resting background -- shutdown, reboot, and any stretch of boot with no
+# prompt up -- and bg.png with the box overlays it exactly while a passphrase
+# prompt is live, so the box is never dead chrome. The boxed image loads
+# lazily; a run that never prompts never decodes it.
+bg.plain_sprite = Sprite(Image("bg-plain.png").Scale(screen.w, screen.h));
+bg.plain_sprite.SetPosition(0, 0, 0);
 bg.sprite = Sprite();
-bg.sprite.SetPosition(0, 0, 0);
+bg.sprite.SetPosition(0, 0, 1);
 global.bg_loaded = 0;
-fun show_bg() {
+fun bg_prompt() {
   if (global.bg_loaded == 0) {
     bg.sprite.SetImage(Image("bg.png").Scale(screen.w, screen.h));
     global.bg_loaded = 1;
   }
   bg.sprite.SetOpacity(1);
 }
-mode = Plymouth.GetMode();
-global.bg_wanted = 1;
-if (mode == "reboot" || mode == "shutdown") global.bg_wanted = 0;
-if (global.bg_wanted == 1) show_bg();
+fun bg_idle() {
+  bg.sprite.SetOpacity(0);
+}
+EOF
+elif [[ -n $bg_has_box ]]; then
+cat <<'EOF'
+# The design's input box is painted into bg.png itself and no box-free
+# capture exists (a snapshot from before v1.5.4), so no sprite toggle can
+# remove just the box. On the way down no prompt is expected: leave the
+# image out and show the plain theme background. A prompt that does fire
+# brings it back -- the bullets belong inside the painted box -- and loading
+# lazily spares the decode entirely on a promptless shutdown.
+bg.sprite = Sprite();
+bg.sprite.SetPosition(0, 0, 0);
+global.bg_loaded = 0;
+fun bg_prompt() {
+  if (global.bg_loaded == 0) {
+    bg.sprite.SetImage(Image("bg.png").Scale(screen.w, screen.h));
+    global.bg_loaded = 1;
+  }
+  bg.sprite.SetOpacity(1);
+}
+EOF
+emit_downward_gate bg_wanted
+cat <<'EOF'
+fun bg_idle() {
+  if (global.bg_wanted == 0) bg.sprite.SetOpacity(0);
+}
+if (global.bg_wanted == 1) bg_prompt();
 EOF
 elif [[ -f $staging/bg.png ]]; then
 cat <<'EOF'

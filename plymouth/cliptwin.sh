@@ -113,9 +113,18 @@ if (still.image.GetWidth() != screen.w) still.image = still.image.Scale(screen.w
 still.sprite = Sprite(still.image);
 still.sprite.SetPosition(0, 0, 1);
 
-for (i = 0; i < num_frames; i++) {
-  frames[i] = Image(frame_name(i));
-  if (frames[i].GetWidth() != screen.w) frames[i] = frames[i].Scale(screen.w, screen.h);
+# The clip only ever plays after a passphrase prompt on the way up; during
+# reboot/shutdown plymouthd runs this theme too, and decoding the whole
+# sequence there would waste the shutdown on frames never shown.
+mode = Plymouth.GetMode();
+global.boot_like = 1;
+if (mode == "reboot" || mode == "shutdown") global.boot_like = 0;
+
+if (global.boot_like == 1) {
+  for (i = 0; i < num_frames; i++) {
+    frames[i] = Image(frame_name(i));
+    if (frames[i].GetWidth() != screen.w) frames[i] = frames[i].Scale(screen.w, screen.h);
+  }
 }
 
 #----------------------------------------- Chrome --------------------------------
@@ -153,10 +162,22 @@ fun set_chrome_opacity(op) {
   if (op == 0) hide_bullets();
 }
 
+# Hidden until a passphrase prompt actually fires: plymouthd runs this theme
+# for reboot/shutdown too (and for unencrypted boots), where a visible entry
+# reads as a prompt that will never accept input.
+set_chrome_opacity(0);
+
 fun display_password_callback(prompt_text, count) {
   global.password_shown = 1;
 
-  if (global.playing == 1) return;
+  if (global.playing == 1) {
+    # The clip starts on submit, not on success: a prompt firing again means
+    # the passphrase was wrong. Rewind to the still and bring the entry back.
+    global.playing = 0;
+    global.tick = 0;
+    global.cur_frame = -1;
+    still.sprite.SetImage(still.image);
+  }
   set_chrome_opacity(1);
 
   if (count > 24) count = 24;
@@ -178,8 +199,12 @@ fun display_password_callback(prompt_text, count) {
 
 fun display_normal_callback() {
   if (global.password_shown == 1 && global.playing == 0) {
-    global.playing = 1;
-    global.tick = 0;
+    # Outside boot the frames were never loaded, so a submitted answer just
+    # drops the chrome and keeps the still.
+    if (global.boot_like == 1) {
+      global.playing = 1;
+      global.tick = 0;
+    }
     set_chrome_opacity(0);
   }
 }

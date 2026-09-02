@@ -98,6 +98,9 @@ cursor.sprite.SetOpacity(0);
 hint.image = Image.Text("encrypted disk  -  enter passphrase to boot", dim.r, dim.g, dim.b, 1, font.small);
 hint.sprite = Sprite(hint.image);
 hint.sprite.SetPosition(screen.w - pad - hint.image.GetWidth(), screen.h - pad - hint.image.GetHeight(), 10);
+# Hidden until a passphrase prompt actually fires: plymouthd runs this theme
+# for reboot/shutdown too, where "enter passphrase to boot" would mislead.
+hint.sprite.SetOpacity(0);
 
 global.password_active = 0;
 global.password_shown = 0;
@@ -113,6 +116,7 @@ fun display_password_callback(prompt_text, bullets) {
 
   login.sprite.SetOpacity(1);
   prompt.sprite.SetOpacity(1);
+  hint.sprite.SetOpacity(1);
   status.sprite.SetOpacity(0);
 
   if (bullets > 32) bullets = 32;

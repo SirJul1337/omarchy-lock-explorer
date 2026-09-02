@@ -112,6 +112,23 @@ fi
 write_theme_ini "$staging" "$bg_t" "$family"
 printf '%s\n' "$id" > "$staging/design"
 
+# A bg.png with the design's own input box painted in: any snapshot target
+# (the explorer's grab keeps the box even when apply.sh falls back to a pill
+# entry), or an embedded entry declared in the conf. Such a background must
+# not sit on the reboot/shutdown splash looking like a live prompt, so the
+# script gets hooks to show it only when a prompt can actually arrive.
+bg_has_box=""
+if [[ -f $staging/bg.png && ($id == snapshot:* || ($entry != none && ! -f $staging/entry.png)) ]]; then
+  bg_has_box=1
+fi
+bg_show=""; bg_rehide=""
+if [[ -n $bg_has_box ]]; then
+  bg_show="show_bg();"
+  bg_rehide="if (global.bg_wanted == 0) bg.sprite.SetOpacity(0);"
+fi
+hint_show=""
+[[ -n $hint && $entry != none ]] && hint_show="hint.sprite.SetOpacity(1);"
+
 # ------------------------------------------------ plymouth script
 {
 cat <<EOF
@@ -127,10 +144,35 @@ screen.w = Window.GetWidth();
 screen.h = Window.GetHeight();
 EOF
 
-[[ -f $staging/bg.png ]] && cat <<'EOF'
+if [[ -n $bg_has_box ]]; then
+cat <<'EOF'
+# The design's input box is painted into bg.png itself, so no sprite toggle
+# can remove just the box. On the way down (plymouthd --mode=reboot/shutdown)
+# no prompt is expected: leave the image out and show the plain theme
+# background. A prompt that does fire brings it back -- the bullets belong
+# inside the painted box -- and loading lazily spares the decode entirely on
+# a promptless shutdown.
+bg.sprite = Sprite();
+bg.sprite.SetPosition(0, 0, 0);
+global.bg_loaded = 0;
+fun show_bg() {
+  if (global.bg_loaded == 0) {
+    bg.sprite.SetImage(Image("bg.png").Scale(screen.w, screen.h));
+    global.bg_loaded = 1;
+  }
+  bg.sprite.SetOpacity(1);
+}
+mode = Plymouth.GetMode();
+global.bg_wanted = 1;
+if (mode == "reboot" || mode == "shutdown") global.bg_wanted = 0;
+if (global.bg_wanted == 1) show_bg();
+EOF
+elif [[ -f $staging/bg.png ]]; then
+cat <<'EOF'
 bg.sprite = Sprite(Image("bg.png").Scale(screen.w, screen.h));
 bg.sprite.SetPosition(0, 0, 0);
 EOF
+fi
 
 [[ -f $staging/scanline.png ]] && cat <<'EOF'
 scan.sprite = Sprite(Image("scanline.png").Tile(screen.w, screen.h));
@@ -165,6 +207,11 @@ entry.cx = screen.w * $entry_x / 100;
 entry.cy = screen.h * $entry_y / 100;
 entry.iw = entry.image.GetWidth() - 48;
 entry.sprite.SetPosition(entry.cx - entry.image.GetWidth() / 2, entry.cy - entry.image.GetHeight() / 2, 5);
+
+# Hidden until a passphrase prompt actually fires: plymouthd runs this theme
+# for reboot/shutdown too (and for unencrypted boots), where a visible entry
+# reads as a prompt that will never accept input.
+entry.sprite.SetOpacity(0);
 EOF
 else
 cat <<EOF
@@ -207,7 +254,9 @@ cat <<EOF
 fun display_password_callback(prompt_text, count) {
   global.prompt_seen = 1;
   global.boot_wait = 0;
+  $bg_show
   entry.sprite.SetOpacity(1);
+  $hint_show
   booting.sprite.SetOpacity(0);
   if (count > 24) count = 24;
   step = bullet.image.GetWidth() + 8;
@@ -227,6 +276,7 @@ fun display_password_callback(prompt_text, count) {
 
 fun display_normal_callback() {
   hide_bullets();
+  $bg_rehide
   if (global.prompt_seen == 1) {
     global.boot_wait = 1;
     entry.sprite.SetOpacity(0);
@@ -251,11 +301,17 @@ Plymouth.SetRefreshFunction(refresh_callback);
 EOF
 fi
 
-[[ -n $hint ]] && cat <<EOF
+if [[ -n $hint ]]; then
+cat <<EOF
 hint.image = Image.Text("$hint", dim.r, dim.g, dim.b, 1, "$family 12");
 hint.sprite = Sprite(hint.image);
 hint.sprite.SetPosition(screen.w - hint.image.GetWidth() - 60, screen.h - hint.image.GetHeight() - 50, 5);
 EOF
+[[ $entry != none ]] && cat <<'EOF'
+# Hidden until a prompt fires, like the entry it explains.
+hint.sprite.SetOpacity(0);
+EOF
+fi
 
 cat <<EOF
 

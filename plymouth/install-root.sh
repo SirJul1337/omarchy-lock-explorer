@@ -1,11 +1,15 @@
 #!/bin/bash
 # Privileged half of apply.sh, run through pkexec.
 #
-#   addon <addon.efi>  install a stub initrd addon next to the UKI — the fast
-#                      path: one file write, no initramfs rebuild. The first
-#                      addon install also cleans up a theme baked by the old
-#                      rebuild flow (one last rebuild) so the initramfs holds
-#                      the stock theme as the permanent fallback.
+#   addon <addon.efi> [bg] [staging]
+#                      install a stub initrd addon next to the UKI — the fast
+#                      path: one file write, no initramfs rebuild. The staged
+#                      theme is also copied to the root fs and made the
+#                      default: plymouth-reboot/poweroff run plymouthd from
+#                      the root, which never sees the addon, so this copy is
+#                      what the shutdown splash shows (same as the rotation
+#                      helper does). The addon still overrides whatever a
+#                      later kernel-update rebuild bakes in on the way up.
 #   theme <staging>    legacy path for non-UKI systems: bake the theme into
 #                      the initramfs and rebuild.
 #   stock <stock-dir>  remove the addon and/or the baked theme; only rebuilds
@@ -15,6 +19,7 @@ set -euo pipefail
 mode="${1:?usage: install-root.sh addon <addon.efi> | theme <staging-dir> | stock <stock-dir>}"
 src="${2:?missing source}"
 bg_hex="${3:-}"   # theme background, so the bootloader matches the splash
+staging_dir="${4:-}"   # staged theme dir, for the root-fs shutdown copy (addon mode)
 
 # The background lands in a sed expression run as root on limine.conf, so
 # refuse anything that is not a plain hex color instead of trying to escape.
@@ -82,13 +87,17 @@ case $mode in
     rm -f "$extra_dir/lock-explorer.addon.efi"   # pre-release test name
     install_quit_dropin
     [[ -n $bg_hex ]] && sync_limine_backdrop "${bg_hex#\#}"
-    # One-time cleanup after the old rebuild flow: the addon carries the theme
-    # now, so the initramfs goes back to the stock theme as the permanent
-    # fallback (and stays there through kernel updates).
-    if [[ -d $theme_root/omarchy-boot && -d $theme_root/omarchy ]]; then
-      plymouth-set-default-theme omarchy
+    # The shutdown half: plymouth-reboot/poweroff run plymouthd from the root
+    # fs, which never sees the addon, so a live copy of the theme goes there
+    # too and becomes the default. plymouthd reads it directly -- no rebuild.
+    # (This replaces the old reset-to-stock cleanup: the root copy is now
+    # refreshed on every apply, so nothing baked can go stale.)
+    if [[ -n $staging_dir && -f $staging_dir/omarchy-boot.plymouth ]]; then
       rm -rf "$theme_root/omarchy-boot"
-      need_rebuild=1
+      mkdir -p "$theme_root/omarchy-boot"
+      cp -r --no-preserve=mode,ownership "$staging_dir/." "$theme_root/omarchy-boot/"
+      chmod -R a+rX "$theme_root/omarchy-boot"
+      plymouth-set-default-theme omarchy-boot
     fi
     ;;
   theme)

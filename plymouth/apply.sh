@@ -146,7 +146,7 @@ if addon_capable; then
   addon=$(build_addon "$staging")
   addon_work=$(dirname "$addon")
   trap 'rm -rf "$staging" "$addon_work"' EXIT
-  pkexec bash "$here/install-root.sh" addon "$addon" "$theme_bg"
+  pkexec bash "$here/install-root.sh" addon "$addon" "$theme_bg" "$staging"
 else
   pkexec bash "$here/install-root.sh" theme "$staging" "$theme_bg"
 fi

@@ -87,6 +87,24 @@ Item {
   readonly property int unlockDuration: unlockDurationOverride >= 0 ? unlockDurationOverride : configuredUnlockDuration
   readonly property bool unlockAnimated: unlockAnimation !== "none" && unlockDuration > 0
 
+  // How long the unlock screen stays lit before the display is blanked. The
+  // session is locked before every suspend, so on a machine that sleeps this
+  // delay is what the user sees on resume: too short and the screen goes dark
+  // before there is time to type. Saved on the plugin entry as `blankMs`.
+  readonly property int defaultBlankDelay: 5000
+  property int blankDelayOverride: -1
+  readonly property int configuredBlankDelay: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.blankMs !== undefined)
+        return Math.max(1000, Math.min(3600000, Number(entry.blankMs) || defaultBlankDelay))
+    }
+    return defaultBlankDelay
+  }
+  readonly property int blankDelay: blankDelayOverride >= 0 ? blankDelayOverride : configuredBlankDelay
+
   // Avatar picture for the designs that show the user. The chosen path lives on
   // the plugin entry in shell.json; "none" there means the user cleared it and
   // wants the initial back, an empty setting falls back to the usual dotfiles.
@@ -1908,7 +1926,7 @@ echo "$out"
 
   Timer {
     id: idleBlankTimer
-    interval: 5000
+    interval: root.blankDelay
     repeat: false
     property double armedAt: 0
     onTriggered: {
@@ -2039,6 +2057,7 @@ echo "$out"
         unlock: root.unlockAnimation,
         unlockMs: root.unlockDuration,
         unlockAnimated: root.unlockAnimated,
+        blankMs: root.blankDelay,
         unlocking: root.unlocking,
         clipDesign: root.designHasClip,
         clipUnlocking: root.clipUnlocking,

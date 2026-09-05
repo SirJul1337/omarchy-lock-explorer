@@ -99,7 +99,7 @@ Item {
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
       if (entry && String(entry.id || "") === pluginId && entry.blankMs !== undefined)
-        return Math.max(1000, Math.min(3600000, Number(entry.blankMs) || defaultBlankDelay))
+        return Math.max(1000, Math.min(86400000, Number(entry.blankMs) || defaultBlankDelay))
     }
     return defaultBlankDelay
   }
@@ -296,7 +296,7 @@ Item {
   function setBlankDelay(ms) {
     var text = String(ms === undefined ? "" : ms).trim()
     var value = Math.round(Number(text))
-    if (text.length === 0 || !isFinite(value) || value < 1000 || value > 3600000) return false
+    if (text.length === 0 || !isFinite(value) || value < 1000 || value > 86400000) return false
 
     blankDelayOverride = value
     if (shell && typeof shell.updateEntryInline === "function") {

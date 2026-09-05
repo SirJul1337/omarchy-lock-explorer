@@ -733,7 +733,7 @@ Item {
 
   function commitCustomDelay() {
     var minutes = Math.round(Number(root.customDelayText))
-    if (!isFinite(minutes) || minutes < 1 || minutes > 60) return
+    if (!isFinite(minutes) || minutes < 1 || minutes > 1440) return
     if (!root.service) return
     root.service.setKeepDisplayOn(false)
     root.service.setBlankDelay(minutes * 60000)
@@ -1416,7 +1416,7 @@ Item {
                     text: root.customDelayText
                     onTextEdited: root.customDelayText = text
                     focus: root.customDelayEditing
-                    validator: IntValidator { bottom: 1; top: 60 }
+                    validator: IntValidator { bottom: 1; top: 1440 }
 
                     Keys.onEscapePressed: {
                       root.customDelayEditing = false

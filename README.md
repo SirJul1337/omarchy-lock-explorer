@@ -107,7 +107,7 @@ the plugin entry in `~/.config/omarchy/shell.json`.
 
 By default the lock screen DPMS-offs the display five seconds after locking. The Settings tab has
 a "Blank the display after" row — 5s, 15s, 30s, 1m, 5m, Custom, or Never. Custom takes minutes
-(1 to 60) typed into an inline field. By hand: `omarchy-shell lock setBlankDelay 30000`, or
+(1 to 1440) typed into an inline field. By hand: `omarchy-shell lock setBlankDelay 30000`, or
 `setKeepDisplayOn true` for Never.
 
 **Never** keeps the lock screen lit for the whole lock: video designs keep playing, and slow

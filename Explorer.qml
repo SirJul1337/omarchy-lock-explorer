@@ -725,6 +725,10 @@ Item {
   function beginCustomDelay() {
     root.customDelayText = root.keepDisplayOn ? "" : String(Math.max(1, Math.round(root.blankDelay / 60000)))
     root.customDelayEditing = true
+    Qt.callLater(function() {
+      customDelayInput.forceActiveFocus()
+      customDelayInput.selectAll()
+    })
   }
 
   function commitCustomDelay() {
@@ -734,6 +738,7 @@ Item {
     root.service.setKeepDisplayOn(false)
     root.service.setBlankDelay(minutes * 60000)
     root.customDelayEditing = false
+    keyCatcher.forceActiveFocus()
   }
 
   function customizeSelected() {
@@ -854,13 +859,14 @@ Item {
       // Embedded lock previews can pull keyboard focus; reclaim it whenever
       // it drifts, except while a real editor field wants it.
       onActiveFocusChanged: {
-        if (!activeFocus && root.opened && root.bootEditing.length === 0 && !root.editing)
+        if (!activeFocus && root.opened && root.bootEditing.length === 0 && !root.editing && !root.customDelayEditing)
           Qt.callLater(function() { keyCatcher.forceActiveFocus() })
       }
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape) { root.handleEscape(); event.accepted = true; return }
         if (root.editing) return
         if (root.bootEditing.length > 0) return
+        if (root.customDelayEditing) return
         if (root.mainTab !== "styling" && root.mainTab !== "animation") {
           if (event.key === Qt.Key_U) { root.toggleSettings("settings"); event.accepted = true }
           else if (event.key === Qt.Key_B) { root.toggleSettings("boot"); event.accepted = true }
@@ -1410,7 +1416,10 @@ Item {
                     focus: root.customDelayEditing
                     validator: IntValidator { bottom: 1; top: 60 }
 
-                    Keys.onEscapePressed: root.customDelayEditing = false
+                    Keys.onEscapePressed: {
+                      root.customDelayEditing = false
+                      keyCatcher.forceActiveFocus()
+                    }
                     Keys.onReturnPressed: root.commitCustomDelay()
                   }
                 }

@@ -723,16 +723,16 @@ Item {
   }
 
   function beginCustomDelay() {
-    root.customDelayText = root.keepDisplayOn ? "" : String(Math.round(root.blankDelay / 1000))
+    root.customDelayText = root.keepDisplayOn ? "" : String(Math.max(1, Math.round(root.blankDelay / 60000)))
     root.customDelayEditing = true
   }
 
   function commitCustomDelay() {
-    var seconds = Math.round(Number(root.customDelayText))
-    if (!isFinite(seconds) || seconds < 1 || seconds > 3600) return
+    var minutes = Math.round(Number(root.customDelayText))
+    if (!isFinite(minutes) || minutes < 1 || minutes > 60) return
     if (!root.service) return
     root.service.setKeepDisplayOn(false)
-    root.service.setBlankDelay(seconds * 1000)
+    root.service.setBlankDelay(minutes * 60000)
     root.customDelayEditing = false
   }
 
@@ -1377,18 +1377,30 @@ Item {
 
                 Rectangle {
                   visible: root.customDelayEditing
-                  width: Style.space(64)
+                  width: Style.space(110)
                   height: Style.space(26)
                   radius: root.cornerRadius
                   color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06)
                   border.width: Math.max(1, Style.space(2))
                   border.color: root.accent
 
+                  // The unit hint lives inside the box, right-aligned, and the
+                  // input reserves its width so typed digits never run under it.
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.right: parent.right
+                    anchors.rightMargin: Style.space(8)
+                    text: "m, Enter"
+                    color: root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                  }
+
                   TextInput {
                     id: customDelayInput
                     anchors.fill: parent
                     anchors.leftMargin: Style.space(8)
-                    anchors.rightMargin: Style.space(8)
+                    anchors.rightMargin: Style.space(52)
                     verticalAlignment: TextInput.AlignVCenter
                     color: root.foreground
                     font.family: root.fontFamily
@@ -1396,17 +1408,7 @@ Item {
                     text: root.customDelayText
                     onTextEdited: root.customDelayText = text
                     focus: root.customDelayEditing
-                    validator: IntValidator { bottom: 1; top: 3600 }
-
-                    Text {
-                      anchors.verticalCenter: parent.verticalCenter
-                      anchors.left: parent.right
-                      anchors.leftMargin: Style.space(4)
-                      text: "s, Enter"
-                      color: root.muted
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                    }
+                    validator: IntValidator { bottom: 1; top: 60 }
 
                     Keys.onEscapePressed: root.customDelayEditing = false
                     Keys.onReturnPressed: root.commitCustomDelay()

@@ -99,11 +99,27 @@ Item {
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
       if (entry && String(entry.id || "") === pluginId && entry.blankMs !== undefined)
-        return Math.max(1000, Math.min(3600000, Number(entry.blankMs) || defaultBlankDelay))
+        return Math.max(1000, Math.min(86400000, Number(entry.blankMs) || defaultBlankDelay))
     }
     return defaultBlankDelay
   }
   readonly property int blankDelay: blankDelayOverride >= 0 ? blankDelayOverride : configuredBlankDelay
+
+  // When true the display stays powered while locked: the DPMS-off is skipped
+  // entirely, so video designs keep playing and slow monitors are never
+  // re-blanked. Takes precedence over blankDelay. Lives on the plugin entry
+  // in shell.json.
+  property int keepDisplayOnOverride: -1
+  readonly property bool configuredKeepDisplayOn: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId) return entry.keepDisplayOn === true
+    }
+    return false
+  }
+  readonly property bool keepDisplayOn: keepDisplayOnOverride >= 0 ? keepDisplayOnOverride === 1 : configuredKeepDisplayOn
 
   // Avatar picture for the designs that show the user. The chosen path lives on
   // the plugin entry in shell.json; "none" there means the user cleared it and
@@ -274,6 +290,35 @@ Item {
       shell.updateEntryInline(pluginId, current)
     }
     logEvent("unlock-ms=" + value)
+    return true
+  }
+
+  function setBlankDelay(ms) {
+    var text = String(ms === undefined ? "" : ms).trim()
+    var value = Math.round(Number(text))
+    if (text.length === 0 || !isFinite(value) || value < 1000 || value > 86400000) return false
+
+    blankDelayOverride = value
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (value === defaultBlankDelay) delete current.blankMs
+      else current.blankMs = value
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("blank-ms=" + value)
+    return true
+  }
+
+  function setKeepDisplayOn(on) {
+    var value = on === true || on === 1 || on === "true"
+    keepDisplayOnOverride = value ? 1 : 0
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (!value) delete current.keepDisplayOn
+      else current.keepDisplayOn = true
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("keep-display-on=" + value)
     return true
   }
 
@@ -1561,6 +1606,7 @@ echo "$out"
   }
 
   function runBlank() {
+    if (keepDisplayOn) return
     screenBlanked = true
     if (!blankProcess.running) blankProcess.running = true
   }
@@ -2058,6 +2104,7 @@ echo "$out"
         unlockMs: root.unlockDuration,
         unlockAnimated: root.unlockAnimated,
         blankMs: root.blankDelay,
+        keepDisplayOn: root.keepDisplayOn,
         unlocking: root.unlocking,
         clipDesign: root.designHasClip,
         clipUnlocking: root.clipUnlocking,
@@ -2099,6 +2146,14 @@ echo "$out"
 
     function setDesign(id: string): string {
       return root.setDesign(id) ? "ok" : "unknown-design"
+    }
+
+    function setKeepDisplayOn(value: string): string {
+      return root.setKeepDisplayOn(value) ? "ok" : "invalid-value"
+    }
+
+    function setBlankDelay(value: string): string {
+      return root.setBlankDelay(value) ? "ok" : "invalid-value"
     }
 
     function boot(): string {

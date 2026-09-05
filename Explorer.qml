@@ -76,6 +76,12 @@ Item {
   readonly property var unlockDurations: [200, 300, 400, 600, 800]
   readonly property string unlockAnimation: service ? service.unlockAnimation : "none"
   readonly property int unlockDuration: service ? service.unlockDuration : 400
+  readonly property bool keepDisplayOn: service ? service.keepDisplayOn : false
+  readonly property int blankDelay: service ? service.blankDelay : 5000
+  readonly property var blankPresets: [5000, 15000, 30000, 60000, 300000]
+  property bool customDelayEditing: false
+  property string customDelayText: ""
+  readonly property bool blankDelayIsCustom: !root.keepDisplayOn && root.blankPresets.indexOf(root.blankDelay) === -1
   readonly property string unlockLabel: {
     for (var i = 0; i < unlockOptions.length; i++)
       if (unlockOptions[i].id === unlockAnimation) return unlockOptions[i].name
@@ -705,6 +711,36 @@ Item {
     if (root.service) root.service.setUnlockDuration(ms)
   }
 
+  function setBlankAfter(ms) {
+    if (!root.service) return
+    root.customDelayEditing = false
+    if (ms === 0) {
+      root.service.setKeepDisplayOn(true)
+      return
+    }
+    root.service.setKeepDisplayOn(false)
+    root.service.setBlankDelay(ms)
+  }
+
+  function beginCustomDelay() {
+    root.customDelayText = root.keepDisplayOn ? "" : String(Math.max(1, Math.round(root.blankDelay / 60000)))
+    root.customDelayEditing = true
+    Qt.callLater(function() {
+      customDelayInput.forceActiveFocus()
+      customDelayInput.selectAll()
+    })
+  }
+
+  function commitCustomDelay() {
+    var minutes = Math.round(Number(root.customDelayText))
+    if (!isFinite(minutes) || minutes < 1 || minutes > 1440) return
+    if (!root.service) return
+    root.service.setKeepDisplayOn(false)
+    root.service.setBlankDelay(minutes * 60000)
+    root.customDelayEditing = false
+    keyCatcher.forceActiveFocus()
+  }
+
   function customizeSelected() {
     if (!root.selectedDesign || !root.service) return
     if (root.selectedDesign.path) { openEditor(root.selectedDesign); return }
@@ -823,13 +859,14 @@ Item {
       // Embedded lock previews can pull keyboard focus; reclaim it whenever
       // it drifts, except while a real editor field wants it.
       onActiveFocusChanged: {
-        if (!activeFocus && root.opened && root.bootEditing.length === 0 && !root.editing)
+        if (!activeFocus && root.opened && root.bootEditing.length === 0 && !root.editing && !root.customDelayEditing)
           Qt.callLater(function() { keyCatcher.forceActiveFocus() })
       }
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape) { root.handleEscape(); event.accepted = true; return }
         if (root.editing) return
         if (root.bootEditing.length > 0) return
+        if (root.customDelayEditing) return
         if (root.mainTab !== "styling" && root.mainTab !== "animation") {
           if (event.key === Qt.Key_U) { root.toggleSettings("settings"); event.accepted = true }
           else if (event.key === Qt.Key_B) { root.toggleSettings("boot"); event.accepted = true }
@@ -1283,6 +1320,120 @@ Item {
 
               Text {
                 text: "The desktop opens on the frame the clip stopped on, set with omarchy-theme-bg-set."
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+
+              // How long the lock screen stays lit before the display blanks.
+              // Never keeps it powered for the whole lock: video designs keep
+              // playing and slow monitors are never re-blanked mid-wake.
+              Row {
+                visible: true
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Blank the display after"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: [
+                    { ms: 5000, name: "5s" },
+                    { ms: 15000, name: "15s" },
+                    { ms: 30000, name: "30s" },
+                    { ms: 60000, name: "1m" },
+                    { ms: 300000, name: "5m" },
+                    { ms: -1, name: "Custom" },
+                    { ms: 0, name: "Never" }
+                  ]
+                  Rectangle {
+                    id: blankChip
+                    required property var modelData
+                    readonly property bool current: modelData.ms === 0 ? root.keepDisplayOn
+                                                                       : modelData.ms === -1 ? root.blankDelayIsCustom
+                                                                       : (!root.keepDisplayOn && root.blankDelay === modelData.ms)
+                    width: blankChipLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, blankChipArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: blankChipLabel
+                      anchors.centerIn: parent
+                      text: blankChip.modelData.ms === -1 && root.blankDelayIsCustom
+                            ? "Custom (" + Math.round(root.blankDelay / 60000) + "m)"
+                            : blankChip.modelData.name
+                      color: blankChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: blankChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: blankChipArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: {
+                        if (blankChip.modelData.ms === -1) root.beginCustomDelay()
+                        else root.setBlankAfter(blankChip.modelData.ms)
+                      }
+                    }
+                  }
+                }
+
+                Rectangle {
+                  visible: root.customDelayEditing
+                  width: Style.space(110)
+                  height: Style.space(26)
+                  radius: root.cornerRadius
+                  color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06)
+                  border.width: Math.max(1, Style.space(2))
+                  border.color: root.accent
+
+                  // The unit hint lives inside the box, right-aligned, and the
+                  // input reserves its width so typed digits never run under it.
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.right: parent.right
+                    anchors.rightMargin: Style.space(8)
+                    text: "m, Enter"
+                    color: root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                  }
+
+                  TextInput {
+                    id: customDelayInput
+                    anchors.fill: parent
+                    anchors.leftMargin: Style.space(8)
+                    anchors.rightMargin: Style.space(52)
+                    verticalAlignment: TextInput.AlignVCenter
+                    color: root.foreground
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                    text: root.customDelayText
+                    onTextEdited: root.customDelayText = text
+                    focus: root.customDelayEditing
+                    validator: IntValidator { bottom: 1; top: 1440 }
+
+                    Keys.onEscapePressed: {
+                      root.customDelayEditing = false
+                      keyCatcher.forceActiveFocus()
+                    }
+                    Keys.onReturnPressed: root.commitCustomDelay()
+                  }
+                }
+              }
+
+              Text {
+                text: root.keepDisplayOn
+                      ? "The lock screen stays lit for the whole lock: video designs keep playing."
+                      : "The lock screen stays lit, then the display powers down."
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption

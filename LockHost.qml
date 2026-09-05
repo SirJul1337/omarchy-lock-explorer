@@ -204,6 +204,7 @@ Item {
         text: host.failureMessage.length > 0 ? host.failureMessage
           : (host.authenticatingPassword ? "Checking…"
           : "Type your password and press Enter" + (host.loadError.length > 0 ? "\n\n" + host.loadError : ""))
+        textFormat: Text.PlainText
         color: host.failureMessage.length > 0 ? "#c96a6a" : "#8a9099"
         font.pixelSize: 12
       }

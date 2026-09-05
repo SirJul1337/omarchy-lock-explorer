@@ -107,6 +107,7 @@ BorderSurface {
   Text {
     anchors.fill: input
     text: field.authenticating ? "Checking…" : (field.errorState ? field.lock.failureMessage : field.placeholder)
+    textFormat: Text.PlainText
     visible: input.text.length === 0 && !field.snapshotBox
     color: field.authenticating ? Color.lock.text : (field.errorState ? Color.lock.textError : Color.lock.placeholder)
     font.family: Style.font.family

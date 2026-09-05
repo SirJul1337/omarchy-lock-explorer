@@ -68,6 +68,7 @@ DesignBase {
         anchors.centerIn: parent
         visible: lock.passwordVisible && lock.dotCount > 0
         text: lock.passwordText
+        textFormat: Text.PlainText
         color: lock.errorState ? Color.lock.textError : Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Style.font.display
@@ -125,6 +126,7 @@ DesignBase {
       text: lock.authenticatingPassword ? "Checking…"
         : (lock.errorState ? lock.failureMessage
         : (lock.fingerprintConfigured ? "Type your password or touch the sensor" : "Type your password"))
+      textFormat: Text.PlainText
       color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
       font.family: Style.font.family
       font.pixelSize: Style.font.body

@@ -58,6 +58,7 @@ DesignBase {
           text: lock.errorState ? lock.failureMessage
             : (lock.authenticatingPassword ? "Checking…"
             : (lock.fingerprintConfigured ? "Locked, touch sensor or type password" : "Locked"))
+          textFormat: Text.PlainText
           color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
           font.family: Style.font.family
           font.pixelSize: Style.font.caption

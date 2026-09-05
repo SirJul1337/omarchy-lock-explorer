@@ -948,6 +948,7 @@ Item {
               if (root.mainTab === "editor") return root.bootEditing.length > 0 ? "Editing " + root.bootEditing : "Make a matching lock screen and boot screen"
               return (root.mainTab === "styling" ? Designs.stylings().length + " lock screen stylings · " : "") + root.currentThemeName + " · follows your theme"
             }
+            textFormat: Text.PlainText
             color: root.wallpaperBroken ? "#c96a6a" : root.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
@@ -1031,6 +1032,7 @@ Item {
               id: activeLabel
               anchors.centerIn: parent
               text: "Active: " + (Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : root.activeDesignId)
+              textFormat: Text.PlainText
               color: root.foreground
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
@@ -1065,6 +1067,7 @@ Item {
                 id: chipLabel
                 anchors.centerIn: parent
                 text: chip.modelData.name
+                textFormat: Text.PlainText
                 color: chip.current ? Color.background : root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -1343,6 +1346,7 @@ Item {
                 width: parent.width
                 wrapMode: Text.WordWrap
                 text: "Now: " + root.bootNowName + (root.bootAppliedTheme.length > 0 ? " \u00b7 baked from " + root.bootAppliedTheme : "")
+                textFormat: Text.PlainText
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -1379,6 +1383,7 @@ Item {
                     text: root.bootApplying
                       ? "Applying the boot theme\u2026"
                       : "Set to " + root.bootDesiredName + ". Applying writes the boot theme to the EFI partition and asks for your password."
+                    textFormat: Text.PlainText
                     color: Color.menu.text
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -1456,6 +1461,7 @@ Item {
 
                       Text {
                         text: root.followHint
+                        textFormat: Text.PlainText
                         color: root.muted
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -1788,6 +1794,7 @@ Item {
 
                       Text {
                         text: bootCard.modelData.name
+                        textFormat: Text.PlainText
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.bodySmall
@@ -1797,6 +1804,7 @@ Item {
                       Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: bootCard.modelData.kind
+                        textFormat: Text.PlainText
                         color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.9)
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -1851,6 +1859,7 @@ Item {
 
                   Text {
                     text: (Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : "current") + " as a still"
+                    textFormat: Text.PlainText
                     color: root.muted
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -1902,6 +1911,7 @@ Item {
 
                     Text {
                       text: editorCard.modelData
+                      textFormat: Text.PlainText
                       color: root.foreground
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.bodySmall
@@ -1971,6 +1981,7 @@ Item {
 
                   Text {
                     text: root.bootEditing
+                    textFormat: Text.PlainText
                     color: root.foreground
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.body
@@ -2533,6 +2544,7 @@ Item {
               width: parent.width
               elide: Text.ElideRight
               text: root.bootNowName
+              textFormat: Text.PlainText
               color: Color.menu.text
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
@@ -2541,6 +2553,7 @@ Item {
               width: parent.width
               wrapMode: Text.WordWrap
               text: root.bootApplying ? "Rebuilding…" : (root.bootAppliedTheme.length > 0 ? "baked from " + root.bootAppliedTheme : "the disk passphrase screen")
+              textFormat: Text.PlainText
               color: root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
@@ -2734,6 +2747,7 @@ Item {
               spacing: Style.space(8)
               Text {
                 text: cell.modelData.name
+                textFormat: Text.PlainText
                 color: cell.selected ? root.foreground : root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.title
@@ -2758,6 +2772,7 @@ Item {
                         for (var i = 0; i < cats.length; i++) if (cats[i].id === parent.modelData) return cats[i].name
                         return parent.modelData
                       }
+                      textFormat: Text.PlainText
                       color: root.muted
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
@@ -2769,6 +2784,7 @@ Item {
             Text {
               width: parent.width
               text: cell.modelData.description + (cell.modelData.credit ? "  ·  clip by " + cell.modelData.credit : "")
+              textFormat: Text.PlainText
               color: root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
@@ -2869,6 +2885,7 @@ Item {
             spacing: 2
             Text {
               text: root.editingDesign ? root.editingDesign.name : ""
+              textFormat: Text.PlainText
               color: root.foreground
               font.family: root.fontFamily
               font.pixelSize: Style.font.display
@@ -2990,6 +3007,7 @@ Item {
           spacing: Style.space(18)
           Text {
             text: (root.selectedIndex + 1) + "/" + root.designs.length + "   " + (root.selectedDesign ? root.selectedDesign.name : "")
+            textFormat: Text.PlainText
             color: root.foreground
             font.family: root.fontFamily
             font.pixelSize: Style.font.title

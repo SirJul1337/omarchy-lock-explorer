@@ -121,6 +121,7 @@ DesignBase {
         Text {
           anchors.verticalCenter: parent.verticalCenter
           text: lock.temp
+          textFormat: Text.PlainText
           color: Color.lock.text
           font.family: Style.font.family
           font.pixelSize: Math.round(Style.font.baseSize * 8)
@@ -130,12 +131,14 @@ DesignBase {
       }
       Text {
         text: lock.desc
+        textFormat: Text.PlainText
         color: Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Style.font.display
       }
       Text {
         text: (lock.area ? lock.area + "  ·  " : "") + (lock.current ? "feels like " + lock.feels + "  ·  " + lock.current.humidity + "% humidity  ·  " + lock.current.windspeedKmph + " km/h" : "")
+        textFormat: Text.PlainText
         color: lock.withAlpha(Color.lock.text, 0.65)
         font.family: Style.font.family
         font.pixelSize: Style.font.body
@@ -172,6 +175,7 @@ DesignBase {
               Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: parent.parent.modelData.maxtempC + "° / " + parent.parent.modelData.mintempC + "°"
+                textFormat: Text.PlainText
                 color: Color.lock.text
                 font.family: Style.font.family
                 font.pixelSize: Style.font.bodySmall

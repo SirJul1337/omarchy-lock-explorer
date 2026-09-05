@@ -234,6 +234,7 @@ Item {
           Text {
             width: parent.width
             text: editor.path
+            textFormat: Text.PlainText
             color: editor.muted
             font.family: editor.fontFamily
             font.pixelSize: Style.font.caption
@@ -242,6 +243,7 @@ Item {
           Text {
             width: parent.width
             text: preview.loadError.length > 0 ? preview.loadError : (editor.status.length > 0 ? editor.status : (editor.dirty ? "Unsaved changes" : "Saved. Preview updates on Ctrl+S."))
+            textFormat: Text.PlainText
             color: preview.loadError.length > 0 ? Color.urgent : (editor.dirty ? editor.foreground : editor.muted)
             font.family: editor.fontFamily
             font.pixelSize: Style.font.bodySmall

@@ -76,6 +76,7 @@ DesignBase {
     anchors.horizontalCenter: parent.horizontalCenter
     text: lock.errorState ? lock.failureMessage
       : (lock.authenticatingPassword ? "Checking…" : Qt.formatDate(lock.now, "dddd d MMMM"))
+    textFormat: Text.PlainText
     color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.75)
     font.family: Style.font.family
     font.pixelSize: Style.font.bodySmall

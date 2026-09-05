@@ -88,6 +88,7 @@ DesignBase {
           }
           Text {
             text: lock.errorState ? lock.failureMessage : (lock.authenticatingPassword ? "Checking…" : "Enter your password to unlock")
+            textFormat: Text.PlainText
             color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.6)
             font.family: Style.font.family
             font.pixelSize: Style.font.subtitle

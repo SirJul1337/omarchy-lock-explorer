@@ -61,6 +61,7 @@ DesignBase {
         text: lock.errorState ? lock.failureMessage
           : (lock.authenticatingPassword ? "Checking…"
           : lock.greeting() + ", " + lock.userName + ". Enter your password to continue.")
+        textFormat: Text.PlainText
         color: lock.errorState ? Color.lock.textError : "#f2f2f2"
         font.family: Style.font.family
         font.pixelSize: Style.font.heading

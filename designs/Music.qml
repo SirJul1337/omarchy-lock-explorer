@@ -134,6 +134,7 @@ DesignBase {
           Text {
             width: parent.width
             text: lock.hasMedia ? lock.title : lock.greeting() + ", " + lock.userName
+            textFormat: Text.PlainText
             color: Color.lock.text
             font.family: Style.font.family
             font.pixelSize: Style.font.display
@@ -145,6 +146,7 @@ DesignBase {
           Text {
             width: parent.width
             text: lock.hasMedia ? lock.artist + (lock.album ? "  ·  " + lock.album : "") : "Start something and it shows up here"
+            textFormat: Text.PlainText
             color: lock.withAlpha(Color.lock.text, 0.7)
             font.family: Style.font.family
             font.pixelSize: Style.font.subtitle
@@ -153,6 +155,7 @@ DesignBase {
           Text {
             visible: lock.hasMedia && lock.identity.length > 0
             text: lock.identity
+            textFormat: Text.PlainText
             color: lock.withAlpha(Color.lock.text, 0.45)
             font.family: Style.font.family
             font.pixelSize: Style.font.caption

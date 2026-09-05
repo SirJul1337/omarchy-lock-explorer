@@ -293,6 +293,22 @@ Item {
     return true
   }
 
+  function setBlankDelay(ms) {
+    var text = String(ms === undefined ? "" : ms).trim()
+    var value = Math.round(Number(text))
+    if (text.length === 0 || !isFinite(value) || value < 1000 || value > 3600000) return false
+
+    blankDelayOverride = value
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (value === defaultBlankDelay) delete current.blankMs
+      else current.blankMs = value
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("blank-ms=" + value)
+    return true
+  }
+
   function setKeepDisplayOn(on) {
     var value = on === true || on === 1 || on === "true"
     keepDisplayOnOverride = value ? 1 : 0
@@ -2088,6 +2104,7 @@ echo "$out"
         unlockMs: root.unlockDuration,
         unlockAnimated: root.unlockAnimated,
         blankMs: root.blankDelay,
+        keepDisplayOn: root.keepDisplayOn,
         unlocking: root.unlocking,
         clipDesign: root.designHasClip,
         clipUnlocking: root.clipUnlocking,
@@ -2133,6 +2150,10 @@ echo "$out"
 
     function setKeepDisplayOn(value: string): string {
       return root.setKeepDisplayOn(value) ? "ok" : "invalid-value"
+    }
+
+    function setBlankDelay(value: string): string {
+      return root.setBlankDelay(value) ? "ok" : "invalid-value"
     }
 
     function boot(): string {

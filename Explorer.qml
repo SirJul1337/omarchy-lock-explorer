@@ -77,6 +77,7 @@ Item {
   readonly property string unlockAnimation: service ? service.unlockAnimation : "none"
   readonly property int unlockDuration: service ? service.unlockDuration : 400
   readonly property bool keepDisplayOn: service ? service.keepDisplayOn : false
+  readonly property int blankDelay: service ? service.blankDelay : 5000
   readonly property string unlockLabel: {
     for (var i = 0; i < unlockOptions.length; i++)
       if (unlockOptions[i].id === unlockAnimation) return unlockOptions[i].name
@@ -706,8 +707,14 @@ Item {
     if (root.service) root.service.setUnlockDuration(ms)
   }
 
-  function toggleKeepDisplayOn() {
-    if (root.service) root.service.setKeepDisplayOn(!root.keepDisplayOn)
+  function setBlankAfter(ms) {
+    if (!root.service) return
+    if (ms === 0) {
+      root.service.setKeepDisplayOn(true)
+      return
+    }
+    root.service.setKeepDisplayOn(false)
+    root.service.setBlankDelay(ms)
   }
 
   function customizeSelected() {
@@ -1290,56 +1297,65 @@ Item {
                 font.pixelSize: Style.font.caption
               }
 
-              // Keep the display powered while locked: skips the five-second
-              // DPMS-off entirely, so video designs keep playing and slow
-              // monitors are never re-blanked mid-wake.
-              Rectangle {
-                width: keepDisplayRow.implicitWidth + Style.space(8)
-                height: Style.space(30)
-                color: "transparent"
+              // How long the lock screen stays lit before the display blanks.
+              // Never keeps it powered for the whole lock: video designs keep
+              // playing and slow monitors are never re-blanked mid-wake.
+              Row {
+                visible: true
+                spacing: Style.space(6)
 
-                Row {
-                  id: keepDisplayRow
+                Text {
                   anchors.verticalCenter: parent.verticalCenter
-                  spacing: Style.space(8)
-
-                  Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Style.space(18)
-                    height: Style.space(18)
-                    radius: root.cornerRadius
-                    color: root.keepDisplayOn ? root.accent : "transparent"
-                    border.width: Math.max(1, Style.space(2))
-                    border.color: root.keepDisplayOn ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.4)
-
-                    Text {
-                      anchors.centerIn: parent
-                      visible: root.keepDisplayOn
-                      text: "✓"
-                      color: Color.background
-                      font.pixelSize: Style.font.caption
-                      font.weight: Font.Bold
-                    }
-                  }
-
-                  Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Keep the display on while locked"
-                    color: root.foreground
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                  }
+                  text: "Blank the display after"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
                 }
 
-                MouseArea {
-                  anchors.fill: parent
-                  anchors.margins: -Style.space(4)
-                  onClicked: root.toggleKeepDisplayOn()
+                Repeater {
+                  model: [
+                    { ms: 5000, name: "5s" },
+                    { ms: 15000, name: "15s" },
+                    { ms: 30000, name: "30s" },
+                    { ms: 60000, name: "1m" },
+                    { ms: 300000, name: "5m" },
+                    { ms: 0, name: "Never" }
+                  ]
+                  Rectangle {
+                    id: blankChip
+                    required property var modelData
+                    readonly property bool current: modelData.ms === 0 ? root.keepDisplayOn
+                                                                       : (!root.keepDisplayOn && root.blankDelay === modelData.ms)
+                    width: blankChipLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, blankChipArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: blankChipLabel
+                      anchors.centerIn: parent
+                      text: blankChip.modelData.name
+                      color: blankChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: blankChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: blankChipArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setBlankAfter(blankChip.modelData.ms)
+                    }
+                  }
                 }
               }
 
               Text {
-                text: "Lock screen stays lit: no DPMS-off, video designs keep playing."
+                text: root.keepDisplayOn
+                      ? "The lock screen stays lit for the whole lock: video designs keep playing."
+                      : "The lock screen stays lit, then the display powers down."
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption

@@ -103,13 +103,14 @@ instead, and the fade goes straight into it.
 The selected design, the avatar, the unlock animation and the boot screen setting are saved on
 the plugin entry in `~/.config/omarchy/shell.json`.
 
-### Keep the display on while locked
+### Blank the display after
 
-By default the lock screen DPMS-offs the display five seconds after locking. The "Keep the
-display on while locked" checkbox in the explorer's Settings tab (or
-`omarchy-shell lock setKeepDisplayOn true`) skips that entirely: the lock screen stays lit, video
-designs keep playing, and slow monitors are never re-blanked mid-wake. The keyboard, mouse and
-fingerprint still wake nothing because nothing needs waking — type your password as usual.
+By default the lock screen DPMS-offs the display five seconds after locking. The Settings tab has
+a "Blank the display after" row — 5s, 15s, 30s, 1m, 5m, or Never (`omarchy-shell lock
+setBlankDelay 30000`, or `setKeepDisplayOn true` for Never).
+
+**Never** keeps the lock screen lit for the whole lock: video designs keep playing, and slow
+monitors are never re-blanked mid-wake on resume — the display was never off to begin with.
 
 With no avatar set, the first of `~/.config/omarchy/lock-avatar.{png,jpg,jpeg,webp}`, `~/.face`,
 `~/.face.icon` and `/var/lib/AccountsService/icons/$USER` is used, so an existing profile picture

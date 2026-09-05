@@ -78,6 +78,10 @@ Item {
   readonly property int unlockDuration: service ? service.unlockDuration : 400
   readonly property bool keepDisplayOn: service ? service.keepDisplayOn : false
   readonly property int blankDelay: service ? service.blankDelay : 5000
+  readonly property var blankPresets: [5000, 15000, 30000, 60000, 300000]
+  property bool customDelayEditing: false
+  property string customDelayText: ""
+  readonly property bool blankDelayIsCustom: !root.keepDisplayOn && root.blankPresets.indexOf(root.blankDelay) === -1
   readonly property string unlockLabel: {
     for (var i = 0; i < unlockOptions.length; i++)
       if (unlockOptions[i].id === unlockAnimation) return unlockOptions[i].name
@@ -709,12 +713,27 @@ Item {
 
   function setBlankAfter(ms) {
     if (!root.service) return
+    root.customDelayEditing = false
     if (ms === 0) {
       root.service.setKeepDisplayOn(true)
       return
     }
     root.service.setKeepDisplayOn(false)
     root.service.setBlankDelay(ms)
+  }
+
+  function beginCustomDelay() {
+    root.customDelayText = root.keepDisplayOn ? "" : String(Math.round(root.blankDelay / 1000))
+    root.customDelayEditing = true
+  }
+
+  function commitCustomDelay() {
+    var seconds = Math.round(Number(root.customDelayText))
+    if (!isFinite(seconds) || seconds < 1 || seconds > 3600) return
+    if (!root.service) return
+    root.service.setKeepDisplayOn(false)
+    root.service.setBlankDelay(seconds * 1000)
+    root.customDelayEditing = false
   }
 
   function customizeSelected() {
@@ -1319,12 +1338,14 @@ Item {
                     { ms: 30000, name: "30s" },
                     { ms: 60000, name: "1m" },
                     { ms: 300000, name: "5m" },
+                    { ms: -1, name: "Custom" },
                     { ms: 0, name: "Never" }
                   ]
                   Rectangle {
                     id: blankChip
                     required property var modelData
                     readonly property bool current: modelData.ms === 0 ? root.keepDisplayOn
+                                                                       : modelData.ms === -1 ? root.blankDelayIsCustom
                                                                        : (!root.keepDisplayOn && root.blankDelay === modelData.ms)
                     width: blankChipLabel.implicitWidth + Style.space(18)
                     height: Style.space(26)
@@ -1346,8 +1367,49 @@ Item {
                       id: blankChipArea
                       anchors.fill: parent
                       hoverEnabled: true
-                      onClicked: root.setBlankAfter(blankChip.modelData.ms)
+                      onClicked: {
+                        if (blankChip.modelData.ms === -1) root.beginCustomDelay()
+                        else root.setBlankAfter(blankChip.modelData.ms)
+                      }
                     }
+                  }
+                }
+
+                Rectangle {
+                  visible: root.customDelayEditing
+                  width: Style.space(64)
+                  height: Style.space(26)
+                  radius: root.cornerRadius
+                  color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06)
+                  border.width: Math.max(1, Style.space(2))
+                  border.color: root.accent
+
+                  TextInput {
+                    id: customDelayInput
+                    anchors.fill: parent
+                    anchors.leftMargin: Style.space(8)
+                    anchors.rightMargin: Style.space(8)
+                    verticalAlignment: TextInput.AlignVCenter
+                    color: root.foreground
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                    text: root.customDelayText
+                    onTextEdited: root.customDelayText = text
+                    focus: root.customDelayEditing
+                    validator: IntValidator { bottom: 1; top: 3600 }
+
+                    Text {
+                      anchors.verticalCenter: parent.verticalCenter
+                      anchors.left: parent.right
+                      anchors.leftMargin: Style.space(4)
+                      text: "s, Enter"
+                      color: root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                    }
+
+                    Keys.onEscapePressed: root.customDelayEditing = false
+                    Keys.onReturnPressed: root.commitCustomDelay()
                   }
                 }
               }

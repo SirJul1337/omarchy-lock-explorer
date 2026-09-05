@@ -105,6 +105,22 @@ Item {
   }
   readonly property int blankDelay: blankDelayOverride >= 0 ? blankDelayOverride : configuredBlankDelay
 
+  // When true the display stays powered while locked: the DPMS-off is skipped
+  // entirely, so video designs keep playing and slow monitors are never
+  // re-blanked. Takes precedence over blankDelay. Lives on the plugin entry
+  // in shell.json.
+  property int keepDisplayOnOverride: -1
+  readonly property bool configuredKeepDisplayOn: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId) return entry.keepDisplayOn === true
+    }
+    return false
+  }
+  readonly property bool keepDisplayOn: keepDisplayOnOverride >= 0 ? keepDisplayOnOverride === 1 : configuredKeepDisplayOn
+
   // Avatar picture for the designs that show the user. The chosen path lives on
   // the plugin entry in shell.json; "none" there means the user cleared it and
   // wants the initial back, an empty setting falls back to the usual dotfiles.
@@ -274,6 +290,19 @@ Item {
       shell.updateEntryInline(pluginId, current)
     }
     logEvent("unlock-ms=" + value)
+    return true
+  }
+
+  function setKeepDisplayOn(on) {
+    var value = on === true || on === 1 || on === "true"
+    keepDisplayOnOverride = value ? 1 : 0
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (!value) delete current.keepDisplayOn
+      else current.keepDisplayOn = true
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("keep-display-on=" + value)
     return true
   }
 
@@ -1561,6 +1590,7 @@ echo "$out"
   }
 
   function runBlank() {
+    if (keepDisplayOn) return
     screenBlanked = true
     if (!blankProcess.running) blankProcess.running = true
   }
@@ -2099,6 +2129,10 @@ echo "$out"
 
     function setDesign(id: string): string {
       return root.setDesign(id) ? "ok" : "unknown-design"
+    }
+
+    function setKeepDisplayOn(value: string): string {
+      return root.setKeepDisplayOn(value) ? "ok" : "invalid-value"
     }
 
     function boot(): string {

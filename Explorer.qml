@@ -76,6 +76,7 @@ Item {
   readonly property var unlockDurations: [200, 300, 400, 600, 800]
   readonly property string unlockAnimation: service ? service.unlockAnimation : "none"
   readonly property int unlockDuration: service ? service.unlockDuration : 400
+  readonly property bool keepDisplayOn: service ? service.keepDisplayOn : false
   readonly property string unlockLabel: {
     for (var i = 0; i < unlockOptions.length; i++)
       if (unlockOptions[i].id === unlockAnimation) return unlockOptions[i].name
@@ -705,6 +706,10 @@ Item {
     if (root.service) root.service.setUnlockDuration(ms)
   }
 
+  function toggleKeepDisplayOn() {
+    if (root.service) root.service.setKeepDisplayOn(!root.keepDisplayOn)
+  }
+
   function customizeSelected() {
     if (!root.selectedDesign || !root.service) return
     if (root.selectedDesign.path) { openEditor(root.selectedDesign); return }
@@ -1280,6 +1285,61 @@ Item {
 
               Text {
                 text: "The desktop opens on the frame the clip stopped on, set with omarchy-theme-bg-set."
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+
+              // Keep the display powered while locked: skips the five-second
+              // DPMS-off entirely, so video designs keep playing and slow
+              // monitors are never re-blanked mid-wake.
+              Rectangle {
+                width: keepDisplayRow.implicitWidth + Style.space(8)
+                height: Style.space(30)
+                color: "transparent"
+
+                Row {
+                  id: keepDisplayRow
+                  anchors.verticalCenter: parent.verticalCenter
+                  spacing: Style.space(8)
+
+                  Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Style.space(18)
+                    height: Style.space(18)
+                    radius: root.cornerRadius
+                    color: root.keepDisplayOn ? root.accent : "transparent"
+                    border.width: Math.max(1, Style.space(2))
+                    border.color: root.keepDisplayOn ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.4)
+
+                    Text {
+                      anchors.centerIn: parent
+                      visible: root.keepDisplayOn
+                      text: "✓"
+                      color: Color.background
+                      font.pixelSize: Style.font.caption
+                      font.weight: Font.Bold
+                    }
+                  }
+
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Keep the display on while locked"
+                    color: root.foreground
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                  }
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -Style.space(4)
+                  onClicked: root.toggleKeepDisplayOn()
+                }
+              }
+
+              Text {
+                text: "Lock screen stays lit: no DPMS-off, video designs keep playing."
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption

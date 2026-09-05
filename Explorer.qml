@@ -1362,7 +1362,9 @@ Item {
                     Text {
                       id: blankChipLabel
                       anchors.centerIn: parent
-                      text: blankChip.modelData.name
+                      text: blankChip.modelData.ms === -1 && root.blankDelayIsCustom
+                            ? "Custom (" + Math.round(root.blankDelay / 60000) + "m)"
+                            : blankChip.modelData.name
                       color: blankChip.current ? Color.background : root.foreground
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption

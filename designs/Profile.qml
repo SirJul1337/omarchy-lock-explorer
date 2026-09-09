@@ -18,7 +18,7 @@ DesignBase {
     anchors.top: parent.top
     anchors.topMargin: 48
     anchors.horizontalCenter: parent.horizontalCenter
-    text: Qt.formatTime(lock.now, "HH:mm") + "   " + Qt.formatDate(lock.now, "ddd d MMM")
+    text: lock.clock("HH:mm") + "   " + Qt.formatDate(lock.now, "ddd d MMM")
     color: lock.withAlpha(Color.lock.text, 0.7)
     font.family: Style.font.family
     font.pixelSize: Style.font.title

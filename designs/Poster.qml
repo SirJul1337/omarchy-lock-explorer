@@ -30,7 +30,7 @@ DesignBase {
       spacing: -Math.round(lock.bigSize * 0.22)
       Text {
         anchors.right: parent.right
-        text: Qt.formatTime(lock.now, "HH")
+        text: lock.clock("HH")
         color: Color.lock.text
         font.family: Style.font.family
         font.pixelSize: lock.bigSize
@@ -41,7 +41,7 @@ DesignBase {
       }
       Text {
         anchors.right: parent.right
-        text: Qt.formatTime(lock.now, "mm")
+        text: lock.clock("mm")
         color: Color.lock.borderActive
         font.family: Style.font.family
         font.pixelSize: lock.bigSize
@@ -50,6 +50,16 @@ DesignBase {
         layer.enabled: true
         layer.effect: MultiEffect { shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.6); shadowBlur: 1.0; shadowVerticalOffset: 4 }
       }
+    }
+    // Only on a 12-hour clock; the numerals above have no room for it.
+    Text {
+      anchors.right: parent.right
+      visible: lock.meridiem.length > 0
+      text: lock.meridiem
+      color: Color.lock.borderActive
+      font.family: Style.font.family
+      font.pixelSize: Style.font.heading
+      font.letterSpacing: 6
     }
     Item { width: 1; height: Math.round(lock.bigSize * 0.12) }
     Text {

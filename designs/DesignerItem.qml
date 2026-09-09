@@ -111,7 +111,7 @@ Item {
   function displayText() {
     if (!lock) return ""
     switch (kind) {
-    case "clock": return Qt.formatTime(lock.now, String(p("format", "HH:mm")))
+    case "clock": return lock.clock(String(p("format", "HH:mm")))
     case "date": return Qt.formatDate(lock.now, String(p("format", "dddd, d MMMM")))
     case "greeting": return lock.greeting() + (p("withName", true) ? ", " + lock.userName : "")
     case "username": return lock.userName

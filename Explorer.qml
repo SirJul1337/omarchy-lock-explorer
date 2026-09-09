@@ -505,6 +505,13 @@ Item {
     if (root.service && typeof root.service.setClipSpeed === "function") root.service.setClipSpeed(v)
   }
 
+  readonly property bool twelveHour: service && service.twelveHour !== undefined ? service.twelveHour : false
+  readonly property var clockFormats: [{ id: "24", name: "24h" }, { id: "12", name: "12h AM/PM" }]
+
+  function setTwelveHour(on) {
+    if (root.service && typeof root.service.setTwelveHour === "function") root.service.setTwelveHour(on)
+  }
+
   readonly property bool hasAvatar: avatarUrl.length > 0
   readonly property string userInitial: {
     var name = Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"
@@ -953,6 +960,7 @@ Item {
         anchors.fill: parent
         designId: root.activeDesignId
         revision: root.service ? root.service.designsRevision : 0
+        twelveHour: root.twelveHour
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         avatarPath: root.service ? root.service.avatarPath : ""
@@ -1601,6 +1609,51 @@ Item {
                       anchors.fill: parent
                       hoverEnabled: true
                       onClicked: root.setClipSpeed(clipSpeedChip.modelData)
+                    }
+                  }
+                }
+              }
+
+              // 24-hour or 12-hour AM/PM, for the clock in every design. The
+              // preview on the right redraws as you press it.
+              Row {
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Clock"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: root.clockFormats
+                  Rectangle {
+                    id: clockFormatChip
+                    required property var modelData
+                    readonly property bool current: (modelData.id === "12") === root.twelveHour
+                    width: clockFormatLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, clockFormatArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: clockFormatLabel
+                      anchors.centerIn: parent
+                      text: clockFormatChip.modelData.name
+                      color: clockFormatChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: clockFormatChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: clockFormatArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setTwelveHour(clockFormatChip.modelData.id === "12")
                     }
                   }
                 }
@@ -2759,6 +2812,7 @@ Item {
               anchors.fill: parent
               designId: root.selectedDesign ? root.selectedDesign.id : root.activeDesignId
               revision: root.service ? root.service.designsRevision : 0
+              twelveHour: root.twelveHour
               backgroundPath: root.service ? root.service.backgroundPath : ""
               backgroundVersion: root.service ? root.service.backgroundVersion : 0
               avatarPath: root.service ? root.service.avatarPath : ""
@@ -2935,6 +2989,7 @@ Item {
                   sourceComponent: LockHost {
                     designId: cell.modelData.id
                     revision: root.service ? root.service.designsRevision : 0
+                    twelveHour: root.twelveHour
                     backgroundPath: root.service ? root.service.backgroundPath : ""
                     backgroundVersion: root.service ? root.service.backgroundVersion : 0
                     avatarPath: root.service ? root.service.avatarPath : ""
@@ -3325,6 +3380,7 @@ Item {
         anchors.fill: parent
         designId: root.selectedDesign ? root.selectedDesign.id : Designs.DEFAULT_ID
         revision: root.service ? root.service.designsRevision : 0
+        twelveHour: root.twelveHour
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         fingerprintConfigured: root.service ? root.service.fingerprintConfigured : false

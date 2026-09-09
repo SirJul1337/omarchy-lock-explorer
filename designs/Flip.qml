@@ -7,8 +7,8 @@ DesignBase {
 
   readonly property int tileW: 118
   readonly property int tileH: 160
-  readonly property string hh: Qt.formatTime(now, "HH")
-  readonly property string mm: Qt.formatTime(now, "mm")
+  readonly property string hh: clock("HH")
+  readonly property string mm: clock("mm")
 
   Wallpaper { anchors.fill: parent; lock: lock; blur: 0.9; dim: 0.15 }
 
@@ -60,6 +60,16 @@ DesignBase {
       }
       Tile { digit: lock.mm.charAt(0) }
       Tile { digit: lock.mm.charAt(1) }
+      // Only on a 12-hour clock; a Row leaves out what is not visible.
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        visible: lock.meridiem.length > 0
+        text: lock.meridiem
+        color: lock.withAlpha(Color.lock.text, 0.7)
+        font.family: Style.font.family
+        font.pixelSize: Math.round(lock.tileH * 0.2)
+        font.weight: Font.Bold
+      }
     }
 
     Text {

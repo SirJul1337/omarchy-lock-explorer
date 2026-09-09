@@ -78,7 +78,7 @@ DesignBase {
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: Qt.formatDateTime(lock.now, "dddd d MMMM  ·  HH:mm")
+      text: lock.clock("dddd d MMMM  ·  HH:mm")
       color: lock.withAlpha(Color.lock.text, 0.75)
       font.family: Style.font.family
       font.pixelSize: Style.font.title

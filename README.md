@@ -62,7 +62,7 @@ plugin cannot run anything when it is installed, so it is a choice you make once
 with `--remove` to take both entries out again:
 
 ```sh
-~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer/extras/install.sh
+~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer/extras/install.sh   # --remove takes them out
 omarchy-shell lock setMenuEntry on   # or off
 ```
 
@@ -94,6 +94,8 @@ omarchy-shell lock setUnlockDuration 600     # milliseconds, 0-2000, 400 by defa
 omarchy-shell lock previewUnlock             # play it on an open preview
 omarchy-shell lock clockFormat
 omarchy-shell lock setClockFormat 12   # or 24
+omarchy-shell lock menuEntry
+omarchy-shell lock setMenuEntry on     # launcher + Omarchy menu entries, or off
 omarchy-shell lock boot
 omarchy-shell lock setBoot follow            # stock, follow, or a design id with a twin
 ```

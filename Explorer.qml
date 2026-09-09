@@ -66,6 +66,8 @@ Item {
   onOpenedChanged: {
     if (!opened) return
     Quickshell.execDetached(["omarchy-shell", "osd", "close"])
+    // The entries can be added or removed outside the explorer too.
+    if (root.service && typeof root.service.refreshMenuEntry === "function") root.service.refreshMenuEntry()
     if (pendingResnapshot) {
       var p = pendingResnapshot
       pendingResnapshot = null
@@ -530,6 +532,14 @@ Item {
 
   function setTwelveHour(on) {
     if (root.service && typeof root.service.setTwelveHour === "function") root.service.setTwelveHour(on)
+  }
+
+  // The launcher and Omarchy menu entries, see extras/install.sh.
+  readonly property bool menuEntryInstalled: service && service.menuEntryInstalled === true
+  readonly property var menuEntryOptions: [{ id: "on", name: "Added" }, { id: "off", name: "Not added" }]
+
+  function setMenuEntry(on) {
+    if (root.service && typeof root.service.setMenuEntry === "function") root.service.setMenuEntry(on)
   }
 
   readonly property bool hasAvatar: avatarUrl.length > 0
@@ -1674,6 +1684,51 @@ Item {
                       anchors.fill: parent
                       hoverEnabled: true
                       onClicked: root.setTwelveHour(clockFormatChip.modelData.id === "12")
+                    }
+                  }
+                }
+              }
+
+              // An entry in the app launcher and under Style in the Omarchy
+              // menu. A plugin cannot add those on install, so it is a choice.
+              Row {
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Omarchy menu"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: root.menuEntryOptions
+                  Rectangle {
+                    id: menuEntryChip
+                    required property var modelData
+                    readonly property bool current: (modelData.id === "on") === root.menuEntryInstalled
+                    width: menuEntryLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, menuEntryArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: menuEntryLabel
+                      anchors.centerIn: parent
+                      text: menuEntryChip.modelData.name
+                      color: menuEntryChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: menuEntryChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: menuEntryArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setMenuEntry(menuEntryChip.modelData.id === "on")
                     }
                   }
                 }

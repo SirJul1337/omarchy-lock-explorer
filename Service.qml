@@ -424,6 +424,38 @@ Item {
 
   readonly property string checkFaceAuthPath: pluginDir + "/check-face-auth.sh"
 
+  // The app launcher entry and the Omarchy menu entry (Style -> Lock Screen).
+  // A plugin cannot run anything when it is installed, so they are opt-in:
+  // the Settings tab's "Omarchy menu" row and `omarchy-shell lock setMenuEntry`
+  // run extras/install.sh, which also takes them out again.
+  readonly property string menuInstallPath: pluginDir + "/extras/install.sh"
+  property bool menuEntryInstalled: false
+
+  function refreshMenuEntry() {
+    if (!menuEntryStatusProc.running) menuEntryStatusProc.running = true
+  }
+
+  function setMenuEntry(v) {
+    var on = v === true || v === 1 || v === "true" || v === "on" || v === "1"
+    if (menuEntryApplyProc.running) return false
+    menuEntryApplyProc.command = on ? [menuInstallPath] : [menuInstallPath, "--remove"]
+    menuEntryApplyProc.running = true
+    logEvent("menu-entry=" + (on ? "on" : "off"))
+    return true
+  }
+
+  Process {
+    id: menuEntryStatusProc
+    command: [root.menuInstallPath, "--status"]
+    stdout: StdioCollector { id: menuEntryStatusOut; waitForEnd: true }
+    onExited: root.menuEntryInstalled = String(menuEntryStatusOut.text || "").trim() === "installed"
+  }
+
+  Process {
+    id: menuEntryApplyProc
+    onExited: root.refreshMenuEntry()
+  }
+
   signal designCustomized(string id, string path)
 
   function customizeDesign(id) {
@@ -2385,6 +2417,7 @@ echo "$out"
       readonly property bool fingerprintConfigured: root.fingerprintConfigured
       readonly property bool faceConfigured: root.faceConfigured
       readonly property bool multimediaAvailable: root.multimediaAvailable
+      readonly property bool menuEntryInstalled: root.menuEntryInstalled
       readonly property var components: root.components
       readonly property bool locked: root.locked
       readonly property bool previewVisible: root.previewVisible
@@ -2446,6 +2479,8 @@ echo "$out"
       function refreshBackground() { return root.refreshBackground() }
       function refreshFingerprintStatus() { return root.refreshFingerprintStatus() }
       function refreshFaceStatus() { return root.refreshFaceStatus() }
+      function refreshMenuEntry() { return root.refreshMenuEntry() }
+      function setMenuEntry(v) { return root.setMenuEntry(v) }
       function logEvent(event) { return root.logEvent(event) }
       function setBoot(value) { return root.setBoot(value) }
       function applyBoot(force, explicitTarget) { return root.applyBoot(force, explicitTarget) }
@@ -2487,6 +2522,7 @@ echo "$out"
 
   Component.onCompleted: {
     publishExplorerApi()
+    refreshMenuEntry()
     refreshBackground()
     refreshFingerprintStatus()
     refreshSessionLockXray()
@@ -2789,6 +2825,14 @@ echo "$out"
 
     function setClipSpeed(v: string): string {
       return root.setClipSpeed(v) ? "ok" : "failed"
+    }
+
+    function menuEntry(): string {
+      return root.menuEntryInstalled ? "on" : "off"
+    }
+
+    function setMenuEntry(v: string): string {
+      return root.setMenuEntry(v === "on" || v === "true" || v === "1") ? "ok" : "failed"
     }
 
     function clockFormat(): string {

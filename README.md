@@ -56,10 +56,14 @@ unlock clip). Built-in designs can't be deleted. The editor has the code on
 the left and a live preview on the right: Ctrl+S saves and reloads the preview and the lock screen, Ctrl+O opens
 the file in your normal editor (changes made there are picked up too), Esc goes back.
 
-To get it in the app launcher and the Omarchy menu (Style -> Lock Screen):
+To get it in the app launcher and the Omarchy menu (Style -> Lock Screen, and `lock` in the
+menu's search), set "Omarchy menu" to Added in the Settings tab. Nothing is added on install: a
+plugin cannot run anything when it is installed, so it is a choice you make once. The same by hand,
+with `--remove` to take both entries out again:
 
 ```sh
 ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer/extras/install.sh
+omarchy-shell lock setMenuEntry on   # or off
 ```
 
 Optional keybinding for `~/.config/hypr/bindings.lua`:

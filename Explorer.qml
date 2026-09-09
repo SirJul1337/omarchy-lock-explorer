@@ -7,6 +7,7 @@ import qs.Ui
 import "designs"
 import "Designs.js" as Designs
 import "Designer.js" as Layout
+import "Bridge.js" as Bridge
 
 Item {
   id: root
@@ -15,6 +16,25 @@ Item {
   property var shell: null
   property var manifest: null
   property var service: null
+
+  // Omarchy 4.0.3 hands this overlay `service = null`: the service is an
+  // authentication service (a clone of omarchy.lock) and the host keeps those
+  // private (issue #16). The service publishes a facade of itself through
+  // Bridge.js instead; adopt it whenever the injected one is missing, and
+  // again whenever the service is reloaded. Older hosts still inject the
+  // service directly and nothing here gets in their way.
+  function adoptService() {
+    if (root.service) return
+    var api = Bridge.current()
+    if (api) root.service = api
+  }
+  onServiceChanged: if (!service) Qt.callLater(root.adoptService)
+  property var bridgeUnsubscribe: null
+  Component.onCompleted: {
+    root.bridgeUnsubscribe = Bridge.subscribe(function() { Qt.callLater(root.adoptService) })
+    root.adoptService()
+  }
+  Component.onDestruction: if (root.bridgeUnsubscribe) root.bridgeUnsubscribe()
 
   LocalSettings { id: localSettings; pluginId: root.pluginId }
   property string selectionError: ""

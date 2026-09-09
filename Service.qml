@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import qs.Commons
 import "Designs.js" as Designs
 import "DisplayPower.js" as DisplayPower
+import "Bridge.js" as Bridge
 
 Item {
   id: root
@@ -128,7 +129,7 @@ Item {
 
   // Opt-in HDMI workaround; Never still applies independently on every setup.
   readonly property bool displayBlankingSuppressed: keepDisplayOn || DisplayPower.keepDisplaysOn(
-    shell ? shell.shellConfig : null, pluginId, Quickshell.screens)
+    root.settingsConfig, pluginId, Quickshell.screens)
   onDisplayBlankingSuppressedChanged: {
     // The one-shot blank timer may already have fired while HDMI was present.
     // Start a fresh delay on disconnect (or when the option is turned off).
@@ -234,7 +235,7 @@ Item {
       var current = pluginEntry()
       if (speed === 1) delete current.clipSpeed
       else current.clipSpeed = speed
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("clip-speed=" + speed)
     return true
@@ -245,7 +246,7 @@ Item {
   // 24-hour setup keeps the entry it always had.
   property int twelveHourOverride: -1
   readonly property bool configuredTwelveHour: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -263,7 +264,7 @@ Item {
       var current = pluginEntry()
       if (on) current.clock12 = true
       else delete current.clock12
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("clock=" + (on ? "12h" : "24h"))
     return true
@@ -292,6 +293,15 @@ Item {
     return {}
   }
 
+  // Every setting is saved read-modify-write on this plugin's entry, and the
+  // host replaces the entry with what it is handed. The write-through copy in
+  // LocalSettings is what keeps two changes made back to back from clobbering
+  // each other while the file watcher catches up.
+  function writeEntry(entry) {
+    localSettings.remember(entry)
+    return shell.updateEntryInline(pluginId, entry)
+  }
+
   function setInputMonitor(name) {
     var value = String(name || "all")
     inputMonitorOverride = value
@@ -299,7 +309,7 @@ Item {
       var current = pluginEntry()
       if (value === "all") delete current.inputMonitor
       else current.inputMonitor = value
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("input-monitor=" + value)
     return true
@@ -314,7 +324,7 @@ Item {
       var current = pluginEntry()
       if (value === "none") delete current.unlock
       else current.unlock = value
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("unlock=" + value)
     return true
@@ -330,7 +340,7 @@ Item {
       var current = pluginEntry()
       if (value === defaultUnlockDuration) delete current.unlockMs
       else current.unlockMs = value
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("unlock-ms=" + value)
     return true
@@ -346,7 +356,7 @@ Item {
       var current = pluginEntry()
       if (value === defaultBlankDelay) delete current.blankMs
       else current.blankMs = value
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("blank-ms=" + value)
     return true
@@ -359,7 +369,7 @@ Item {
       var current = pluginEntry()
       if (!value) delete current.keepDisplayOn
       else current.keepDisplayOn = true
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("keep-display-on=" + value)
     return true
@@ -628,7 +638,7 @@ echo "$target"
     if (shell && typeof shell.updateEntryInline === "function") {
       var current = pluginEntry()
       current.avatar = setting
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     avatarVersion += 1
     logEvent("avatar=" + setting)
@@ -645,7 +655,7 @@ echo "$target"
     if (shell && typeof shell.updateEntryInline === "function") {
       var current = pluginEntry()
       delete current.avatar
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     avatarVersion += 1
     detectAvatar()
@@ -719,7 +729,7 @@ done
       var current = pluginEntry()
       if (setting === "none") delete current.video
       else current.video = setting
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("video=" + setting)
     return true
@@ -736,7 +746,7 @@ done
       var current = pluginEntry()
       if (setting === "none") delete current.sting
       else current.sting = setting
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("sting=" + setting)
     return true
@@ -753,7 +763,7 @@ done
       var current = pluginEntry()
       if (v === 0) delete current.stingVolume
       else current.stingVolume = v
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("sting-volume=" + v)
     return true
@@ -1001,7 +1011,7 @@ esac
       var current = pluginEntry()
       if (enabled) current.clipWallpaper = true
       else delete current.clipWallpaper
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("clip-wallpaper=" + enabled)
     return true
@@ -1099,7 +1109,7 @@ echo "$out"
       var current = pluginEntry()
       if (v === "stock") delete current.boot
       else current.boot = v
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("boot=" + v)
     // Redesign: picking a boot option only sets the desired choice; the
@@ -1185,7 +1195,7 @@ echo "$out"
       var current = pluginEntry()
       if (enabled) delete current.bootResync
       else current.bootResync = false
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("boot-resync=" + (enabled ? "on" : "off"))
     if (enabled) maybeResyncBoot()
@@ -1320,7 +1330,7 @@ echo "$out"
       var current = pluginEntry()
       if (v === 0) delete current.bootClipSeconds
       else current.bootClipSeconds = v
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("boot-clip=" + v)
     var appliedIsClip = bootApplied.indexOf("video:") === 0
@@ -1436,7 +1446,7 @@ echo "$out"
       var current = pluginEntry()
       if (list.length === 0) delete current.bootRotation
       else current.bootRotation = list
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("boot-rotation=" + list.join(","))
     return true
@@ -1454,7 +1464,7 @@ echo "$out"
       if (shell && typeof shell.updateEntryInline === "function") {
         var current = pluginEntry()
         current.boot = "snapshot:" + id
-        shell.updateEntryInline(pluginId, current)
+        writeEntry(current)
       }
     }
     bootApplying = true
@@ -1568,7 +1578,7 @@ echo "$out"
     if (shell && typeof shell.updateEntryInline === "function") {
       var current = pluginEntry()
       current.design = d.id
-      shell.updateEntryInline(pluginId, current)
+      writeEntry(current)
     }
     logEvent("design=" + d.id)
     if (bootSetting === "follow") applyBoot(false)
@@ -1709,7 +1719,7 @@ echo "$out"
     authenticatingPassword = false
     fingerprintAuthenticating = false
     fingerprintRetryTimer.stop()
-    if (!passwordPam.active) passwordPam.abort()
+    if (passwordPam.active) passwordPam.abort()
     if (fingerprintPam.active) fingerprintPam.abort()
     if (facePam.active) facePam.abort()
   }
@@ -1879,24 +1889,11 @@ echo "$out"
   }
 
   function startFace() {
-    console.log("omarchy lock startFace: lockRequested=" + lockRequested + " secure=" + sessionLock.secure + " faceConfigured=" + faceConfigured + " facePam.active=" + facePam.active + " faceAuthenticating=" + faceAuthenticating)
-    if (!lockRequested || !sessionLock.secure || !faceConfigured) {
-      console.log("omarchy lock startFace: early return")
-      return
-    }
-    if (facePam.active || faceAuthenticating) {
-      console.log("omarchy lock startFace: already active")
-      return
-    }
+    if (!lockRequested || !sessionLock.secure || !faceConfigured) return
+    if (facePam.active || faceAuthenticating) return
 
     faceAuthenticating = true
-    console.log("omarchy lock startFace: calling facePam.start()")
-    if (!facePam.start()) {
-      faceAuthenticating = false
-      console.log("omarchy lock startFace: facePam.start() failed")
-    } else {
-      console.log("omarchy lock startFace: facePam.start() OK")
-    }
+    if (!facePam.start()) faceAuthenticating = false
   }
 
   function handleFaceFinished(result) {
@@ -2104,12 +2101,10 @@ echo "$out"
     user: root.userName
 
     onCompleted: function(result) {
-      console.log("omarchy lock facePam.onCompleted: result=" + result)
       root.handleFaceFinished(result)
     }
 
     onError: function(error) {
-      console.log("omarchy lock facePam.onError: " + error)
       root.faceAuthenticating = false
       if (root.lockRequested && root.faceConfigured) faceRetryTimer.restart()
     }
@@ -2353,7 +2348,145 @@ echo "$out"
     checkStrandedLock()
   }
 
+  // ------------------------------------------------- explorer facade
+  // What the explorer, editor and designer get to see of this service on
+  // Omarchy 4.0.3+, where the host keeps authentication services private
+  // and hands the overlay `service = null` (issue #16). Published through
+  // Bridge.js; it has no QObject parent and no reference back to this
+  // object, so nothing here leads to the PAM contexts or the typed
+  // password. extras/test-service-api.py keeps it in step with the UI.
+  property var explorerApi: null
+
+  Component {
+    id: explorerApiComponent
+    QtObject {
+      readonly property string designId: root.designId
+      readonly property int designsRevision: root.designsRevision
+      readonly property string backgroundPath: root.backgroundPath
+      readonly property int backgroundVersion: root.backgroundVersion
+      readonly property string avatarPath: root.avatarPath
+      readonly property int avatarVersion: root.avatarVersion
+      readonly property string avatarUrl: root.avatarUrl
+      readonly property string videoPath: root.videoPath
+      readonly property string stingPath: root.stingPath
+      readonly property int stingVolume: root.stingVolume
+      readonly property real clipSpeed: root.clipSpeed
+      readonly property bool clipWallpaper: root.clipWallpaper
+      readonly property bool twelveHour: root.twelveHour
+      readonly property string inputMonitor: root.inputMonitor
+      readonly property string unlockAnimation: root.unlockAnimation
+      readonly property int unlockDuration: root.unlockDuration
+      readonly property var unlockAnimations: root.unlockAnimations
+      readonly property int defaultUnlockDuration: root.defaultUnlockDuration
+      readonly property int blankDelay: root.blankDelay
+      readonly property int defaultBlankDelay: root.defaultBlankDelay
+      readonly property bool keepDisplayOn: root.keepDisplayOn
+      readonly property bool displayBlankingSuppressed: root.displayBlankingSuppressed
+      readonly property bool fingerprintConfigured: root.fingerprintConfigured
+      readonly property bool faceConfigured: root.faceConfigured
+      readonly property bool multimediaAvailable: root.multimediaAvailable
+      readonly property var components: root.components
+      readonly property bool locked: root.locked
+      readonly property bool previewVisible: root.previewVisible
+      readonly property bool stingPlaying: root.stingPlaying
+      readonly property string bootSetting: root.bootSetting
+      readonly property bool bootApplying: root.bootApplying
+      readonly property string bootApplied: root.bootApplied
+      readonly property int bootAppliedVersion: root.bootAppliedVersion
+      readonly property string bootAppliedTheme: root.bootAppliedTheme
+      readonly property string bootCurrentTheme: root.bootCurrentTheme
+      readonly property bool bootResync: root.bootResync
+      readonly property int bootPreviewsVersion: root.bootPreviewsVersion
+      readonly property bool bootPreviewsRunning: root.bootPreviewsRunning
+      readonly property bool bootPreviewsPending: root.bootPreviewsPending
+      readonly property var bootVideos: root.bootVideos
+      readonly property var bootCustomDesigns: root.bootCustomDesigns
+      readonly property int bootClipSeconds: root.bootClipSeconds
+      readonly property var bootRotation: root.bootRotation
+
+      signal designCustomized(string id, string path)
+      signal designerDesignCreated(string id, string path)
+      signal imagePicked(string path)
+      signal clipDesignAdded(string id)
+      signal bootResnapshotRequested(string designId, bool persist)
+      signal exploreTabRequested(string tab)
+      signal bootDesignLoaded(string name, string content)
+
+      function setDesign(id) { return root.setDesign(id) }
+      function customizeDesign(id) { return root.customizeDesign(id) }
+      function createDesignerDesign(content) { return root.createDesignerDesign(content) }
+      function deleteDesign(id) { return root.deleteDesign(id) }
+      function rescanUserDesigns() { return root.rescanUserDesigns() }
+      function reloadDesigns() { return root.reloadDesigns() }
+      function rescanComponents() { return root.rescanComponents() }
+      function saveComponent(slug, json) { return root.saveComponent(slug, json) }
+      function deleteComponent(slug) { return root.deleteComponent(slug) }
+      function pickAvatar(reopenExplorer) { return root.pickAvatar(reopenExplorer) }
+      function setAvatar(path) { return root.setAvatar(path) }
+      function clearAvatar() { return root.clearAvatar() }
+      function resetAvatar() { return root.resetAvatar() }
+      function pickImage(reopenExplorer) { return root.pickImage(reopenExplorer) }
+      function pickVideo(reopenExplorer, target) { return root.pickVideo(reopenExplorer, target) }
+      function setVideo(path) { return root.setVideo(path) }
+      function clearVideo() { return root.clearVideo() }
+      function setSting(path) { return root.setSting(path) }
+      function clearSting() { return root.clearSting() }
+      function setStingVolume(value) { return root.setStingVolume(value) }
+      function playSting() { return root.playSting() }
+      function endSting() { return root.endSting() }
+      function createClipDesign(path) { return root.createClipDesign(path) }
+      function setClipSpeed(v) { return root.setClipSpeed(v) }
+      function setClipWallpaper(on) { return root.setClipWallpaper(on) }
+      function setTwelveHour(v) { return root.setTwelveHour(v) }
+      function setInputMonitor(name) { return root.setInputMonitor(name) }
+      function setUnlockAnimation(name) { return root.setUnlockAnimation(name) }
+      function setUnlockDuration(ms) { return root.setUnlockDuration(ms) }
+      function setBlankDelay(ms) { return root.setBlankDelay(ms) }
+      function setKeepDisplayOn(on) { return root.setKeepDisplayOn(on) }
+      function refreshBackground() { return root.refreshBackground() }
+      function refreshFingerprintStatus() { return root.refreshFingerprintStatus() }
+      function refreshFaceStatus() { return root.refreshFaceStatus() }
+      function logEvent(event) { return root.logEvent(event) }
+      function setBoot(value) { return root.setBoot(value) }
+      function applyBoot(force, explicitTarget) { return root.applyBoot(force, explicitTarget) }
+      function applyBootSnapshot(id, persist, entryRect) { return root.applyBootSnapshot(id, persist, entryRect) }
+      function setBootResync(on) { return root.setBootResync(on) }
+      function refreshBootPreviews() { return root.refreshBootPreviews() }
+      function setBootClipSeconds(n) { return root.setBootClipSeconds(n) }
+      function loadBootDesign(name) { return root.loadBootDesign(name) }
+      function saveBootDesign(name, content) { return root.saveBootDesign(name, content) }
+      function createBootDesign() { return root.createBootDesign() }
+      function deleteBootItem(id) { return root.deleteBootItem(id) }
+      function toggleBootRotation(id) { return root.toggleBootRotation(id) }
+      function enableBootRotation() { return root.enableBootRotation() }
+    }
+  }
+
+  function publishExplorerApi() {
+    if (explorerApi) return
+    var api = explorerApiComponent.createObject(null)
+    if (!api) return
+    root.designCustomized.connect(api.designCustomized)
+    root.designerDesignCreated.connect(api.designerDesignCreated)
+    root.imagePicked.connect(api.imagePicked)
+    root.clipDesignAdded.connect(api.clipDesignAdded)
+    root.bootResnapshotRequested.connect(api.bootResnapshotRequested)
+    root.exploreTabRequested.connect(api.exploreTabRequested)
+    root.bootDesignLoaded.connect(api.bootDesignLoaded)
+    explorerApi = api
+    Bridge.publish(api)
+  }
+
+  function retireExplorerApi() {
+    if (!explorerApi) return
+    var api = explorerApi
+    explorerApi = null
+    Bridge.unpublish(api)
+    api.destroy()
+  }
+
   Component.onCompleted: {
+    publishExplorerApi()
     refreshBackground()
     refreshFingerprintStatus()
     refreshSessionLockXray()
@@ -2361,6 +2494,8 @@ echo "$out"
     detectAvatar()
     checkStrandedLock()
   }
+
+  Component.onDestruction: retireExplorerApi()
 
   IpcHandler {
     target: "lock"
@@ -2385,9 +2520,11 @@ echo "$out"
         realScreens: root.realScreenCount(),
         passwordPam: root.passwordPamConfigured,
         multimedia: root.multimediaAvailable,
+        fingerprint: root.fingerprintConfigured,
         fingerprintConfigured: root.fingerprintConfigured,
         faceConfigured: root.faceConfigured,
         faceAuthenticating: root.faceAuthenticating,
+        authenticating: root.authenticating,
         lastEvent: root.lastEvent,
         lastEventAt: root.lastEventAt,
         design: root.designId,

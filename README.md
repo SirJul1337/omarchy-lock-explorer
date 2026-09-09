@@ -39,6 +39,11 @@ dialog is up and comes back when you are done), `Shift+A` clears it again. The d
 the user — Greeting Card, Split, Dock, Poster, Sheet, Island and Profile — use it, and fall back
 to your initial when there is none.
 
+With a fingerprint reader enrolled the lock screen listens for it as soon as it comes up, and
+with face unlock set up (`pam_facelock`, the `omarchy-lock-face` PAM config with a model
+enrolled) pressing Enter on an empty password field starts a face check, the same as the stock
+lock. The password field shows an icon for each one that is available.
+
 `D` opens the visual designer — a new design, or the selected one if it was made there (see
 [The designer](#the-designer)). `C` on any design copies it to `~/.config/omarchy/lock-designs/`
 (it shows up under Custom) and opens it in the built-in code editor. `E` edits a design of your
@@ -285,7 +290,7 @@ To add a design to the plugin itself, copy one of the files in `designs/`, add i
 `Designs.js`, run `omarchy restart shell`.
 
 A design is a `DesignBase` item. It gets `passwordText`, `failureMessage`, `failedAttempts`,
-`authenticatingPassword`, `fingerprintConfigured`, `inputEnabled`, a ticking `now`, `userName`,
+`authenticatingPassword`, `fingerprintConfigured`, `faceConfigured`, `inputEnabled`, a ticking `now`, `userName`,
 `hostName` and `greeting()`. Use `PasswordField` for a normal input box or `LockInput` if you
 want to draw the input yourself, and point `inputItem` at it so it gets focus. Set
 `shakeOnFail: true` on box-less designs (the base flashes red on a wrong password either way), and
@@ -326,6 +331,14 @@ jq '.plugins, .disabled' ~/.config/omarchy/shell.json
 load. `omarchy plugin validate ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer`
 and the shell log will say why.
 
+The explorer opens but nothing in it works, and every setting comes back as its default after
+`omarchy restart shell` or an update: that is plugin versions up to 1.6.1 on Omarchy 4.0.3,
+which stopped handing third-party plugins their `shell.json` settings and, for a lock screen,
+their own service. Update the plugin (`omarchy plugin update io.github.sirjul1337.lock-explorer`
+then `omarchy restart shell`); 1.7.0 reads its entry from `~/.config/omarchy/shell.json` itself
+and hands the explorer a facade of the service instead. Settings that were lost in the meantime
+need to be picked again once.
+
 A broken design can never lock you out: if the selected design fails to load (a custom design
 with a typo, say), the lock screen falls back to Classic, and if even that fails a plain
 built-in password field takes over — the password always works. The boot screen is equally
@@ -362,9 +375,9 @@ are simply disabled and everything else works (see Troubleshooting). Beyond that
 outside Omarchy 4 itself, except the Weather design, which runs `curl` to fetch
 `https://wttr.in` (the same service and location file as the Omarchy weather widget). No other
 design makes network requests. Picking an avatar runs `omarchy file select`, the desktop file
-chooser that ships with Omarchy. The plugin writes only its own entry in
-`~/.config/omarchy/shell.json` (the design you pick and the path to your avatar) and files you
-create yourself under `~/.config/omarchy/lock-designs/`. Avatar images are read where they are,
+chooser that ships with Omarchy. The plugin reads `~/.config/omarchy/shell.json` and writes
+only its own entry in it (the design you pick, the path to your avatar and the other settings
+above), plus files you create yourself under `~/.config/omarchy/lock-designs/`. Avatar images are read where they are,
 nothing is copied.
 
 Setting a boot screen uses tools Omarchy already ships (`magick`, `fc-match`, `pkexec`, `cpio`
@@ -393,3 +406,9 @@ omarchy plugin validate ~/.config/omarchy/plugins/io.github.sirjul1337.lock-expl
 qmllint -I "$OMARCHY_PATH/shell" ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer/{*.qml,designs/*.qml}
 omarchy restart shell
 ```
+
+On Omarchy 4.0.3 and later the explorer, editor and designer do not get the service object
+from the host (it is an authentication service, kept private). `Service.qml` publishes a
+facade of itself through `Bridge.js` instead, with the settings, design state and actions the
+UI needs and none of the PAM state. Anything new the UI reads off `service` has to be added to
+that facade; `extras/test-service-api.py` (run in CI) fails when something is missing.

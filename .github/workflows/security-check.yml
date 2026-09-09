@@ -15,3 +15,5 @@ jobs:
         run: bash extras/security-check.sh
       - name: Test imported clip filenames
         run: python3 extras/test-clip-filenames.py
+      - name: Test the explorer facade covers the UI
+        run: python3 extras/test-service-api.py

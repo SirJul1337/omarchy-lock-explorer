@@ -11,6 +11,7 @@ Item {
   property string avatarPath: ""
   property int avatarVersion: 0
   property bool fingerprintConfigured: false
+  property bool faceConfigured: false
   property bool authenticatingPassword: false
   property string failureMessage: ""
   property int failedAttempts: 0
@@ -36,6 +37,7 @@ Item {
   signal passwordTextEdited(string password)
   signal clearFailureRequested()
   signal wakeRequested()
+  signal faceRequested()
 
   readonly property bool errorState: failureMessage.length > 0
   readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"

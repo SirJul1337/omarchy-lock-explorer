@@ -50,6 +50,7 @@ TextInput {
     var submitted = lock.passwordText
     lock.passwordTextEdited("")
     if (submitted.length > 0) lock.submitPassword(submitted)
+    else if (lock.faceConfigured) lock.faceRequested()
   }
 
   Keys.onPressed: function(event) {

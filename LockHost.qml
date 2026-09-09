@@ -14,6 +14,7 @@ Item {
   property string avatarPath: ""
   property int avatarVersion: 0
   property bool fingerprintConfigured: false
+  property bool faceConfigured: false
   property bool authenticatingPassword: false
   property string failureMessage: ""
   property int failedAttempts: 0
@@ -29,6 +30,7 @@ Item {
   signal passwordTextEdited(string password)
   signal clearFailureRequested()
   signal wakeRequested()
+  signal faceRequested()
   signal unlockFinished()
 
   readonly property var design: {
@@ -64,6 +66,7 @@ Item {
     it.avatarPath = Qt.binding(function() { return host.avatarPath })
     it.avatarVersion = Qt.binding(function() { return host.avatarVersion })
     it.fingerprintConfigured = Qt.binding(function() { return host.fingerprintConfigured })
+    it.faceConfigured = Qt.binding(function() { return host.faceConfigured })
     it.authenticatingPassword = Qt.binding(function() { return host.authenticatingPassword })
     it.failureMessage = Qt.binding(function() { return host.failureMessage })
     it.failedAttempts = Qt.binding(function() { return host.failedAttempts })
@@ -149,6 +152,7 @@ Item {
     function onClearFailureRequested() { host.clearFailureRequested() }
     function onWakeRequested() { host.wakeRequested() }
     function onUnlockFinished() { host.unlockFinished() }
+    function onFaceRequested() { host.faceRequested() }
   }
 
   // Last line of defense: if nothing rendered at all — the design AND the

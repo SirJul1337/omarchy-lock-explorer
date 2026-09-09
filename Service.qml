@@ -5,6 +5,7 @@ import Quickshell.Services.Pam
 import Quickshell.Wayland
 import qs.Commons
 import "Designs.js" as Designs
+import "DisplayPower.js" as DisplayPower
 
 Item {
   id: root
@@ -124,6 +125,15 @@ Item {
     return false
   }
   readonly property bool keepDisplayOn: keepDisplayOnOverride >= 0 ? keepDisplayOnOverride === 1 : configuredKeepDisplayOn
+
+  // Opt-in HDMI workaround; Never still applies independently on every setup.
+  readonly property bool displayBlankingSuppressed: keepDisplayOn || DisplayPower.keepDisplaysOn(
+    shell ? shell.shellConfig : null, pluginId, Quickshell.screens)
+  onDisplayBlankingSuppressedChanged: {
+    // The one-shot blank timer may already have fired while HDMI was present.
+    // Start a fresh delay on disconnect (or when the option is turned off).
+    if (lockRequested && !displayBlankingSuppressed) armBlankTimer()
+  }
 
   // Avatar picture for the designs that show the user. The chosen path lives on
   // the plugin entry in shell.json; "none" there means the user cleared it and
@@ -1768,7 +1778,7 @@ echo "$out"
 
   function runBlank() {
     if (keepDisplayOn) return
-    screenBlanked = true
+    screenBlanked = !displayBlankingSuppressed
     if (!blankProcess.running) blankProcess.running = true
   }
 
@@ -2133,7 +2143,9 @@ echo "$out"
 
   Process {
     id: blankProcess
-    command: ["bash", "-c", "omarchy-brightness-keyboard off; omarchy-brightness-display off"]
+    command: ["bash", "-c", root.displayBlankingSuppressed
+      ? "omarchy-brightness-keyboard off"
+      : "omarchy-brightness-keyboard off; omarchy-brightness-display off"]
   }
 
   Timer {
@@ -2271,6 +2283,7 @@ echo "$out"
         unlockAnimated: root.unlockAnimated,
         blankMs: root.blankDelay,
         keepDisplayOn: root.keepDisplayOn,
+        displayBlankingSuppressed: root.displayBlankingSuppressed,
         unlocking: root.unlocking,
         clipDesign: root.designHasClip,
         clipUnlocking: root.clipUnlocking,

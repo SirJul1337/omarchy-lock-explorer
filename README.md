@@ -116,6 +116,25 @@ a "Blank the display after" row — 5s, 15s, 30s, 1m, 5m, Custom, or Never. Cust
 **Never** keeps the lock screen lit for the whole lock: video designs keep playing, and slow
 monitors are never re-blanked mid-wake on resume — the display was never off to begin with.
 
+For an HDMI setup that fails to wake after DPMS, you can instead keep displays powered
+**only while HDMI is present**. Add `"keepDisplaysOnWithHdmi": true` to this plugin's
+entry in `~/.config/omarchy/shell.json`:
+
+```json
+{"id": "io.github.sirjul1337.lock-explorer", "keepDisplaysOnWithHdmi": true}
+```
+
+This defaults off. While an `HDMI-A-*` screen is present, the blank timer turns off
+only the keyboard backlight; all displays stay powered and the lock remains active.
+When HDMI is removed, the normal blank delay starts again. **Never** still keeps
+displays on regardless of connectors. Set the HDMI option to `false` or remove it
+to disable the workaround. `omarchy-shell lock status` reports the effective policy
+as `displayBlankingSuppressed`.
+
+This uses more monitor power. It avoids a display-sleep trigger; it does not fix
+driver hotplug faults or prevent explicit system suspend. The setting follows
+Hyprland's visible HDMI screen names, not USB dock presence.
+
 With no avatar set, the first of `~/.config/omarchy/lock-avatar.{png,jpg,jpeg,webp}`, `~/.face`,
 `~/.face.icon` and `/var/lib/AccountsService/icons/$USER` is used, so an existing profile picture
 shows up on its own.

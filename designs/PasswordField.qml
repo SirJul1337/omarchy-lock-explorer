@@ -25,12 +25,13 @@ BorderSurface {
   readonly property bool errorState: lock ? lock.errorState : false
   readonly property bool authenticating: lock ? lock.authenticatingPassword : false
   readonly property bool fingerprint: lock ? lock.fingerprintConfigured : false
+  readonly property bool face: lock ? lock.faceConfigured : false
   readonly property bool revealed: lock ? lock.passwordVisible : false
   readonly property bool showToggle: lock ? lock.showPasswordToggle : true
   readonly property int fieldFontSize: Math.round(Style.font.heading * fontScale)
   readonly property int dotFontSize: Math.round(Style.font.heading * 1.25 * fontScale)
   readonly property int dotLetterSpacing: Math.round(Style.font.heading * 0.19 * fontScale)
-  readonly property real fingerprintReserve: (fingerprint ? Math.round(fingerprintIcon.implicitWidth + 12) : 0) + (showToggle ? Math.round(eyeButton.width + 8) : 0)
+  readonly property real fingerprintReserve: (fingerprint ? Math.round(fingerprintIcon.implicitWidth + 12) : 0) + (face ? Math.round(faceIcon.implicitWidth + 12) : 0) + (showToggle ? Math.round(eyeButton.width + 8) : 0)
   readonly property real glyphReserve: showLockGlyph ? Math.round(lockGlyph.implicitWidth + 12) : 0
   readonly property real dotScale: dotMetrics.advanceWidth > 0
     ? Math.min(1, (input.width - 4) / dotMetrics.advanceWidth)
@@ -124,7 +125,9 @@ BorderSurface {
     width: Math.round(field.fieldFontSize * 1.6)
     height: parent.height
     anchors.right: parent.right
-    anchors.rightMargin: field.borderRight + field.sidePadding - 6 + (field.fingerprint ? Math.round(fingerprintIcon.implicitWidth + 12) : 0)
+    anchors.rightMargin: field.borderRight + field.sidePadding - 6
+      + (field.fingerprint ? Math.round(fingerprintIcon.implicitWidth + 8) : 0)
+      + (field.face ? Math.round(faceIcon.implicitWidth + 8) : 0)
     Text {
       anchors.centerIn: parent
       text: field.revealed ? "󰈉" : "󰈈"
@@ -145,11 +148,23 @@ BorderSurface {
 
   Text {
     id: fingerprintIcon
-    anchors.right: parent.right
-    anchors.rightMargin: field.borderRight + field.sidePadding
+    anchors.right: faceIcon.left
+    anchors.rightMargin: -9
     anchors.verticalCenter: parent.verticalCenter
     visible: field.fingerprint
     text: "󰈷"
+    color: Color.lock.placeholder
+    font.family: Style.font.family
+    font.pixelSize: Math.round(field.fieldFontSize * 1.1)
+  }
+
+  Text {
+    id: faceIcon
+    anchors.right: parent.right
+    anchors.rightMargin: field.borderRight + field.sidePadding
+    anchors.verticalCenter: parent.verticalCenter
+    visible: field.face
+    text: "󰱻"
     color: Color.lock.placeholder
     font.family: Style.font.family
     font.pixelSize: Math.round(field.fieldFontSize * 1.1)

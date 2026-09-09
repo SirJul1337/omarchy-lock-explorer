@@ -16,6 +16,9 @@ Item {
   property var manifest: null
   property var service: null
 
+  LocalSettings { id: localSettings; pluginId: root.pluginId }
+  property string selectionError: ""
+
   property bool opened: false
   // A resync that arrived while this window was never yet shown cannot grab a
   // frame (no scene graph); it parks here and runs on the next open.
@@ -68,7 +71,8 @@ Item {
     return Designs.stylings()
   }
   readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "io.github.sirjul1337.lock-explorer"
-  readonly property string activeDesignId: service ? service.designId : Designs.DEFAULT_ID
+  readonly property string activeDesignId: service ? service.designId
+    : String(localSettings.entry.design || Designs.DEFAULT_ID)
   readonly property var selectedDesign: designs.length > 0 ? designs[Math.max(0, Math.min(selectedIndex, designs.length - 1))] : null
   readonly property string avatarUrl: service ? service.avatarUrl : ""
 
@@ -896,10 +900,36 @@ Item {
     }
   }
 
+  function useDesign(id, dismissAfter) {
+    if (!Designs.byId(String(id)) || selectDesignProc.running) return
+    root.selectionError = ""
+    if (root.service && typeof root.service.setDesign === "function") {
+      if (root.service.setDesign(id)) {
+        if (dismissAfter) root.dismiss()
+      } else root.selectionError = "Could not select this lock design"
+      return
+    }
+    // The authentication service is intentionally private in Omarchy 4.0.3.
+    // Use its existing settings command, never expose the PAM service to UI.
+    selectDesignProc.dismissAfter = dismissAfter
+    selectDesignProc.command = ["omarchy-shell", "lock", "setDesign", String(id)]
+    selectDesignProc.running = true
+  }
+
+  Process {
+    id: selectDesignProc
+    property bool dismissAfter: false
+    stdout: StdioCollector { id: selectDesignOut; waitForEnd: true }
+    onExited: function(code) {
+      if (code === 0 && String(selectDesignOut.text || "").trim() === "ok") {
+        localSettings.reload()
+        if (dismissAfter) root.dismiss()
+      } else root.selectionError = "Could not select this lock design; please try again"
+    }
+  }
+
   function apply() {
-    if (!selectedDesign) return
-    if (root.service && typeof root.service.setDesign === "function") root.service.setDesign(selectedDesign.id)
-    root.dismiss()
+    if (selectedDesign) root.useDesign(selectedDesign.id, true)
   }
 
   PanelWindow {
@@ -1161,7 +1191,7 @@ Item {
             Text {
               id: activeLabel
               anchors.centerIn: parent
-              text: "Active: " + (Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : root.activeDesignId)
+              text: root.selectionError || "Active: " + (Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : root.activeDesignId)
               textFormat: Text.PlainText
               color: root.foreground
               font.family: root.fontFamily
@@ -3207,7 +3237,7 @@ Item {
               MouseArea {
                 anchors.fill: parent
                 onClicked: {
-                  if (root.service && root.editingDesign) root.service.setDesign(root.editingDesign.id)
+                  if (root.editingDesign) root.useDesign(root.editingDesign.id, false)
                 }
               }
             }
@@ -3277,7 +3307,7 @@ Item {
         screenWidth: panel.width
         screenHeight: panel.height
         onCloseRequested: root.closeDesigner()
-        onUseRequested: if (root.service && root.designingDesign) root.service.setDesign(root.designingDesign.id)
+        onUseRequested: if (root.designingDesign) root.useDesign(root.designingDesign.id, false)
         onPickFileRequested: root.pickDesignerImage()
         onOpenCodeRequested: function(path) {
           // Straight from the canvas into the code, on the same file.

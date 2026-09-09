@@ -13,11 +13,15 @@ Item {
   property var manifest: null
   property string omarchyPath: ""
 
+  LocalSettings { id: localSettings; pluginId: root.pluginId }
+  readonly property var settingsConfig: shell && shell.shellConfig
+    ? shell.shellConfig : localSettings.config
+
   // selected design lives on this plugin's entry in shell.json
   readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "io.github.sirjul1337.lock-explorer"
   property string designOverride: ""
   readonly property string configuredDesignId: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -44,7 +48,7 @@ Item {
   // monitors get the companion screen.
   property string inputMonitorOverride: ""
   readonly property string configuredInputMonitor: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -62,7 +66,7 @@ Item {
   property string unlockOverride: ""
   property int unlockDurationOverride: -1
   readonly property string configuredUnlock: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -71,7 +75,7 @@ Item {
     return "none"
   }
   readonly property int configuredUnlockDuration: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -94,7 +98,7 @@ Item {
   readonly property int defaultBlankDelay: 5000
   property int blankDelayOverride: -1
   readonly property int configuredBlankDelay: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -111,7 +115,7 @@ Item {
   // in shell.json.
   property int keepDisplayOnOverride: -1
   readonly property bool configuredKeepDisplayOn: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -126,7 +130,7 @@ Item {
   // wants the initial back, an empty setting falls back to the usual dotfiles.
   property string avatarOverride: ""
   readonly property string configuredAvatar: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -151,7 +155,7 @@ Item {
   // it was cleared on purpose.
   property string videoOverride: ""
   readonly property string configuredVideo: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -164,7 +168,7 @@ Item {
 
   property string stingOverride: ""
   readonly property string configuredSting: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -182,7 +186,7 @@ Item {
 
   property int stingVolumeOverride: -1
   readonly property int configuredStingVolume: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -198,7 +202,7 @@ Item {
   // `clipSpeed` when it is not 1.
   property real clipSpeedOverride: -1
   readonly property real configuredClipSpeed: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -242,7 +246,7 @@ Item {
   }
 
   function pluginEntry() {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++)
       if (list[i] && String(list[i].id || "") === pluginId) return Util.cloneJson(list[i])
@@ -939,7 +943,7 @@ esac
   // entry as `clipWallpaper: true`, off by default.
   property int clipWallpaperOverride: -1
   readonly property bool configuredClipWallpaper: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -1011,7 +1015,7 @@ echo "$out"
   // through a single polkit prompt (see plymouth/apply.sh).
   property string bootOverride: ""
   readonly property string configuredBoot: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -1123,7 +1127,7 @@ echo "$out"
   property string bootCurrentTheme: ""
   property int bootResyncOverride: -1
   readonly property bool configuredBootResync: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -1257,7 +1261,7 @@ echo "$out"
   // on the plugin entry as bootClipSeconds.
   property int bootClipSecondsOverride: -1
   readonly property int configuredBootClipSeconds: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]
@@ -1367,7 +1371,7 @@ echo "$out"
   // prompt as the fallback. Saved on the plugin entry as bootRotation.
   property var bootRotationOverride: null
   readonly property var configuredBootRotation: {
-    var cfg = shell ? shell.shellConfig : null
+    var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i]

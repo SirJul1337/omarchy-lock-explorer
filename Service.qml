@@ -770,6 +770,10 @@ set -e
 src="$1"; videos="$2"; dir="$3"; imp="$4"
 mkdir -p "$videos" "$dir"
 base=$(basename "$src")
+# The copied name is embedded in QML, comments and tab-separated metadata.
+# Keep it inert in all three, and compatible with the clipName scanner.
+# Only the imported copy is renamed; the source file is left untouched.
+base=$(printf %s "$base" | LC_ALL=C tr -c "a-zA-Z0-9._-" "_")
 if [[ -e "$videos/$base" ]] && ! cmp -s "$src" "$videos/$base"; then
   stem="${base%.*}"; ext="${base##*.}"; n=2
   while [[ -e "$videos/$stem-$n.$ext" ]]; do n=$((n+1)); done

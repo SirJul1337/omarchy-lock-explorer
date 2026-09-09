@@ -83,6 +83,8 @@ omarchy-shell lock unlockAnimation
 omarchy-shell lock setUnlockAnimation fade   # none (default), fade, zoom or rise
 omarchy-shell lock setUnlockDuration 600     # milliseconds, 0-2000, 400 by default
 omarchy-shell lock previewUnlock             # play it on an open preview
+omarchy-shell lock clockFormat
+omarchy-shell lock setClockFormat 12   # or 24
 omarchy-shell lock boot
 omarchy-shell lock setBoot follow            # stock, follow, or a design id with a twin
 ```
@@ -105,6 +107,21 @@ instead, and the fade goes straight into it.
 
 The selected design, the avatar, the unlock animation and the boot screen setting are saved on
 the plugin entry in `~/.config/omarchy/shell.json`.
+
+### 12-hour clock
+
+Clocks read 24-hour by default. The Settings tab has a "Clock" row — **24h** or
+**12h AM/PM** — and it applies to every design, built-in or your own, including
+the previews in the explorer and the designer canvas. By hand:
+`omarchy-shell lock setClockFormat 12`, and `24` to go back. It is saved on the
+plugin entry in `~/.config/omarchy/shell.json` as `clock12`.
+
+Designs render their clock through `lock.clock("HH:mm")` rather than
+`Qt.formatTime` directly, which is what lets one setting reach all of them: the
+format is used as written on a 24-hour clock, and rewritten to a 12-hour one
+with AM/PM after the time when the setting is on. A design that shows a bare
+hour on its own — Flip's tiles, Poster's numerals — counts 1 to 12 and puts the
+meridiem in `lock.meridiem`, which those two draw beside the digits.
 
 ### Blank the display after
 

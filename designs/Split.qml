@@ -26,7 +26,7 @@ DesignBase {
     anchors.bottomMargin: 64
     spacing: 4
     Text {
-      text: Qt.formatTime(lock.now, "HH:mm")
+      text: lock.clock("HH:mm")
       color: Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.baseSize * 8)

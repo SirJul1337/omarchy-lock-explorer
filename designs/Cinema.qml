@@ -29,7 +29,7 @@ DesignBase {
       anchors.leftMargin: lock.pad
       anchors.verticalCenter: parent.verticalCenter
       opacity: lock.snapshotMode ? 0 : 1
-      text: Qt.formatTime(lock.now, "HH:mm")
+      text: lock.clock("HH:mm")
       color: "#f2f2f2"
       font.family: Style.font.family
       font.pixelSize: Style.font.displayLarge

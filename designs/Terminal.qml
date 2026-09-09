@@ -107,7 +107,7 @@ DesignBase {
     anchors.right: parent.right
     anchors.bottom: parent.bottom
     anchors.margins: lock.pad
-    text: Qt.formatDateTime(lock.now, "ddd MMM d HH:mm:ss yyyy") + "   ·   Esc clears   ·   Ctrl-U clears"
+    text: lock.clock("ddd MMM d HH:mm:ss yyyy") + "   ·   Esc clears   ·   Ctrl-U clears"
     color: lock.dimFg
     font.family: Style.font.family
     font.pixelSize: Style.font.body

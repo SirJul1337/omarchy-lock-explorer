@@ -226,6 +226,35 @@ Item {
     return true
   }
 
+  // 24-hour clocks by default; on, every design's clock reads 12-hour with
+  // AM/PM. Saved on the plugin entry as `clock12` only when it is on, so a
+  // 24-hour setup keeps the entry it always had.
+  property int twelveHourOverride: -1
+  readonly property bool configuredTwelveHour: {
+    var cfg = shell ? shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.clock12 !== undefined)
+        return entry.clock12 === true || String(entry.clock12) === "true"
+    }
+    return false
+  }
+  readonly property bool twelveHour: twelveHourOverride >= 0 ? twelveHourOverride === 1 : configuredTwelveHour
+
+  function setTwelveHour(v) {
+    var on = v === true || v === 1 || v === "true" || v === "12" || v === "on"
+    twelveHourOverride = on ? 1 : 0
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (on) current.clock12 = true
+      else delete current.clock12
+      shell.updateEntryInline(pluginId, current)
+    }
+    logEvent("clock=" + (on ? "12h" : "24h"))
+    return true
+  }
+
   readonly property string backgroundUrl: {
     if (backgroundPath.length === 0) return ""
     var encoded = String(backgroundPath).split("/").map(encodeURIComponent).join("/")
@@ -1884,6 +1913,7 @@ echo "$out"
           videoPlaying: root.locked && !root.screenBlanked
           unlockPlayback: root.unlockPlayback && root.showsInput(lockSurface.screen)
           clipSpeed: root.clipSpeed
+          twelveHour: root.twelveHour
           onUnlockFinished: root.releaseLock()
           onPasswordTextEdited: function(password) { root.enteredPassword = password }
           onSubmitPassword: function(password) { root.submitPassword(password) }
@@ -1929,6 +1959,7 @@ echo "$out"
         videoPlaying: root.previewVisible
         unlockPlayback: root.previewClipPlaying
         clipSpeed: root.clipSpeed
+        twelveHour: root.twelveHour
         // Hold the clip's last frame in the preview instead of snapping back
         // to the start; Esc (hidePreview) resets it.
         onUnlockFinished: {}
@@ -2515,6 +2546,14 @@ echo "$out"
 
     function setClipSpeed(v: string): string {
       return root.setClipSpeed(v) ? "ok" : "failed"
+    }
+
+    function clockFormat(): string {
+      return root.twelveHour ? "12" : "24"
+    }
+
+    function setClockFormat(v: string): string {
+      return root.setTwelveHour(v === "12" || v === "12h" || v === "true" || v === "on") ? "ok" : "failed"
     }
 
     function createClipDesign(path: string): string {

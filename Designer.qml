@@ -1042,6 +1042,7 @@ Item {
         avatarVersion: designer.service ? designer.service.avatarVersion : 0
         videoPath: designer.service ? designer.service.videoPath : ""
         fingerprintConfigured: designer.service ? designer.service.fingerprintConfigured : false
+        twelveHour: designer.service && designer.service.twelveHour !== undefined ? designer.service.twelveHour : false
         // Something in the box, so the input pieces are visible while arranging.
         passwordText: "omarchy"
         onNodePressed: function(id, additive) {

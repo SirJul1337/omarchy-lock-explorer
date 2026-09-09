@@ -94,7 +94,7 @@ DesignBase {
       Rectangle { width: 1; height: 24; color: lock.withAlpha(Color.lock.text, 0.2); anchors.verticalCenter: parent.verticalCenter }
       Text {
         anchors.verticalCenter: parent.verticalCenter
-        text: Qt.formatTime(lock.now, "HH:mm")
+        text: lock.clock("HH:mm")
         color: Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Style.font.display

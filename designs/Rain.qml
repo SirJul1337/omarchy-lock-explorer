@@ -80,7 +80,7 @@ DesignBase {
       spacing: 18
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: Qt.formatTime(lock.now, "HH:mm:ss")
+        text: lock.clock("HH:mm:ss")
         color: Color.lock.borderActive
         font.family: Style.font.family
         font.pixelSize: Math.round(Style.font.baseSize * 6)

@@ -122,6 +122,34 @@ Item {
     onTriggered: base.now = new Date()
   }
 
+  // Clocks read 24-hour unless this is on, see `omarchy-shell lock setClockFormat`
+  // and the Clock row in the explorer's Settings tab. The service pushes it
+  // down through LockHost; designs never read the setting themselves, they
+  // render their clock through clock() below.
+  property bool twelveHour: false
+
+  // Designs pass their ordinary 24-hour Qt format string here. With the
+  // 12-hour setting off it is used as written, so a design that never calls
+  // this still behaves exactly as before.
+  function clock(spec) {
+    var s = String(spec)
+    if (!twelveHour || s.indexOf("H") === -1) return Qt.formatDateTime(now, s)
+    // An hour standing on its own -- a flip tile, a poster numeral -- has
+    // nowhere to put AM/PM, so it just counts 1 to 12. Qt only reads h/hh as
+    // 12-hour when the format carries AP, which is why this one is counted by
+    // hand rather than handed to Qt.
+    if (!/[ms]/.test(s)) {
+      var h = now.getHours() % 12 || 12
+      return s.replace("HH", h < 10 ? "0" + h : String(h)).replace("H", String(h))
+    }
+    var out = s.replace(/H{1,2}/, "h")
+    if (!/AP|ap/.test(out)) out = out.replace(/h{1,2}(:mm)?(:ss)?/, "$& AP")
+    return Qt.formatDateTime(now, out)
+  }
+
+  // For designs that lay the meridiem out themselves next to a bare hour.
+  readonly property string meridiem: twelveHour ? Qt.formatDateTime(now, "AP") : ""
+
   function greeting() {
     var h = now.getHours()
     if (h < 5) return "Good night"

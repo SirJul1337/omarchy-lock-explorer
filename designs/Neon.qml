@@ -53,7 +53,7 @@ DesignBase {
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: Qt.formatTime(lock.now, "HH:mm")
+      text: lock.clock("HH:mm")
       color: Color.lock.borderActive
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.baseSize * 11)

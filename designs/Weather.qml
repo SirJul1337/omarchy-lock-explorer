@@ -43,6 +43,14 @@ DesignBase {
     if (!weatherProc.running) weatherProc.running = true
   }
 
+  // wttr.in answers a `format=j1` request with a few tens of kilobytes. Anything
+  // past this cap is not weather: the producer stops reading there and fails
+  // (head closes the pipe, curl exits non-zero under pipefail, and
+  // --max-filesize refuses up front when the size is announced), and the
+  // collector refuses to parse a body that reached the cap. `--max-time`
+  // bounds the wait, this bounds the memory.
+  readonly property int responseCap: 262144
+
   FileView {
     path: Quickshell.env("HOME") + "/.local/state/omarchy/settings/weather.json"
     printErrors: false
@@ -60,26 +68,30 @@ DesignBase {
 
   Process {
     id: weatherProc
-    command: ["curl", "-fsS", "--max-time", "15", "https://wttr.in/" + lock.locationQuery + "?format=j1"]
+    // The URL and the cap travel as arguments, never inside the script text.
+    command: ["bash", "-c",
+      "set -o pipefail; curl -fsS --max-time 15 --max-filesize \"$2\" \"$1\" | head -c \"$2\"",
+      "wttr", "https://wttr.in/" + lock.locationQuery + "?format=j1", String(lock.responseCap)]
     stdout: StdioCollector {
       id: weatherOut
       waitForEnd: true
-      onStreamFinished: {
-        try {
-          lock.report = JSON.parse(String(weatherOut.text || ""))
-          lock.error = ""
-        } catch (e) {
-          lock.error = "Weather unavailable"
-        }
-        lock.loading = false
-      }
     }
     onExited: function(code) {
-      if (code !== 0) {
+      var body = String(weatherOut.text || "")
+      var ok = false
+      if (code === 0 && body.length > 0 && body.length < lock.responseCap) {
+        try {
+          lock.report = JSON.parse(body)
+          ok = true
+        } catch (e) {}
+      }
+      if (ok) {
+        lock.error = ""
+      } else {
         lock.error = "Weather unavailable"
-        lock.loading = false
         if (!lock.retried) { lock.retried = true; retryTimer.start() }
       }
+      lock.loading = false
     }
   }
   property bool retried: false

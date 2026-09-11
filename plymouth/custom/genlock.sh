@@ -7,6 +7,8 @@
 # Usage: genlock.sh <layout.conf> <name> [preview-out.png]
 set -euo pipefail
 source "$(dirname "$(realpath "$0")")/../common.sh"
+# shellcheck source=extras/safe-paths.sh
+source "$(dirname "$(realpath "$0")")/../../extras/safe-paths.sh"
 
 conf="${1:?usage: genlock.sh <layout.conf> <name> [preview-out.png]}"
 name="${2:?missing name}"
@@ -57,7 +59,7 @@ esac
 
 # ------------------------------------------------ QML
 out_dir="$HOME/.config/omarchy/lock-designs"
-mkdir -p "$out_dir"
+safe_dir "$out_dir"
 qml="$out_dir/$name.qml"
 
 {
@@ -155,7 +157,7 @@ EOF
 fi
 
 echo "}"
-} > "$qml"
+} | put_file "$out_dir" "$name.qml"
 
 echo "$qml"
 
@@ -186,5 +188,8 @@ if [[ $entry != none ]]; then
   bg_i=$(hex_ints "$bg_t")
   args+=( \( -size 190x24 xc:none -draw "fill rgba($bg_i,0.55) roundrectangle 0,0 189,23 $([[ $entry == line ]] && echo 0 || echo 12),$([[ $entry == line ]] && echo 0 || echo 12)" \) -geometry +0+$ey -composite )
 fi
-args+=( "$preview_out" )
+pv_tmp=$(mktemp --suffix=.png)
+trap 'rm -f -- "$pv_tmp"' EXIT
+args+=( "$pv_tmp" )
 "${args[@]}"
+put_file "$(dirname "$preview_out")" "$(basename "$preview_out")" < "$pv_tmp"

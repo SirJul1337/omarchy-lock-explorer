@@ -418,3 +418,9 @@ from the host (it is an authentication service, kept private). `Service.qml` pub
 facade of itself through `Bridge.js` instead, with the settings, design state and actions the
 UI needs and none of the PAM state. Anything new the UI reads off `service` has to be added to
 that facade; `extras/test-service-api.py` (run in CI) fails when something is missing.
+
+Every script that writes a file of the user's — design copies, imported clips, boot previews,
+the launcher and menu entries — goes through `extras/safe-paths.sh`: the target must sit under
+`$HOME` behind a chain of real, user-owned directories (a symlink anywhere in it stops the
+script), and a file is replaced by writing a temporary next to it and renaming it into place.
+Use `safe_dir` and `put_file` from there rather than `mkdir -p`, `cp` or `>` when adding one.

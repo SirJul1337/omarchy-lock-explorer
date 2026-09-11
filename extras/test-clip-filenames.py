@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Exercise the actual clip generator without starting the lock service."""
 
+import os
 import re
 import subprocess
 import tempfile
 from pathlib import Path
 
 
-source = (Path(__file__).resolve().parents[1] / "Service.qml").read_text()
+root_dir = Path(__file__).resolve().parents[1]
+source = (root_dir / "Service.qml").read_text()
 script = source.split("readonly property string clipDesignScript: '\n", 1)[1].split("\n'", 1)[0]
 # Decode the escapes used by this embedded QML string.
 script = script.replace("\\'", "'").replace("\\\\", "\\")
@@ -22,10 +24,13 @@ with tempfile.TemporaryDirectory(prefix="clip-filenames-") as temporary:
     def generate(name, content=b"original video bytes"):
         original = incoming / name
         original.write_bytes(content)
+        # The generator sources the safe-paths library from $0 and only writes
+        # under $HOME, so the sandbox directory stands in for the home here.
         result = subprocess.run(
-            ["bash", "-c", script, "clipdesign", str(original), str(videos),
-             str(designs), 'import "../designs"'],
+            ["bash", "-c", script, str(root_dir / "extras" / "safe-paths.sh"), str(original),
+             str(videos), str(designs), 'import "../designs"'],
             check=True, capture_output=True, text=True,
+            env={**os.environ, "HOME": str(root)},
         )
         lines = result.stdout.splitlines()
         assert len(lines) == 1, result.stdout

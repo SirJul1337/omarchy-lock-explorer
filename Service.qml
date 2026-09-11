@@ -429,6 +429,11 @@ Item {
   // the Settings tab's "Omarchy menu" row and `omarchy-shell lock setMenuEntry`
   // run extras/install.sh, which also takes them out again.
   readonly property string menuInstallPath: pluginDir + "/extras/install.sh"
+
+  // Every embedded script that writes a file of the user's sources this first
+  // (it arrives as the script's $0): an owner-checked, symlink-free directory
+  // chain under $HOME and atomic replacement from inside the target directory.
+  readonly property string safePathsLib: pluginDir + "/extras/safe-paths.sh"
   property bool menuEntryInstalled: false
 
   function refreshMenuEntry() {
@@ -467,15 +472,15 @@ Item {
     var source = d.template ? pluginDir + "/extras/lock-designs/" + d.file : pluginDir + "/designs/" + d.file
     if (customizeProc.running) return false
     var importLine = 'import "../plugins/' + pluginId + '/designs"'
-    customizeProc.command = ["bash", "-c", customizeScript, "customize", source, userDesignsDir, d.file.replace(/\.qml$/, ""), d.template ? "" : importLine, d.name]
+    customizeProc.command = ["bash", "-c", customizeScript, safePathsLib, source, userDesignsDir, d.file.replace(/\.qml$/, ""), d.template ? "" : importLine, d.name]
     customizeProc.running = true
     return true
   }
 
   readonly property string customizeScript: '
-set -e
+set -e; source "$0"
 src="$1"; dir="$2"; base="$3"; imp="$4"; name="$5"
-mkdir -p "$dir"
+safe_dir "$dir"
 target="$dir/$base.qml"; n=2
 while [[ -e "$target" ]]; do target="$dir/$base$n.qml"; n=$((n+1)); done
 {
@@ -486,7 +491,7 @@ while [[ -e "$target" ]]; do target="$dir/$base$n.qml"; n=$((n+1)); done
     { lines[NR] = $0 }
     END { for (i = 1; i <= NR; i++) { print lines[i]; if (i == last && imp != "") print imp } }
   \' "$src"
-} > "$target"
+} | put_file "$dir" "$(basename "$target")"
 echo "$target"
 '
 
@@ -520,18 +525,18 @@ echo "$target"
   // into the designer on it.
   function createDesignerDesign(content) {
     if (designerCreateProc.running) return false
-    designerCreateProc.command = ["bash", "-c", designerCreateScript, "newdesign", userDesignsDir, String(content)]
+    designerCreateProc.command = ["bash", "-c", designerCreateScript, safePathsLib, userDesignsDir, String(content)]
     designerCreateProc.running = true
     return true
   }
 
   readonly property string designerCreateScript: '
-set -e
+set -e; source "$0"
 dir="$1"; content="$2"
-mkdir -p "$dir"
+safe_dir "$dir"
 target="$dir/MyLayout.qml"; n=2
 while [[ -e $target ]]; do target="$dir/MyLayout$n.qml"; n=$((n+1)); done
-printf %s "$content" > "$target"
+printf %s "$content" | put_file "$dir" "$(basename "$target")"
 echo "$target"
 '
 
@@ -846,16 +851,16 @@ done
     if (src.indexOf("file://") === 0) src = decodeURIComponent(src.replace(/^file:\/\//, ""))
     if (src.length === 0 || clipDesignProc.running) return false
     var importLine = 'import "../plugins/' + pluginId + '/designs"'
-    clipDesignProc.command = ["bash", "-c", clipDesignScript, "clipdesign",
+    clipDesignProc.command = ["bash", "-c", clipDesignScript, safePathsLib,
       src, home + "/.config/omarchy/lock-videos", userDesignsDir, importLine]
     clipDesignProc.running = true
     return true
   }
 
   readonly property string clipDesignScript: '
-set -e
+set -e; source "$0"
 src="$1"; videos="$2"; dir="$3"; imp="$4"
-mkdir -p "$videos" "$dir"
+safe_dir "$videos"; safe_dir "$dir"
 base=$(basename "$src")
 # The copied name is embedded in QML, comments and tab-separated metadata.
 # Keep it inert in all three, and compatible with the clipName scanner.
@@ -866,7 +871,7 @@ if [[ -e "$videos/$base" ]] && ! cmp -s "$src" "$videos/$base"; then
   while [[ -e "$videos/$stem-$n.$ext" ]]; do n=$((n+1)); done
   base="$stem-$n.$ext"
 fi
-[[ -e "$videos/$base" ]] || cp "$src" "$videos/$base"
+[[ -e "$videos/$base" ]] || put_file "$videos" "$base" < "$src"
 stem="${base%.*}"
 name=$(printf %s "$stem" | tr -cd "[:alnum:]_-")
 [[ -n "$name" ]] || name=Clip
@@ -879,7 +884,7 @@ q=\'"\'
   echo "$imp"
   echo ""
   echo "ClipDesign { clipName: $q$base$q }"
-} > "$target"
+} | put_file "$dir" "$(basename "$target")"
 printf "%s\\t%s\\n" "$target" "$base"
 '
 
@@ -1055,7 +1060,7 @@ esac
     if (!clipWallpaper || !path || String(path).length === 0) return
     if (clipWallPrepProc.running) return
     preparedClipWallpaper = ""
-    clipWallPrepProc.command = ["bash", "-c", clipWallScript, "clipwall",
+    clipWallPrepProc.command = ["bash", "-c", clipWallScript, safePathsLib,
       String(path), home + "/.local/state/omarchy/lock-explorer-clip-wallpapers"]
     clipWallPrepProc.running = true
   }
@@ -1067,14 +1072,17 @@ esac
   }
 
   readonly property string clipWallScript: '
-set -e
+set -e; source "$0"
 src="$1"; dir="$2"
-mkdir -p "$dir"
+safe_dir "$dir"
 stem=$(basename "$src"); stem="${stem%.*}"
 out="$dir/$stem.png"
 if [[ ! -s "$out" || "$src" -nt "$out" ]]; then
-  ffmpeg -y -loglevel error -sseof -1 -i "$src" -update 1 "$out" || true
-  [[ -s "$out" ]] || ffmpeg -y -loglevel error -i "$src" -update 1 "$out"
+  tmp=$(mktemp --suffix=.png)
+  trap "rm -f -- $tmp" EXIT
+  ffmpeg -y -loglevel error -sseof -1 -i "$src" -update 1 "$tmp" || true
+  [[ -s "$tmp" ]] || ffmpeg -y -loglevel error -i "$src" -update 1 "$tmp"
+  put_file "$dir" "$stem.png" < "$tmp"
 fi
 echo "$out"
 '

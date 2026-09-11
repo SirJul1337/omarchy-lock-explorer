@@ -362,6 +362,19 @@ Item {
   property bool snapshotBusy: false
   property string snapshotRect: ""
 
+  // Boot snapshots are captured at the display's own geometry, not at a fixed
+  // 1920x1080. Plymouth scales the capture to the framebuffer, so a 16:9 grab
+  // on an ultrawide came out stretched; and a responsive design laid out for
+  // 1920 wide is the wrong composition at 3440 even before any stretch.
+  readonly property var snapshotScreen: panel.screen
+  readonly property int snapshotWidth: snapshotScreen && snapshotScreen.width > 0 ? snapshotScreen.width : 1920
+  readonly property int snapshotHeight: snapshotScreen && snapshotScreen.height > 0 ? snapshotScreen.height : 1080
+  // grabToImage wants device pixels; the item is sized in logical ones, so a
+  // scaled display still writes a capture at its true framebuffer resolution.
+  readonly property real snapshotScale: snapshotScreen && snapshotScreen.devicePixelRatio > 0 ? snapshotScreen.devicePixelRatio : 1
+  readonly property int snapshotPixelWidth: Math.round(snapshotWidth * snapshotScale)
+  readonly property int snapshotPixelHeight: Math.round(snapshotHeight * snapshotScale)
+
   function snapshotAndApply(id, persist) {
     if (root.bootApplying) return
     root.snapshotBusy = true
@@ -405,8 +418,9 @@ Item {
         var p = ia.mapToItem(snapshotSource, 0, 0)
         var align = n.textAlignment === TextInput.AlignLeft ? "left"
                   : n.textAlignment === TextInput.AlignRight ? "right" : "center"
-        rect = (100 * (p.x + ia.width / 2) / 1920).toFixed(2) + "," + (100 * (p.y + ia.height / 2) / 1080).toFixed(2)
-             + "," + (100 * ia.width / 1920).toFixed(2) + "," + (100 * ia.height / 1080).toFixed(2)
+        var sw = root.snapshotWidth, sh = root.snapshotHeight
+        rect = (100 * (p.x + ia.width / 2) / sw).toFixed(2) + "," + (100 * (p.y + ia.height / 2) / sh).toFixed(2)
+             + "," + (100 * ia.width / sw).toFixed(2) + "," + (100 * ia.height / sh).toFixed(2)
              + "," + align
       }
       var grabOk = snapshotSource.grabToImage(function(result) {
@@ -423,7 +437,7 @@ Item {
         } else {
           root.snapshotFinish()
         }
-      }, Qt.size(1920, 1080))
+      }, Qt.size(root.snapshotPixelWidth, root.snapshotPixelHeight))
       if (!grabOk) {
         root.snapshotBusy = false
         if (root.service) root.service.logEvent("snapshot-grab-deferred " + id)
@@ -463,7 +477,7 @@ Item {
         var saved = result && result.saveToFile(ppath)
         if (root.service) root.service.logEvent("snapshot-grab-plain " + id + (saved ? " ok" : " save-failed"))
         root.snapshotFinish()
-      }, Qt.size(1920, 1080))
+      }, Qt.size(root.snapshotPixelWidth, root.snapshotPixelHeight))
       if (!ok) root.snapshotFinish()
     }
   }
@@ -983,8 +997,10 @@ Item {
     // boot background. Parked far outside the panel so it never shows.
     Item {
       id: snapshotSource
-      x: -4000; y: -4000
-      width: 1920; height: 1080
+      // Parked relative to its own width: the item is as wide as the display
+      // now, so a fixed offset would let a very wide one back onto the screen.
+      x: -width - 200; y: -height - 200
+      width: root.snapshotWidth; height: root.snapshotHeight
       LockHost {
         id: snapshotHost
         anchors.fill: parent

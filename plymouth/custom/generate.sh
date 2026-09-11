@@ -70,6 +70,12 @@ accent_i=$(hex_ints "$accent_t"); bg_i=$(hex_ints "$bg_t")
 fg_f=$(hex_floats "$fg_t"); dim_f=$(hex_floats "$dim_t"); bg_f=$(hex_floats "$bg_t")
 title_f=$(hex_floats "$title_c"); subtitle_f=$(hex_floats "$subtitle_c")
 
+# Upper bound for a background that is otherwise passed through at its own
+# aspect ratio. The theme is copied to the EFI partition, so an arbitrary
+# image still needs a ceiling; a snapshot of an ordinary display is far under
+# it and goes through untouched.
+canvas_max=3840x2160
+
 # ------------------------------------------------ assets
 case "$background" in
   theme) : ;;
@@ -80,11 +86,16 @@ case "$background" in
         -blur 0x12 -fill black -colorize 40 "$staging/bg.png"
     fi ;;
   '#'*) magick -size 64x64 "xc:$background" "$staging/bg.png" ;;
-  *) [[ -f $background ]] && magick "$background" -resize 1920x1080^ -gravity center -extent 1920x1080 "$staging/bg.png" ;;
+  # A design snapshot arrives already rendered at the display's geometry.
+  # Forcing it back into a 16:9 box would crop the design's own edges away --
+  # Split puts its input box near the right edge -- so a file background keeps
+  # its aspect ratio and the script fits it to the framebuffer instead. '>'
+  # only ever shrinks, so only an oversized image is touched.
+  *) [[ -f $background ]] && magick "$background" -resize "${canvas_max}>" "$staging/bg.png" ;;
 esac
 
 [[ -n $background_plain && -f $background_plain ]] &&
-  magick "$background_plain" -resize 1920x1080^ -gravity center -extent 1920x1080 "$staging/bg-plain.png"
+  magick "$background_plain" -resize "${canvas_max}>" "$staging/bg-plain.png"
 
 [[ $scanlines == on ]] && magick -size 8x3 xc:none -fill 'rgba(0,0,0,0.12)' -draw 'rectangle 0,2 7,2' "$staging/scanline.png"
 
@@ -128,6 +139,28 @@ bg_has_box=""
 if [[ -f $staging/bg.png && ($id == snapshot:* || ($entry != none && ! -f $staging/entry.png)) ]]; then
   bg_has_box=1
 fi
+# How a background that does not match the framebuffer's aspect ratio is
+# fitted. One with the design painted into it has something to lose off the
+# edges -- Split keeps its input box near the right edge, and a passphrase
+# field half off-screen is worse than a band -- so it is fitted whole and the
+# leftover is filled with the theme's background colour. A backdrop with no
+# layout in it fills the frame instead, the single-colour swatch included:
+# bg_has_box can catch that one, and a 64x64 swatch fitted whole would be a
+# postage stamp in the middle of the screen.
+bg_solid=""; [[ $background == '#'* ]] && bg_solid=1
+if [[ -n $bg_has_box && -z $bg_solid ]]; then bg_fit='<'; else bg_fit='>'; fi
+
+# The image's own size, baked in as a constant so the script can work out its
+# draw rect without decoding anything -- the boxed-only branch below keeps
+# bg.png unread until a passphrase prompt actually fires.
+bg_iw=0; bg_ih=0
+if [[ -f $staging/bg.png ]]; then
+  # identify prints no trailing newline, so `read` would report EOF and trip
+  # set -e even after assigning.
+  bg_size=$(magick identify -format '%w %h' "$staging/bg.png[0]")
+  bg_iw=${bg_size% *}; bg_ih=${bg_size#* }
+fi
+
 bg_show=""; bg_rehide=""
 if [[ -n $bg_has_box ]]; then
   bg_show="bg_prompt();"
@@ -151,6 +184,24 @@ screen.w = Window.GetWidth();
 screen.h = Window.GetHeight();
 EOF
 
+# Where the background gets drawn. One scale factor for both axes, and the
+# leftover centred: scaling each axis to the screen independently distorted
+# any background whose aspect ratio did not match the framebuffer -- 1920x1080
+# blown up to an ultrawide came out 34% too wide. bg_fit picks which of the
+# two factors wins.
+#
+# Captures are taken at the display's own geometry, so this is normally an
+# identity transform; it earns its keep when Plymouth comes up on a mode the
+# session was not using.
+[[ -f $staging/bg.png ]] && cat <<EOF
+bg.scale = screen.w / $bg_iw;
+if (screen.h / $bg_ih $bg_fit bg.scale) bg.scale = screen.h / $bg_ih;
+bg.w = $bg_iw * bg.scale;
+bg.h = $bg_ih * bg.scale;
+bg.x = (screen.w - bg.w) / 2;
+bg.y = (screen.h - bg.h) / 2;
+EOF
+
 if [[ -n $bg_has_box && -f $staging/bg-plain.png ]]; then
 cat <<'EOF'
 # Two captures of the same design: bg-plain.png without the input box is the
@@ -158,14 +209,14 @@ cat <<'EOF'
 # prompt up -- and bg.png with the box overlays it exactly while a passphrase
 # prompt is live, so the box is never dead chrome. The boxed image loads
 # lazily; a run that never prompts never decodes it.
-bg.plain_sprite = Sprite(Image("bg-plain.png").Scale(screen.w, screen.h));
-bg.plain_sprite.SetPosition(0, 0, 0);
+bg.plain_sprite = Sprite(Image("bg-plain.png").Scale(bg.w, bg.h));
+bg.plain_sprite.SetPosition(bg.x, bg.y, 0);
 bg.sprite = Sprite();
-bg.sprite.SetPosition(0, 0, 1);
+bg.sprite.SetPosition(bg.x, bg.y, 1);
 global.bg_loaded = 0;
 fun bg_prompt() {
   if (global.bg_loaded == 0) {
-    bg.sprite.SetImage(Image("bg.png").Scale(screen.w, screen.h));
+    bg.sprite.SetImage(Image("bg.png").Scale(bg.w, bg.h));
     global.bg_loaded = 1;
   }
   bg.sprite.SetOpacity(1);
@@ -183,11 +234,11 @@ cat <<'EOF'
 # brings it back -- the bullets belong inside the painted box -- and loading
 # lazily spares the decode entirely on a promptless shutdown.
 bg.sprite = Sprite();
-bg.sprite.SetPosition(0, 0, 0);
+bg.sprite.SetPosition(bg.x, bg.y, 0);
 global.bg_loaded = 0;
 fun bg_prompt() {
   if (global.bg_loaded == 0) {
-    bg.sprite.SetImage(Image("bg.png").Scale(screen.w, screen.h));
+    bg.sprite.SetImage(Image("bg.png").Scale(bg.w, bg.h));
     global.bg_loaded = 1;
   }
   bg.sprite.SetOpacity(1);
@@ -202,8 +253,8 @@ if (global.bg_wanted == 1) bg_prompt();
 EOF
 elif [[ -f $staging/bg.png ]]; then
 cat <<'EOF'
-bg.sprite = Sprite(Image("bg.png").Scale(screen.w, screen.h));
-bg.sprite.SetPosition(0, 0, 0);
+bg.sprite = Sprite(Image("bg.png").Scale(bg.w, bg.h));
+bg.sprite.SetPosition(bg.x, bg.y, 0);
 EOF
 fi
 
@@ -251,9 +302,11 @@ cat <<EOF
 # Embedded entry: the input box is drawn in the background image already;
 # only the bullets and the spinner go on top of it.
 entry.sprite = Sprite();
-entry.cx = screen.w * $entry_x / 100;
-entry.cy = screen.h * $entry_y / 100;
-entry.iw = screen.w * $entry_wp / 100;
+# Relative to the drawn background, not to the screen: the box is painted into
+# the image, so the bullets have to follow wherever the image landed.
+entry.cx = bg.x + bg.w * $entry_x / 100;
+entry.cy = bg.y + bg.h * $entry_y / 100;
+entry.iw = bg.w * $entry_wp / 100;
 EOF
 fi
 cat <<EOF

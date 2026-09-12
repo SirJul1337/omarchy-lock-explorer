@@ -270,6 +270,37 @@ Item {
     return true
   }
 
+  // Security-key unlock, on whenever a key is set up. Saved on the plugin
+  // entry as `fido2Off` only when it is turned off, so a setup that never
+  // touches this keeps the entry it always had.
+  property int fido2EnabledOverride: -1
+  readonly property bool configuredFido2Enabled: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.fido2Off !== undefined)
+        return !(entry.fido2Off === true || String(entry.fido2Off) === "true")
+    }
+    return true
+  }
+  readonly property bool fido2Enabled: fido2EnabledOverride >= 0 ? fido2EnabledOverride === 1 : configuredFido2Enabled
+
+  function setFido2Enabled(v) {
+    var on = v === true || v === 1 || v === "true" || v === "on"
+    fido2EnabledOverride = on ? 1 : 0
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (on) delete current.fido2Off
+      else current.fido2Off = true
+      writeEntry(current)
+    }
+    // Turning it off mid-lock hands the screen back to the password.
+    if (!on && fido2Active) setAuthMode("password")
+    logEvent("fido2=" + (on ? "on" : "off"))
+    return true
+  }
+
   readonly property string backgroundUrl: {
     if (backgroundPath.length === 0) return ""
     var encoded = String(backgroundPath).split("/").map(encodeURIComponent).join("/")
@@ -423,6 +454,7 @@ Item {
   }
 
   readonly property string checkFaceAuthPath: pluginDir + "/check-face-auth.sh"
+  readonly property string checkFido2AuthPath: pluginDir + "/check-fido2-auth.sh"
 
   // The app launcher entry and the Omarchy menu entry (Style -> Lock Screen).
   // A plugin cannot run anything when it is installed, so they are opt-in:
@@ -1641,6 +1673,25 @@ echo "$out"
   property bool passwordPamConfigured: false
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
+  // Security-key unlock is a mode the user is in. It does not run alongside
+  // the password: pam_u2f gets its own PAM service and its own context, since
+  // sharing omarchy-lock-password would send every mistyped password to the
+  // key as a PIN attempt, and a key locks itself out after eight.
+  property string authMode: "password" // "password" | "fido2"
+  // Picked once per lock by the probe; a later probe never overrides a choice.
+  property bool authModeSettled: false
+  // What the probe found, and what the lock screen does with it. Everything
+  // downstream reads fido2Configured, so the Settings toggle only has to turn
+  // this one property off.
+  property bool fido2Installed: false
+  readonly property bool fido2Configured: fido2Installed && fido2Enabled
+  property bool fido2TokenPresent: false
+  property bool fido2Authenticating: false
+  property bool fido2NeedsPin: false
+  property string fido2Status: ""
+  // Last thing pam_u2f said that did not want an answer, i.e. the cue.
+  property string fido2Cue: ""
+  readonly property bool fido2Active: authMode === "fido2"
   property bool previewVisible: false
   property string enteredPassword: ""
   property string pendingPassword: ""
@@ -1668,7 +1719,7 @@ echo "$out"
   property bool sessionLockXray: false
 
   readonly property bool locked: lockRequested || sessionLock.locked || sessionLock.secure
-  readonly property bool authenticating: authenticatingPassword || fingerprintAuthenticating || faceAuthenticating
+  readonly property bool authenticating: authenticatingPassword || fingerprintAuthenticating || faceAuthenticating || fido2Authenticating
 
   function realScreenCount() {
     var screens = Quickshell.screens || []
@@ -1744,6 +1795,10 @@ echo "$out"
     if (!faceCheckProc.running) faceCheckProc.running = true
   }
 
+  function refreshFido2Status() {
+    if (!fido2CheckProc.running) fido2CheckProc.running = true
+  }
+
   function refreshSessionLockXray() {
     if (!sessionLockXrayProc.running) sessionLockXrayProc.running = true
   }
@@ -1765,6 +1820,9 @@ echo "$out"
     if (passwordPam.active) passwordPam.abort()
     if (fingerprintPam.active) fingerprintPam.abort()
     if (facePam.active) facePam.abort()
+    abortFido2()
+    authMode = "password"
+    authModeSettled = false
   }
 
   function beginLock() {
@@ -1784,6 +1842,7 @@ echo "$out"
       root.refreshBackground()
       root.refreshFingerprintStatus()
       root.refreshFaceStatus()
+      root.refreshFido2Status()
       root.refreshSessionLockXray()
       root.rescanUserDesigns()
       // The frame is ready before the unlock needs it.
@@ -1876,6 +1935,9 @@ echo "$out"
 
   function submitPassword(value) {
     var password = String(value || "")
+    // A password submitted while on the key (emergency field, custom design)
+    // is a password: leave key mode first so it never meets fido2Pam.
+    if (password.length > 0 && fido2Active) setAuthMode("password")
     if (!lockRequested || authenticatingPassword || password.length === 0) {
       if (password.length === 0 && faceConfigured) root.startFace()
       return
@@ -1950,6 +2012,131 @@ echo "$out"
     }
   }
 
+  // Key mode when a key is enrolled and plugged in at lock time, password
+  // otherwise. Runs from the probe, not beginLock(): the answer is a
+  // subprocess away when the lock is requested.
+  function settleAuthMode() {
+    if (authModeSettled || !lockRequested) return
+    if (!fido2Configured || !fido2TokenPresent) return
+    if (authenticatingPassword || enteredPassword.length > 0) return
+    setAuthMode("fido2")
+  }
+
+  function setAuthMode(mode) {
+    if (mode !== "password" && mode !== "fido2") return
+    // Never yank the field while a password check is in flight.
+    if (authenticatingPassword) return
+    authModeSettled = true
+    if (authMode === mode) return
+    if (mode === "fido2" && !fido2Configured) return
+    if (authMode === "fido2") abortFido2()
+    authMode = mode
+    failureMessage = ""
+    enteredPassword = ""
+    pendingPassword = ""
+    logEvent("auth-mode=" + mode)
+  }
+
+  // Glyph click, Tab from the password, Enter on the inert field: switch to
+  // the key if not there yet, then look for it again and start. The probe's
+  // onExited does the starting.
+  function requestFido2() {
+    if (!lockRequested || !fido2Configured) return
+    if (!fido2Active) setAuthMode("fido2")
+    if (!fido2Active || fido2Authenticating) return
+    failureMessage = ""
+    fido2Status = "Looking for your key…"
+    refreshFido2Status()
+  }
+
+  function startFido2() {
+    // Same gate as startFingerprint: a success before the surface is secure
+    // would unlock a lock that never took.
+    if (!lockRequested || !sessionLock.secure) return
+    if (!fido2Active || !fido2Configured) return
+    if (fido2Pam.active || fido2Authenticating) return
+    if (!fido2TokenPresent) {
+      fido2Status = "No security key found"
+      return
+    }
+
+    runWake()
+    fido2NeedsPin = false
+    fido2Cue = ""
+    fido2Status = "Waiting for your key…"
+    fido2Authenticating = true
+    if (!fido2Pam.start()) {
+      fido2Authenticating = false
+      fido2Status = "Could not start the key"
+    }
+  }
+
+  function abortFido2() {
+    // Cleared before abort(): whatever completed/error the abort emits is
+    // then ignored by handleFido2Finished instead of counted as a failure.
+    fido2Authenticating = false
+    fido2NeedsPin = false
+    fido2Status = ""
+    fido2Cue = ""
+    if (fido2Pam.active) fido2Pam.abort()
+  }
+
+  // pam_u2f asks for the PIN with a prompt that wants a response and announces
+  // the touch with one that does not. The kind decides, never the wording.
+  // It says nothing after a PIN is accepted, even though it then waits for a
+  // touch, so the cue it did send is kept and put back at that point.
+  function handleFido2Message() {
+    if (!fido2Authenticating) return
+    runWake()
+
+    if (fido2Pam.responseRequired) {
+      fido2NeedsPin = true
+      fido2Status = "Enter the PIN for your key"
+      return
+    }
+
+    fido2NeedsPin = false
+    var text = String(fido2Pam.message || "").trim()
+    if (text.length > 0) {
+      fido2Cue = text
+      fido2Status = text
+    }
+  }
+
+  function submitFido2Pin(pin) {
+    var value = String(pin || "")
+    if (!fido2Active || !fido2Authenticating || value.length === 0) return
+    if (!fido2Pam.active || !fido2Pam.responseRequired) return
+
+    fido2Pam.respond(value)
+    fido2NeedsPin = false
+    enteredPassword = ""
+    // Not "Checking…": the key is lit and waiting for a finger, and the only
+    // other sign of that is the light on the key itself.
+    fido2Status = fido2Cue.length > 0 ? fido2Cue : "Touch your security key"
+  }
+
+  function handleFido2Finished(result) {
+    if (!fido2Authenticating) return
+
+    fido2Authenticating = false
+    fido2NeedsPin = false
+    enteredPassword = ""
+
+    if (!lockRequested) return
+    if (result === PamResult.Success) {
+      finishUnlock()
+      return
+    }
+
+    // No retry timer, unlike fingerprint and face: a failed key attempt can
+    // have cost one of its PIN retries, so the next one is the user's call.
+    failedAttempts += 1
+    failureMessage = "Security key failed (" + failedAttempts + ")"
+    fido2Status = ""
+    runWake()
+  }
+
   WlSessionLock {
     id: sessionLock
 
@@ -1962,6 +2149,7 @@ echo "$out"
         sessionLockStabilizeTimer.stop()
         pendingSessionLockTimer.stop()
         root.startFingerprint()
+        root.startFido2()
       }
     }
 
@@ -2007,6 +2195,11 @@ echo "$out"
           avatarVersion: root.avatarVersion
           fingerprintConfigured: root.fingerprintConfigured
           faceConfigured: root.faceConfigured
+          fido2Configured: root.fido2Configured
+          fido2Active: root.fido2Active
+          fido2Authenticating: root.fido2Authenticating
+          fido2NeedsPin: root.fido2NeedsPin
+          fido2Status: root.fido2Status
           authenticatingPassword: root.authenticatingPassword
           failureMessage: root.failureMessage
           failedAttempts: root.failedAttempts
@@ -2024,6 +2217,9 @@ echo "$out"
           onClearFailureRequested: root.failureMessage = ""
           onWakeRequested: root.runWake()
           onFaceRequested: root.startFace()
+          onFido2Requested: root.requestFido2()
+          onPasswordRequested: root.setAuthMode("password")
+          onSubmitFido2Pin: function(pin) { root.submitFido2Pin(pin) }
         }
       }
     }
@@ -2063,6 +2259,7 @@ echo "$out"
         videoPath: root.videoPath
         videoPlaying: root.previewVisible
         faceConfigured: root.faceConfigured
+        fido2Configured: root.fido2Configured
         unlockPlayback: root.previewClipPlaying
         clipSpeed: root.clipSpeed
         twelveHour: root.twelveHour
@@ -2153,6 +2350,23 @@ echo "$out"
     }
   }
 
+  PamContext {
+    id: fido2Pam
+    config: "omarchy-lock-fido2"
+    user: root.userName
+
+    onResponseRequiredChanged: root.handleFido2Message()
+    onPamMessage: root.handleFido2Message()
+
+    onCompleted: function(result) {
+      root.handleFido2Finished(result)
+    }
+
+    onError: function(error) {
+      root.handleFido2Finished(PamResult.Error)
+    }
+  }
+
   Timer {
     id: unlockTimer
     interval: Math.max(1, root.unlockDuration + 80)
@@ -2180,6 +2394,39 @@ echo "$out"
     interval: 250
     repeat: false
     onTriggered: root.startFace()
+  }
+
+  // A key plugged in after the lock came up has to be noticed, and polling for
+  // it would mean spawning a probe every couple of seconds for as long as the
+  // screen is locked. This sleeps on the udev netlink socket instead and wakes
+  // only when a hidraw device actually appears. It exists in one state only:
+  // locked, a key enrolled, none attached, nothing in flight, and the user is
+  // not already on the password. A key arriving mid-password changes nothing
+  // (settleAuthMode leaves half-typed input alone), so the process would be
+  // kept alive for an answer nobody acts on.
+  Process {
+    id: fido2HotplugWatch
+    running: root.lockRequested && root.fido2Configured && !root.fido2TokenPresent
+      && !root.fido2Authenticating && !root.authenticatingPassword
+      && root.enteredPassword.length === 0
+      && (!root.authModeSettled || root.fido2Active)
+    command: ["udevadm", "monitor", "--udev", "--subsystem-match=hidraw"]
+    stdout: SplitParser {
+      // "UDEV  [123.4] add  /devices/.../hidraw/hidraw0 (hidraw)"
+      onRead: function(line) {
+        if (String(line).indexOf(" add ") >= 0) fido2HotplugSettle.restart()
+      }
+    }
+  }
+
+  // udev announces the device before its permissions are in place, so give the
+  // node a moment before asking whether libfido2 can open it. Also collapses
+  // the burst of events one plug produces into a single probe.
+  Timer {
+    id: fido2HotplugSettle
+    interval: 400
+    repeat: false
+    onTriggered: root.refreshFido2Status()
   }
 
   Process {
@@ -2255,6 +2502,26 @@ echo "$out"
       root.faceConfigured = String(faceCheckStdout.text || "").trim() === "yes"
       if (root.lockRequested && root.faceConfigured) root.startFace()
       else if (!root.faceConfigured && facePam.active) facePam.abort()
+    }
+  }
+
+  Process {
+    id: fido2CheckProc
+    command: [root.checkFido2AuthPath]
+    stdout: StdioCollector { id: fido2CheckStdout; waitForEnd: true }
+    onExited: {
+      var answer = String(fido2CheckStdout.text || "").trim().split(/\s+/)
+      root.fido2Installed = answer[0] === "yes"
+      root.fido2TokenPresent = answer[1] === "present"
+
+      if (!root.fido2Configured) {
+        if (root.fido2Active) root.setAuthMode("password")
+        return
+      }
+
+      if (!root.lockRequested) return
+      if (!root.fido2Active) root.settleAuthMode()
+      if (root.fido2Active) root.startFido2()
     }
   }
 
@@ -2427,6 +2694,9 @@ echo "$out"
       readonly property bool displayBlankingSuppressed: root.displayBlankingSuppressed
       readonly property bool fingerprintConfigured: root.fingerprintConfigured
       readonly property bool faceConfigured: root.faceConfigured
+      readonly property bool fido2Configured: root.fido2Configured
+      readonly property bool fido2Installed: root.fido2Installed
+      readonly property bool fido2Enabled: root.fido2Enabled
       readonly property bool multimediaAvailable: root.multimediaAvailable
       readonly property bool menuEntryInstalled: root.menuEntryInstalled
       readonly property var components: root.components
@@ -2490,6 +2760,8 @@ echo "$out"
       function refreshBackground() { return root.refreshBackground() }
       function refreshFingerprintStatus() { return root.refreshFingerprintStatus() }
       function refreshFaceStatus() { return root.refreshFaceStatus() }
+      function refreshFido2Status() { return root.refreshFido2Status() }
+      function setFido2Enabled(v) { return root.setFido2Enabled(v) }
       function refreshMenuEntry() { return root.refreshMenuEntry() }
       function setMenuEntry(v) { return root.setMenuEntry(v) }
       function logEvent(event) { return root.logEvent(event) }
@@ -2571,6 +2843,12 @@ echo "$out"
         fingerprintConfigured: root.fingerprintConfigured,
         faceConfigured: root.faceConfigured,
         faceAuthenticating: root.faceAuthenticating,
+        fido2Configured: root.fido2Configured,
+        fido2Installed: root.fido2Installed,
+        fido2Enabled: root.fido2Enabled,
+        fido2Token: root.fido2TokenPresent,
+        fido2Authenticating: root.fido2Authenticating,
+        authMode: root.authMode,
         authenticating: root.authenticating,
         lastEvent: root.lastEvent,
         lastEventAt: root.lastEventAt,

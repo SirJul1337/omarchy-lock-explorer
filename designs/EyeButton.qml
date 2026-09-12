@@ -7,7 +7,7 @@ Item {
   property var lock: null
   property int size: Math.round(Style.font.heading * 1.1)
   readonly property bool revealed: lock ? lock.passwordVisible : false
-  visible: lock ? lock.showPasswordToggle : true
+  visible: lock ? (lock.showPasswordToggle && !lock.fido2Active) : true
   width: Math.round(size * 1.6)
   height: Math.round(size * 1.6)
   Text {

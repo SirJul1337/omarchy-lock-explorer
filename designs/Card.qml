@@ -111,9 +111,11 @@ DesignBase {
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.bottom: parent.bottom
     anchors.bottomMargin: 36
-    text: lock.faceConfigured
+    text: lock.fido2Configured
+      ? "  Touch your key or Tab for password  ·  Esc clears"
+      : (lock.faceConfigured
       ? "󰱻  Look at sensor or type password  ·  Esc clears"
-      : (lock.fingerprintConfigured ? "󰆠  Touch sensor or type password  ·  Esc clears" : "󰌾  Locked  ·  Esc clears input")
+      : (lock.fingerprintConfigured ? "󰆠  Touch sensor or type password  ·  Esc clears" : "󰌾  Locked  ·  Esc clears input"))
     color: lock.withAlpha(Color.lock.text, 0.55)
     font.family: Style.font.family
     font.pixelSize: Style.font.bodySmall

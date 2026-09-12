@@ -26,12 +26,14 @@ BorderSurface {
   readonly property bool authenticating: lock ? lock.authenticatingPassword : false
   readonly property bool fingerprint: lock ? lock.fingerprintConfigured : false
   readonly property bool face: lock ? lock.faceConfigured : false
+  readonly property bool fido2: lock ? lock.fido2Configured : false
+  readonly property bool fido2Active: lock ? lock.fido2Active : false
   readonly property bool revealed: lock ? lock.passwordVisible : false
-  readonly property bool showToggle: lock ? lock.showPasswordToggle : true
+  readonly property bool showToggle: lock ? (lock.showPasswordToggle && !lock.fido2Active) : true
   readonly property int fieldFontSize: Math.round(Style.font.heading * fontScale)
   readonly property int dotFontSize: Math.round(Style.font.heading * 1.25 * fontScale)
   readonly property int dotLetterSpacing: Math.round(Style.font.heading * 0.19 * fontScale)
-  readonly property real fingerprintReserve: (fingerprint ? Math.round(fingerprintIcon.implicitWidth + 12) : 0) + (face ? Math.round(faceIcon.implicitWidth + 12) : 0) + (showToggle ? Math.round(eyeButton.width + 8) : 0)
+  readonly property real fingerprintReserve: (fingerprint ? Math.round(fingerprintIcon.implicitWidth + 12) : 0) + (face ? Math.round(faceIcon.implicitWidth + 12) : 0) + (fido2 ? Math.round(fido2Icon.implicitWidth + 12) : 0) + (showToggle ? Math.round(eyeButton.width + 8) : 0)
   readonly property real glyphReserve: showLockGlyph ? Math.round(lockGlyph.implicitWidth + 12) : 0
   readonly property real dotScale: dotMetrics.advanceWidth > 0
     ? Math.min(1, (input.width - 4) / dotMetrics.advanceWidth)
@@ -107,7 +109,9 @@ BorderSurface {
 
   Text {
     anchors.fill: input
-    text: field.authenticating ? "Checking…" : (field.errorState ? field.lock.failureMessage : field.placeholder)
+    text: field.authenticating ? "Checking…"
+      : (field.errorState ? field.lock.failureMessage
+      : (field.fido2Active ? (field.lock.fido2Status.length > 0 ? field.lock.fido2Status : "Waiting for your key…") : field.placeholder))
     textFormat: Text.PlainText
     visible: input.text.length === 0 && !field.snapshotBox
     color: field.authenticating ? Color.lock.text : (field.errorState ? Color.lock.textError : Color.lock.placeholder)
@@ -128,6 +132,7 @@ BorderSurface {
     anchors.rightMargin: field.borderRight + field.sidePadding - 6
       + (field.fingerprint ? Math.round(fingerprintIcon.implicitWidth + 8) : 0)
       + (field.face ? Math.round(faceIcon.implicitWidth + 8) : 0)
+      + (field.fido2 ? Math.round(fido2Icon.implicitWidth + 8) : 0)
     Text {
       anchors.centerIn: parent
       text: field.revealed ? "󰈉" : "󰈈"
@@ -162,11 +167,37 @@ BorderSurface {
     id: faceIcon
     anchors.right: parent.right
     anchors.rightMargin: field.borderRight + field.sidePadding
+      + (field.fido2 ? Math.round(fido2Icon.implicitWidth + 8) : 0)
     anchors.verticalCenter: parent.verticalCenter
     visible: field.face
     text: "󰱻"
     color: Color.lock.placeholder
     font.family: Style.font.family
     font.pixelSize: Math.round(field.fieldFontSize * 1.1)
+  }
+
+  // Lit while the key is the active factor, dim while it is merely enrolled.
+  // Click: switch to the key, or try it again when already on it.
+  Text {
+    id: fido2Icon
+    anchors.right: parent.right
+    anchors.rightMargin: field.borderRight + field.sidePadding
+    anchors.verticalCenter: parent.verticalCenter
+    visible: field.fido2
+    text: ""
+    color: field.fido2Active ? Color.lock.text : Color.lock.placeholder
+    font.family: Style.font.family
+    font.pixelSize: Math.round(field.fieldFontSize * 1.1)
+    MouseArea {
+      anchors.fill: parent
+      anchors.margins: -8
+      cursorShape: Qt.PointingHandCursor
+      enabled: field.lock ? field.lock.inputEnabled : false
+      onClicked: {
+        field.lock.wakeRequested()
+        field.lock.fido2Requested()
+        input.forceActiveFocus()
+      }
+    }
   }
 }

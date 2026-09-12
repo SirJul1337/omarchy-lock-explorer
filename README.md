@@ -44,6 +44,28 @@ with face unlock set up (`pam_facelock`, the `omarchy-lock-face` PAM config with
 enrolled) pressing Enter on an empty password field starts a face check, the same as the stock
 lock. The password field shows an icon for each one that is available.
 
+A security key works too, once you have enrolled one with the Omarchy menu (Setup > Security >
+Fido2) and run `bash extras/setup-fido2.sh`. That script writes `/etc/pam.d/omarchy-lock-fido2`,
+the only part of this that needs root. With a key plugged in, the lock comes up on the key: touch it,
+or type its PIN first when the credential you enrolled asks for one. Tab, or the key icon in the
+field, switches to the password and back.
+
+Lock the screen with no key attached and you get the password field, with the key icon dimmed.
+Plug one in and the lock picks it up within a couple of seconds and asks for a touch, unless you
+had already switched to the password yourself or started typing.
+
+The Settings tab in the explorer has a "Security key" row once the PAM service
+is there. Off keeps the setting with your other lock screen settings and sends the lock
+screen back to the password. Your PAM setup and your enrolled key are left alone, so the key
+still works for sudo, polkit and anything else that uses it.
+
+The key gets its own PAM service on purpose. A `pam_u2f.so` line in `omarchy-lock-password` would
+send every mistyped password to the key as a PIN attempt, and a key locks itself out after eight
+of those. So the password field is inert while pam_u2f is actually waiting for a touch, and
+nothing you type then can reach the key. Press Enter to ask for another go: a failed attempt can
+cost a PIN retry, so nothing retries on its own. With no key attached the field takes your
+password as normal. `bash extras/setup-fido2.sh --remove` takes the PAM file out again.
+
 `D` opens the visual designer — a new design, or the selected one if it was made there (see
 [The designer](#the-designer)). `C` on any design copies it to `~/.config/omarchy/lock-designs/`
 (it shows up under Custom) and opens it in the built-in code editor. `E` edits a design of your
@@ -296,7 +318,8 @@ To add a design to the plugin itself, copy one of the files in `designs/`, add i
 `Designs.js`, run `omarchy restart shell`.
 
 A design is a `DesignBase` item. It gets `passwordText`, `failureMessage`, `failedAttempts`,
-`authenticatingPassword`, `fingerprintConfigured`, `faceConfigured`, `inputEnabled`, a ticking `now`, `userName`,
+`authenticatingPassword`, `fingerprintConfigured`, `faceConfigured`, `fido2Configured`,
+`fido2Active`, `fido2Authenticating`, `fido2NeedsPin`, `fido2Status`, `inputEnabled`, a ticking `now`, `userName`,
 `hostName` and `greeting()`. Use `PasswordField` for a normal input box or `LockInput` if you
 want to draw the input yourself, and point `inputItem` at it so it gets focus. Set
 `shakeOnFail: true` on box-less designs (the base flashes red on a wrong password either way), and

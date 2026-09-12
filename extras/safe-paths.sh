@@ -5,54 +5,48 @@
 #
 # The rules, in one place:
 #   - a target lives under $HOME, and every directory from $HOME down to it is
-#     a real directory (never a symlink) owned by the calling user; a missing
-#     one is created, anything else stops the script before it writes;
+#     a real directory (never a symlink) that the calling user owns and that
+#     no one else can write to; a missing one is created, anything else stops
+#     the script before it writes;
 #   - a file is replaced by writing a temporary file inside the target
-#     directory and renaming it into place, with that directory held as the
-#     working directory in between, so a link swapped in after the check
-#     cannot redirect the write;
+#     directory and renaming it into place, both relative to a descriptor held
+#     open on that directory, so a link swapped in after the check cannot
+#     redirect the write;
 #   - a symlink sitting where our file should be is refused, never followed.
+#
+# The walk itself lives in safe-paths.py, because holding a directory open and
+# working relative to it needs openat/renameat, which bash has no way to call.
+# Checking a pathname and then reopening it by name -- what this file used to
+# do with `cd -P` -- leaves the checked directory and the written-to directory
+# two different lookups, with room to swap a component in between.
+
+_safe_paths_py="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/safe-paths.py"
 
 fail() { echo "${0##*/}: $*" >&2; exit 1; }
 
-# safe_dir DIR: ensure DIR exists under $HOME through a chain we own.
-safe_dir() {
-  local target=$1 cur=$HOME rel part parts
-  [[ -n $HOME && -d $HOME && ! -L $HOME && -O $HOME ]] || fail "\$HOME is not a directory we own"
-  [[ $target == "$HOME"/* ]] || fail "refusing to write outside \$HOME: $target"
-  rel=${target#"$HOME"/}
-  IFS=/ read -r -a parts <<< "$rel"
-  for part in "${parts[@]}"; do
-    [[ -n $part && $part != . && $part != .. ]] || fail "bad path component in $target"
-    cur=$cur/$part
-    [[ ! -L $cur ]] || fail "refusing to go through a symlink: $cur"
-    if [[ ! -e $cur ]]; then
-      mkdir -m 0755 "$cur" 2>/dev/null || fail "cannot create $cur"
-    fi
-    [[ -d $cur && ! -L $cur && -O $cur ]] || fail "not a directory we own: $cur"
-  done
+# Fail closed rather than fall back to a path-based walk: python3 is already
+# required elsewhere in the plugin (plymouth/cliptwin.sh reads the monitor
+# list with it), so a missing one is a broken system, not a supported mode.
+_safe_paths() {
+  command -v python3 >/dev/null 2>&1 ||
+    fail "python3 is required to write files safely and was not found"
+  [[ -f $_safe_paths_py ]] || fail "missing helper: $_safe_paths_py"
+  python3 "$_safe_paths_py" "$@"
 }
 
-# put_file DIR NAME [MODE]: replace DIR/NAME with stdin, atomically, from
-# inside DIR. NAME is a bare file name, never a path.
+# safe_dir DIR: ensure DIR exists under $HOME through a chain we own.
+safe_dir() {
+  _safe_paths dir "$1" || fail "unsafe directory: $1"
+}
+
+# put_file DIR NAME [MODE]: replace DIR/NAME with stdin, atomically, relative
+# to a descriptor held on DIR. NAME is a bare file name, never a path.
 put_file() {
-  local dir=$1 name=$2 mode=${3:-0644}
-  [[ $name != */* && $name != . && $name != .. && -n $name ]] || fail "bad file name: $name"
-  safe_dir "$dir"
-  (
-    cd -P -- "$dir" || exit 1
-    [[ ! -L ./$name ]] || { echo "${0##*/}: refusing to replace a symlink: $dir/$name" >&2; exit 1; }
-    tmp=$(mktemp "./.$name.XXXXXX") || exit 1
-    trap 'rm -f -- "$tmp"' EXIT
-    cat > "$tmp" && chmod "$mode" "$tmp" && mv -T -- "$tmp" "./$name"
-  ) || fail "could not write $dir/$name"
+  _safe_paths put "$1" "$2" "${3:-0644}" || fail "could not write $1/$2"
 }
 
 # drop_file DIR NAME: remove DIR/NAME when it is our plain file; a symlink in
 # its place is left alone, and a directory we do not own is not entered.
 drop_file() {
-  local dir=$1 name=$2
-  [[ $name != */* && -n $name ]] || return 0
-  [[ -d $dir && ! -L $dir && -O $dir ]] || return 0
-  ( cd -P -- "$dir" && [[ ! -L ./$name ]] && rm -f -- "./$name" ) || true
+  _safe_paths drop "$1" "$2" || true
 }

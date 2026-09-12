@@ -17,3 +17,5 @@ jobs:
         run: python3 extras/test-clip-filenames.py
       - name: Test the explorer facade covers the UI
         run: python3 extras/test-service-api.py
+      - name: Test safe path writes against symlink and permission attacks
+        run: bash extras/test-safe-paths.sh

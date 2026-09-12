@@ -1518,7 +1518,10 @@ echo "$out"
 
   function enableBootRotation() {
     if (bootRotateSilent) { setBoot("rotate"); return }
-    bootRotateSetupProc.command = ["pkexec", "bash", pluginDir + "/plymouth/rotate-setup.sh", "install", home]
+    // No home argument: the setup script reads it from the account that
+    // authenticated to pkexec. It lands in a root-owned helper, and $HOME is
+    // whatever the process that started the shell set it to.
+    bootRotateSetupProc.command = ["pkexec", "bash", pluginDir + "/plymouth/rotate-setup.sh", "install"]
     bootRotateSetupProc.running = true
   }
 

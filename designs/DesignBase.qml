@@ -59,6 +59,55 @@ Item {
     return "file://" + encoded
   }
   property string hostName: Quickshell.env("HOSTNAME") || Quickshell.env("HOST") || "omarchy"
+  // Other accounts on this machine, for designs that offer a switch. Read
+  // straight out of /etc/passwd, so it costs nothing on a single-user box:
+  // the list comes back empty and a design that renders it collapses to the
+  // layout it already had.
+  //
+  // Selecting someone here only moves the highlight. Authenticating AS them
+  // needs Service.qml to point its PamContext at the chosen name, which is a
+  // separate change with its own security review -- see extras/multi-user-designs.md.
+  property var otherUsers: []
+  readonly property bool hasOtherUsers: otherUsers.length > 0
+  // -1 is this session's owner, the account the lock screen belongs to.
+  property int selectedUser: -1
+  readonly property string selectedName: {
+    if (selectedUser < 0 || selectedUser >= otherUsers.length) return userName
+    return otherUsers[selectedUser].name
+  }
+  readonly property bool switchingAway: selectedUser >= 0
+
+  // AccountsService is the only per-user picture that is readable from here;
+  // a missing file just leaves Avatar on its initial, so no probing is needed.
+  function avatarUrlFor(name) {
+    return "file:///var/lib/AccountsService/icons/" + encodeURIComponent(name)
+  }
+
+  FileView {
+    path: "/etc/passwd"
+    printErrors: false
+    onLoaded: {
+      var found = []
+      var lines = String(text() || "").split("\n")
+      for (var i = 0; i < lines.length; i++) {
+        var f = lines[i].split(":")
+        if (f.length < 7) continue
+        var uid = parseInt(f[2], 10)
+        // regular login accounts only: system users sit below 1000 and nobody is 65534
+        if (!isFinite(uid) || uid < 1000 || uid >= 65534) continue
+        if (/(nologin|\/false|sync)$/.test(f[6])) continue
+        if (f[0] === base.userName) continue
+        var gecos = String(f[4] || "").split(",")[0].trim()
+        found.push({
+          name: f[0],
+          realName: gecos.length > 0 ? gecos : f[0],
+          initial: f[0].length > 0 ? f[0].charAt(0).toUpperCase() : "?"
+        })
+      }
+      base.otherUsers = found
+    }
+  }
+
   FileView {
     path: "/etc/hostname"
     printErrors: false

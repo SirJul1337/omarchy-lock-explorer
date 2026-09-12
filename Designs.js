@@ -17,6 +17,7 @@ var CATEGORIES = [
 
 var DESIGNS = [
   { id: "card", file: "Card.qml", name: "Greeting Card", description: "Clock, avatar and greeting on a frosted card", tags: ["cards", "clock"] },
+  { id: "latest", file: "Latest.qml", name: "Latest", description: "The last account used, with the others one click away", tags: ["cards", "minimal"] },
   { id: "classic", file: "Classic.qml", name: "Classic", description: "The stock Omarchy lock screen", tags: ["minimal"] },
   { id: "editorial", file: "Editorial.qml", name: "Editorial", description: "Big clock bottom left, field underneath", tags: ["type"] },
   { id: "zen", file: "Zen.qml", name: "Zen", description: "No input box, just type", tags: ["minimal"] },

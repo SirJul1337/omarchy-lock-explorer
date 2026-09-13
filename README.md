@@ -63,8 +63,15 @@ The key gets its own PAM service on purpose. A `pam_u2f.so` line in `omarchy-loc
 send every mistyped password to the key as a PIN attempt, and a key locks itself out after eight
 of those. So the password field is inert while pam_u2f is actually waiting for a touch, and
 nothing you type then can reach the key. Press Enter to ask for another go: a failed attempt can
-cost a PIN retry, so nothing retries on its own. With no key attached the field takes your
-password as normal. `bash extras/setup-fido2.sh --remove` takes the PAM file out again.
+cost a PIN retry, so nothing retries on its own. After three PIN attempts in one lock the screen
+stops offering the key and asks for the password: the key itself refuses further PINs at that
+point until it is replugged, and the rest of its retries are not the lock screen's to spend. With
+no key attached the field takes your password as normal. `bash extras/setup-fido2.sh --remove`
+takes the PAM file out again.
+
+One thing to decide at enrollment: a credential made without PIN verification unlocks the screen
+for whoever is holding the key, the same as it does for sudo today. If the key travels in the same
+bag as the laptop, enroll it with a PIN.
 
 `D` opens the visual designer — a new design, or the selected one if it was made there (see
 [The designer](#the-designer)). `C` on any design copies it to `~/.config/omarchy/lock-designs/`

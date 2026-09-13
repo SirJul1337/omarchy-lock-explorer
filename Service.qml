@@ -1691,6 +1691,15 @@ echo "$out"
   property string fido2Status: ""
   // Last thing pam_u2f said that did not want an answer, i.e. the cue.
   property string fido2Cue: ""
+  // PIN attempts in this lock. A wrong PIN costs one of the key's retries,
+  // and the key itself refuses further PINs after three in a row until it is
+  // replugged, so the screen stops offering it at the same point and asks for
+  // the password. Attempts that never reached a PIN (no touch, no key) are
+  // free and do not count.
+  property int fido2PinAttempts: 0
+  property bool fido2PinSubmitted: false
+  readonly property int fido2PinAttemptLimit: 3
+  readonly property bool fido2Exhausted: fido2PinAttempts >= fido2PinAttemptLimit
   readonly property bool fido2Active: authMode === "fido2"
   property bool previewVisible: false
   property string enteredPassword: ""
@@ -1821,6 +1830,8 @@ echo "$out"
     if (fingerprintPam.active) fingerprintPam.abort()
     if (facePam.active) facePam.abort()
     abortFido2()
+    fido2PinAttempts = 0
+    fido2PinSubmitted = false
     authMode = "password"
     authModeSettled = false
   }
@@ -2017,7 +2028,7 @@ echo "$out"
   // subprocess away when the lock is requested.
   function settleAuthMode() {
     if (authModeSettled || !lockRequested) return
-    if (!fido2Configured || !fido2TokenPresent) return
+    if (!fido2Configured || !fido2TokenPresent || fido2Exhausted) return
     if (authenticatingPassword || enteredPassword.length > 0) return
     setAuthMode("fido2")
   }
@@ -2026,15 +2037,20 @@ echo "$out"
     if (mode !== "password" && mode !== "fido2") return
     // Never yank the field while a password check is in flight.
     if (authenticatingPassword) return
+    var switching = authMode !== mode && !(mode === "fido2" && !fido2Configured)
+    if (switching) {
+      if (authMode === "fido2") abortFido2()
+      authMode = mode
+      failureMessage = ""
+      enteredPassword = ""
+      pendingPassword = ""
+      logEvent("auth-mode=" + mode)
+    }
+    // Settled last: the hotplug watcher runs on (!settled || fido2Active),
+    // and settling before the switch would stop and respawn it on every Tab.
+    // A request for a mode that cannot be entered still settles, so a later
+    // probe does not override what the user asked for.
     authModeSettled = true
-    if (authMode === mode) return
-    if (mode === "fido2" && !fido2Configured) return
-    if (authMode === "fido2") abortFido2()
-    authMode = mode
-    failureMessage = ""
-    enteredPassword = ""
-    pendingPassword = ""
-    logEvent("auth-mode=" + mode)
   }
 
   // Glyph click, Tab from the password, Enter on the inert field: switch to
@@ -2042,6 +2058,10 @@ echo "$out"
   // onExited does the starting.
   function requestFido2() {
     if (!lockRequested || !fido2Configured) return
+    if (fido2Exhausted) {
+      failureMessage = "Use your password"
+      return
+    }
     if (!fido2Active) setAuthMode("fido2")
     if (!fido2Active || fido2Authenticating) return
     failureMessage = ""
@@ -2053,7 +2073,7 @@ echo "$out"
     // Same gate as startFingerprint: a success before the surface is secure
     // would unlock a lock that never took.
     if (!lockRequested || !sessionLock.secure) return
-    if (!fido2Active || !fido2Configured) return
+    if (!fido2Active || !fido2Configured || fido2Exhausted) return
     if (fido2Pam.active || fido2Authenticating) return
     if (!fido2TokenPresent) {
       fido2Status = "No security key found"
@@ -2061,7 +2081,11 @@ echo "$out"
     }
 
     runWake()
+    // Anything typed before the key was found would be read-only in the field
+    // from here on and end up in front of the PIN, costing a retry for nothing.
+    enteredPassword = ""
     fido2NeedsPin = false
+    fido2PinSubmitted = false
     fido2Cue = ""
     fido2Status = "Waiting for your key…"
     fido2Authenticating = true
@@ -2110,6 +2134,7 @@ echo "$out"
 
     fido2Pam.respond(value)
     fido2NeedsPin = false
+    fido2PinSubmitted = true
     enteredPassword = ""
     // Not "Checking…": the key is lit and waiting for a finger, and the only
     // other sign of that is the light on the key itself.
@@ -2132,8 +2157,20 @@ echo "$out"
     // No retry timer, unlike fingerprint and face: a failed key attempt can
     // have cost one of its PIN retries, so the next one is the user's call.
     failedAttempts += 1
-    failureMessage = "Security key failed (" + failedAttempts + ")"
+    if (fido2PinSubmitted) fido2PinAttempts += 1
+    fido2PinSubmitted = false
     fido2Status = ""
+    if (fido2Exhausted) {
+      // Three PINs went to the key in this lock. Whether they were wrong or a
+      // bystander was guessing, the key is at its own limit and the rest of
+      // its retries are not the lock screen's to spend. Back to the password;
+      // setAuthMode clears failureMessage, so the message goes after it.
+      setAuthMode("password")
+      failureMessage = "Use your password"
+      logEvent("fido2-exhausted")
+    } else {
+      failureMessage = "Security key failed (" + failedAttempts + ")"
+    }
     runWake()
   }
 
@@ -2407,6 +2444,7 @@ echo "$out"
   Process {
     id: fido2HotplugWatch
     running: root.lockRequested && root.fido2Configured && !root.fido2TokenPresent
+      && !root.fido2Exhausted
       && !root.fido2Authenticating && !root.authenticatingPassword
       && root.enteredPassword.length === 0
       && (!root.authModeSettled || root.fido2Active)
@@ -2848,6 +2886,7 @@ echo "$out"
         fido2Enabled: root.fido2Enabled,
         fido2Token: root.fido2TokenPresent,
         fido2Authenticating: root.fido2Authenticating,
+        fido2PinAttempts: root.fido2PinAttempts,
         authMode: root.authMode,
         authenticating: root.authenticating,
         lastEvent: root.lastEvent,

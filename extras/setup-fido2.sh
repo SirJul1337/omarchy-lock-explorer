@@ -14,6 +14,18 @@ AUTHFILE="/etc/fido2/fido2"
 TARGET="/etc/pam.d/omarchy-lock-fido2"
 MARKER="io.github.sirjul1337.lock-explorer"
 
+# /etc/pam.d is root-owned, so only root can put a link here. Refused all the
+# same: -f and grep would read through it and take some other file for ours,
+# and the remove path would then delete a link it never made.
+if [[ -L $TARGET ]]; then
+  echo "$TARGET is a symlink; not touching it"
+  exit 1
+fi
+if [[ -e $TARGET && ! -f $TARGET ]]; then
+  echo "$TARGET exists but is not a regular file; not touching it"
+  exit 1
+fi
+
 case "${1:-}" in
   --remove)
     if [[ ! -f $TARGET ]]; then
@@ -54,10 +66,12 @@ if [[ -f $TARGET ]]; then
   exit 1
 fi
 
-tmp=$(mktemp) || exit 1
-trap 'rm -f "$tmp"' EXIT
-
-cat > "$tmp" <<EOF
+# The content reaches root over a pipe, not through a file. A temporary in
+# $TMPDIR would be reopened by root after the sudo prompt, and anything running
+# as this user could have swapped it by then; a pipe has no name to swap.
+# install replaces the destination rather than writing through it, so a file
+# that appeared at $TARGET in the meantime is unlinked, never followed.
+cat <<EOF | sudo install -o root -g root -m 0644 /dev/stdin "$TARGET" || exit 1
 #%PAM-1.0
 # Security-key unlock for the Omarchy lock screen ($MARKER).
 # Its own service on purpose: a \`sufficient pam_u2f.so\` line in
@@ -69,6 +83,4 @@ cat > "$tmp" <<EOF
 auth       required    pam_u2f.so authfile=$AUTHFILE cue [cue_prompt=Touch your security key]
 account    include     system-local-login
 EOF
-
-sudo install -o root -g root -m 0644 "$tmp" "$TARGET" || exit 1
 echo "done. Lock the screen with a key plugged in."

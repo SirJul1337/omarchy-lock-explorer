@@ -46,7 +46,8 @@ if missing or missing_signals:
     sys.exit(1)
 
 for forbidden in ["enteredPassword", "pendingPassword", "submitPassword", "passwordPam",
-                  "fingerprintPam", "facePam", "respondToPasswordPrompt"]:
+                  "fingerprintPam", "facePam", "fido2Pam", "submitFido2Pin",
+                  "respondToPasswordPrompt"]:
     if re.search(r"\b" + forbidden + r"\b", facade):
         print("the explorer facade must not expose " + forbidden)
         sys.exit(1)

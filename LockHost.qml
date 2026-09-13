@@ -15,6 +15,11 @@ Item {
   property int avatarVersion: 0
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
+  property bool fido2Configured: false
+  property bool fido2Active: false
+  property bool fido2Authenticating: false
+  property bool fido2NeedsPin: false
+  property string fido2Status: ""
   property bool authenticatingPassword: false
   property string failureMessage: ""
   property int failedAttempts: 0
@@ -33,6 +38,9 @@ Item {
   signal clearFailureRequested()
   signal wakeRequested()
   signal faceRequested()
+  signal fido2Requested()
+  signal passwordRequested()
+  signal submitFido2Pin(string pin)
   signal unlockFinished()
 
   readonly property var design: {
@@ -69,6 +77,11 @@ Item {
     it.avatarVersion = Qt.binding(function() { return host.avatarVersion })
     it.fingerprintConfigured = Qt.binding(function() { return host.fingerprintConfigured })
     it.faceConfigured = Qt.binding(function() { return host.faceConfigured })
+    it.fido2Configured = Qt.binding(function() { return host.fido2Configured })
+    it.fido2Active = Qt.binding(function() { return host.fido2Active })
+    it.fido2Authenticating = Qt.binding(function() { return host.fido2Authenticating })
+    it.fido2NeedsPin = Qt.binding(function() { return host.fido2NeedsPin })
+    it.fido2Status = Qt.binding(function() { return host.fido2Status })
     it.authenticatingPassword = Qt.binding(function() { return host.authenticatingPassword })
     it.failureMessage = Qt.binding(function() { return host.failureMessage })
     it.failedAttempts = Qt.binding(function() { return host.failedAttempts })
@@ -156,6 +169,9 @@ Item {
     function onWakeRequested() { host.wakeRequested() }
     function onUnlockFinished() { host.unlockFinished() }
     function onFaceRequested() { host.faceRequested() }
+    function onFido2Requested() { host.fido2Requested() }
+    function onPasswordRequested() { host.passwordRequested() }
+    function onSubmitFido2Pin(pin) { host.submitFido2Pin(pin) }
   }
 
   // Last line of defense: if nothing rendered at all — the design AND the

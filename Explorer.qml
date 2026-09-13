@@ -556,6 +556,17 @@ Item {
     if (root.service && typeof root.service.setMenuEntry === "function") root.service.setMenuEntry(on)
   }
 
+  // Security-key unlock. The row only appears once the PAM side is in place
+  // (extras/setup-fido2.sh); the toggle decides whether the lock screen uses
+  // it, and never touches PAM itself.
+  readonly property bool fido2Installed: service && service.fido2Installed === true
+  readonly property bool fido2Enabled: service && service.fido2Enabled !== undefined ? service.fido2Enabled : true
+  readonly property var fido2Options: [{ id: "on", name: "On" }, { id: "off", name: "Off" }]
+
+  function setFido2Enabled(on) {
+    if (root.service && typeof root.service.setFido2Enabled === "function") root.service.setFido2Enabled(on)
+  }
+
   readonly property bool hasAvatar: avatarUrl.length > 0
   readonly property string userInitial: {
     var name = Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"
@@ -654,6 +665,7 @@ Item {
       if (typeof root.service.rescanUserDesigns === "function") root.service.rescanUserDesigns()
       if (typeof root.service.refreshBackground === "function") root.service.refreshBackground()
       if (typeof root.service.refreshFingerprintStatus === "function") root.service.refreshFingerprintStatus()
+      if (typeof root.service.refreshFido2Status === "function") root.service.refreshFido2Status()
     }
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
     revealTimer.restart()
@@ -1745,6 +1757,53 @@ Item {
                       anchors.fill: parent
                       hoverEnabled: true
                       onClicked: root.setMenuEntry(menuEntryChip.modelData.id === "on")
+                    }
+                  }
+                }
+              }
+
+              // Only shown once /etc/pam.d/omarchy-lock-fido2 is in place; off
+              // sends the lock screen back to the password without touching
+              // PAM, so the key still works everywhere else.
+              Row {
+                spacing: Style.space(6)
+                visible: root.fido2Installed
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Security key"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: root.fido2Options
+                  Rectangle {
+                    id: fido2Chip
+                    required property var modelData
+                    readonly property bool current: (modelData.id === "on") === root.fido2Enabled
+                    width: fido2ChipLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, fido2ChipArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: fido2ChipLabel
+                      anchors.centerIn: parent
+                      text: fido2Chip.modelData.name
+                      color: fido2Chip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: fido2Chip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: fido2ChipArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setFido2Enabled(fido2Chip.modelData.id === "on")
                     }
                   }
                 }

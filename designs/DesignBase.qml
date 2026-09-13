@@ -12,6 +12,13 @@ Item {
   property int avatarVersion: 0
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
+  property bool fido2Configured: false
+  property bool fido2Active: false
+  // True only while pam_u2f has an assertion open. The field is inert then,
+  // and only then is typed text a PIN.
+  property bool fido2Authenticating: false
+  property bool fido2NeedsPin: false
+  property string fido2Status: ""
   property bool authenticatingPassword: false
   property string failureMessage: ""
   property int failedAttempts: 0
@@ -38,6 +45,9 @@ Item {
   signal clearFailureRequested()
   signal wakeRequested()
   signal faceRequested()
+  signal fido2Requested()
+  signal passwordRequested()
+  signal submitFido2Pin(string pin)
 
   readonly property bool errorState: failureMessage.length > 0
   readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"
@@ -84,7 +94,11 @@ Item {
   // when the field is cleared.
   property bool showPasswordToggle: true
   property bool passwordVisible: false
-  function togglePasswordVisible() { passwordVisible = !passwordVisible }
+  // Reveal belongs to the password. A key PIN goes into the same field, so
+  // the toggle refuses in key mode and a reveal left on from before is
+  // dropped the moment key mode takes over.
+  function togglePasswordVisible() { if (!fido2Active) passwordVisible = !passwordVisible }
+  onFido2ActiveChanged: if (fido2Active) passwordVisible = false
   onPasswordTextChanged: if (passwordText.length === 0) passwordVisible = false
 
   transform: Translate { id: shakeTranslate }
@@ -180,6 +194,10 @@ Item {
 
   onInputEnabledChanged: if (inputEnabled) Qt.callLater(forcePasswordFocus)
   Component.onCompleted: if (inputEnabled) Qt.callLater(forcePasswordFocus)
+
+  // The field is read-only until pam_u2f asks for the PIN; take focus back
+  // the moment it does so the first digit lands.
+  onFido2NeedsPinChanged: if (fido2NeedsPin && inputEnabled) Qt.callLater(forcePasswordFocus)
 
   // A suspend/resume cycle leaves the password field without item focus, and
   // nothing here used to claim it back: inputEnabled stays true for the whole

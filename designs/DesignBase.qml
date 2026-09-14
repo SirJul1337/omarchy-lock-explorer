@@ -6,12 +6,15 @@ import qs.Commons
 Item {
   id: base
 
+  Keys.forwardTo: inputItem ? [inputItem] : []
+
   property string backgroundPath: ""
   property int backgroundVersion: 0
   property string avatarPath: ""
   property int avatarVersion: 0
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
+  property bool faceAuthenticating: false
   property bool fido2Configured: false
   property bool fido2Active: false
   // True only while pam_u2f has an assertion open. The field is inert then,

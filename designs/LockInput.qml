@@ -16,13 +16,13 @@ TextInput {
   passwordMaskDelay: 0
   activeFocusOnPress: true
   clip: true
-  enabled: lock ? (lock.inputEnabled && !lock.authenticatingPassword) : false
+  enabled: lock ? (lock.inputEnabled && !lock.authenticatingPassword && !lock.faceAuthenticating) : false
   // Inert, not disabled: a disabled item drops focus and stops delivering
   // Keys.onPressed, and Tab has to keep working while the key is waiting.
   // Only while pam_u2f actually has an assertion open, though: with no key
   // plugged in there is nothing to protect the keystrokes from, and refusing
   // them would leave the user with no way in.
-  readOnly: lock ? (lock.authenticatingPassword || (lock.fido2Active && lock.fido2Authenticating && !lock.fido2NeedsPin)) : true
+  readOnly: lock ? (lock.authenticatingPassword || lock.faceAuthenticating || (lock.fido2Active && lock.fido2Authenticating && !lock.fido2NeedsPin)) : true
   color: Color.lock.text
   selectionColor: Color.lock.selection
   selectedTextColor: Color.lock.text
@@ -84,6 +84,27 @@ TextInput {
     if (lock.fido2Active && lock.fido2Authenticating && !lock.fido2NeedsPin
         && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) {
       lock.fido2Requested()
+      event.accepted = true
+      return
+    }
+
+    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+      if (lock.authenticatingPassword || lock.faceAuthenticating) {
+        event.accepted = true
+        return
+      }
+      var submitted = lock.passwordText
+      lock.passwordTextEdited("")
+      if (lock.fido2Active && lock.fido2Authenticating) {
+        if (submitted.length > 0) lock.submitFido2Pin(submitted)
+        else lock.fido2Requested()
+      } else if (submitted.length > 0) {
+        lock.submitPassword(submitted)
+      } else if (lock.fido2Active) {
+        lock.fido2Requested()
+      } else if (lock.faceConfigured) {
+        lock.faceRequested()
+      }
       event.accepted = true
       return
     }

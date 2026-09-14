@@ -72,7 +72,7 @@ DesignBase {
         width: Math.round(lock.fontSize * 0.6); height: lock.fontSize
         anchors.verticalCenter: parent.verticalCenter
         color: lock.fg
-        visible: lock.inputEnabled && !lock.authenticatingPassword
+        visible: lock.inputEnabled && !lock.authenticatingPassword && !lock.faceAuthenticating
         SequentialAnimation on opacity {
           loops: Animation.Infinite
           running: cursor.visible
@@ -87,14 +87,19 @@ DesignBase {
     }
 
     Text {
-      visible: lock.authenticatingPassword
-      text: "Checking credentials..."
+      visible: lock.authenticatingPassword || lock.faceAuthenticating
+      text: lock.faceAuthenticating ? "Identifying face..." : "Checking credentials..."
       color: lock.dimFg; font.family: Style.font.family; font.pixelSize: lock.fontSize
     }
     Text {
       visible: lock.errorState
       text: "Login incorrect" + (lock.failedAttempts > 1 ? " (" + lock.failedAttempts + ")" : "")
       color: Color.lock.textError; font.family: Style.font.family; font.pixelSize: lock.fontSize
+    }
+    Text {
+      visible: lock.faceConfigured && !lock.faceAuthenticating
+      text: "(face authentication ready, press Enter to scan)"
+      color: lock.dimFg; font.family: Style.font.family; font.pixelSize: lock.fontSize
     }
     Text {
       visible: lock.fingerprintConfigured

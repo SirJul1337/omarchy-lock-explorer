@@ -15,6 +15,7 @@ Item {
   property int avatarVersion: 0
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
+  property bool faceAuthenticating: false
   property bool fido2Configured: false
   property bool fido2Active: false
   property bool fido2Authenticating: false
@@ -77,6 +78,7 @@ Item {
     it.avatarVersion = Qt.binding(function() { return host.avatarVersion })
     it.fingerprintConfigured = Qt.binding(function() { return host.fingerprintConfigured })
     it.faceConfigured = Qt.binding(function() { return host.faceConfigured })
+    it.faceAuthenticating = Qt.binding(function() { return host.faceAuthenticating })
     it.fido2Configured = Qt.binding(function() { return host.fido2Configured })
     it.fido2Active = Qt.binding(function() { return host.fido2Active })
     it.fido2Authenticating = Qt.binding(function() { return host.fido2Authenticating })

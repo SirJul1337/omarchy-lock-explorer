@@ -6,6 +6,7 @@ import QtQuick
 // dissolves into the background the desktop is about to show anyway.
 Item {
   id: layer
+  focus: true
 
   // "fade", "zoom", "rise" or "none", see `omarchy-shell lock unlockAnimation`.
   property string animation: "fade"
@@ -33,6 +34,7 @@ Item {
   Item {
     id: stage
     anchors.fill: parent
+    focus: true
 
     readonly property bool leaving: layer.active && layer.animated
     property real zoom: leaving && layer.animation === "zoom" ? 1.06 : 1

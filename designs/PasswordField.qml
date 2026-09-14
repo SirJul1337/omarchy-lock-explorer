@@ -4,6 +4,7 @@ import qs.Ui
 
 BorderSurface {
   id: field
+  focus: true
 
   property var lock: null
   // In boot-screen snapshots the box itself stays -- the boot theme puts its

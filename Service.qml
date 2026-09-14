@@ -1670,6 +1670,7 @@ echo "$out"
   property bool authenticatingPassword: false
   property bool fingerprintAuthenticating: false
   property bool faceAuthenticating: false
+  property bool pendingFaceStart: false
   property bool passwordPamConfigured: false
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
@@ -1825,6 +1826,8 @@ echo "$out"
     failedAttempts = 0
     authenticatingPassword = false
     fingerprintAuthenticating = false
+    faceAuthenticating = false
+    pendingFaceStart = false
     fingerprintRetryTimer.stop()
     if (passwordPam.active) passwordPam.abort()
     if (fingerprintPam.active) fingerprintPam.abort()
@@ -2005,7 +2008,12 @@ echo "$out"
   }
 
   function startFace() {
-    if (!lockRequested || !sessionLock.secure || !faceConfigured) return
+    if (!lockRequested || !faceConfigured) return
+    if (!sessionLock.secure) {
+      pendingFaceStart = true
+      return
+    }
+    pendingFaceStart = false
     if (facePam.active || faceAuthenticating) return
 
     runWake()
@@ -2201,6 +2209,10 @@ echo "$out"
         pendingSessionLockTimer.stop()
         root.startFingerprint()
         root.startFido2()
+        if (root.pendingFaceStart) {
+          root.pendingFaceStart = false
+          root.startFace()
+        }
       }
     }
 
@@ -2227,8 +2239,24 @@ echo "$out"
       id: lockSurface
       color: Color.background
 
+      Connections {
+        target: sessionLock
+        function onSecureStateChanged() {
+          if (sessionLock.secure) Qt.callLater(function() {
+            if (lockView) lockView.forcePasswordFocus()
+          })
+        }
+      }
+
+      onVisibleChanged: {
+        if (visible) Qt.callLater(function() {
+          if (lockView) lockView.forcePasswordFocus()
+        })
+      }
+
       UnlockLayer {
         anchors.fill: parent
+        focus: true
         animation: root.unlockAnimation
         duration: root.unlockDuration
         active: root.unlocking
@@ -2238,6 +2266,7 @@ echo "$out"
           id: lockView
           anchors.fill: parent
           fadeIn: true
+          focus: true
           designId: root.showsInput(lockSurface.screen) ? root.designId : "companion"
           revision: root.designsRevision
           backgroundPath: root.backgroundPath

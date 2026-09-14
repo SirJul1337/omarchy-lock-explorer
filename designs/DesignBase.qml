@@ -5,8 +5,31 @@ import qs.Commons
 
 Item {
   id: base
+  focus: true
 
   Keys.forwardTo: inputItem ? [inputItem] : []
+
+  Keys.onPressed: function(event) {
+    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+      if (base.authenticatingPassword || base.faceAuthenticating) {
+        event.accepted = true
+        return
+      }
+      if (base.passwordText.length === 0) {
+        if (base.fido2Active) {
+          base.fido2Requested()
+          event.accepted = true
+          return
+        }
+        if (base.faceConfigured) {
+          base.wakeRequested()
+          base.faceRequested()
+          event.accepted = true
+          return
+        }
+      }
+    }
+  }
 
   property string backgroundPath: ""
   property int backgroundVersion: 0
@@ -196,6 +219,7 @@ Item {
   }
 
   onInputEnabledChanged: if (inputEnabled) Qt.callLater(forcePasswordFocus)
+  onWakeRequested: Qt.callLater(forcePasswordFocus)
   Component.onCompleted: if (inputEnabled) Qt.callLater(forcePasswordFocus)
 
   // The field is read-only until pam_u2f asks for the PIN; take focus back

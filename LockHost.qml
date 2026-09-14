@@ -4,6 +4,8 @@ import "Designs.js" as Designs
 
 Item {
   id: host
+  focus: true
+  Keys.forwardTo: item ? [item] : []
 
   property string designId: Designs.DEFAULT_ID
   property int revision: 0
@@ -70,6 +72,7 @@ Item {
   }
 
   onDesignIdChanged: designFallback = false
+  onInputEnabledChanged: if (inputEnabled) Qt.callLater(forcePasswordFocus)
 
   function attach(it) {
     it.backgroundPath = Qt.binding(function() { return host.backgroundPath })
@@ -102,12 +105,16 @@ Item {
   Loader {
     id: loader
     anchors.fill: parent
+    focus: true
     source: {
       if (host.designFallback) return Qt.resolvedUrl("designs/Classic.qml")
       if (host.design && !host.isUserDesign) return Qt.resolvedUrl("designs/" + host.design.file)
       return ""
     }
-    onLoaded: host.attach(item)
+    onLoaded: {
+      host.attach(item)
+      if (host.inputEnabled) Qt.callLater(host.forcePasswordFocus)
+    }
     onStatusChanged: {
       if (status === Loader.Error) {
         host.loadError = sourceComponent ? sourceComponent.errorString() : "failed to load"

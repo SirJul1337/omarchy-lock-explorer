@@ -3,6 +3,7 @@ import qs.Commons
 
 TextInput {
   id: input
+  focus: true
 
   property var lock: null
   property bool syncing: false

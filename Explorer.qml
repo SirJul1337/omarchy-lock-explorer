@@ -1000,18 +1000,24 @@ Item {
     if (selectedDesign) root.useDesign(selectedDesign.id, true)
   }
 
+  // Dedicated render surface for background snapshots. grabToImage needs a
+  // rendered frame, which the explorer panel only has while open — so a
+  // theme/wallpaper change with a closed explorer always hit the deferred
+  // path and the boot image went stale. This window exists only for the
+  // duration of a snapshot flow and shows nothing: its content is parked
+  // off-screen, it takes no focus, and it reserves no screen space.
   PanelWindow {
-    id: panel
-    visible: root.opened
+    id: snapshotWindow
+    visible: root.snapshotBusy
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
-    WlrLayershell.namespace: "omarchy-lock-explorer"
+    WlrLayershell.namespace: "omarchy-lock-explorer-snapshot"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
     // Off-screen full-resolution render used to snapshot a lock design into a
-    // boot background. Parked far outside the panel so it never shows.
+    // boot background. Parked far outside the window so it never shows.
     Item {
       id: snapshotSource
       // Parked relative to its own width: the item is as wide as the display
@@ -1035,6 +1041,17 @@ Item {
         videoPlaying: false
       }
     }
+  }
+
+  PanelWindow {
+    id: panel
+    visible: root.opened
+    anchors { top: true; bottom: true; left: true; right: true }
+    color: "transparent"
+    WlrLayershell.namespace: "omarchy-lock-explorer"
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    exclusionMode: ExclusionMode.Ignore
 
     Rectangle { anchors.fill: parent; color: root.scrim }
     MouseArea { anchors.fill: parent; onClicked: root.dismiss() }

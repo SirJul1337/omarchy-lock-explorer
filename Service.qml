@@ -127,8 +127,18 @@ Item {
   }
   readonly property bool keepDisplayOn: keepDisplayOnOverride >= 0 ? keepDisplayOnOverride === 1 : configuredKeepDisplayOn
 
+  // Some monitors drop off the bus when DPMS turns them off (a lone DisplayPort
+  // panel on NVIDIA, issue #34). With no output left while the session lock is
+  // held the shell dies, relaunches, recovers the stranded lock and blanks
+  // again -- a loop for as long as the session stays locked. The blank leaves
+  // a marker in the runtime dir that the wake removes, so a shell that starts
+  // up and finds it knows its predecessor died with the display off, and
+  // keeps the displays lit for the rest of this login instead.
+  readonly property string blankMarkerDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omarchy-lock-explorer"
+  property bool blankCrashed: false
+
   // Opt-in HDMI workaround; Never still applies independently on every setup.
-  readonly property bool displayBlankingSuppressed: keepDisplayOn || DisplayPower.keepDisplaysOn(
+  readonly property bool displayBlankingSuppressed: keepDisplayOn || blankCrashed || DisplayPower.keepDisplaysOn(
     root.settingsConfig, pluginId, Quickshell.screens)
   onDisplayBlankingSuppressedChanged: {
     // The one-shot blank timer may already have fired while HDMI was present.
@@ -2596,14 +2606,32 @@ echo "$out"
 
   Process {
     id: wakeProcess
-    command: ["bash", "-c", "omarchy-system-wake"]
+    command: ["bash", "-c", "rm -f \"$1/display-off\"; omarchy-system-wake", "bash", root.blankMarkerDir]
   }
 
   Process {
     id: blankProcess
+    // The marker goes down before the display does: the shell can be gone
+    // within two seconds of the output dropping.
     command: ["bash", "-c", root.displayBlankingSuppressed
       ? "omarchy-brightness-keyboard off"
-      : "omarchy-brightness-keyboard off; omarchy-brightness-display off"]
+      : "mkdir -p \"$1\" && : > \"$1/display-off\"; omarchy-brightness-keyboard off; omarchy-brightness-display off",
+      "bash", root.blankMarkerDir]
+  }
+
+  // Runs once at startup. A display-off marker still there means the last
+  // shell never reached a wake; it is kept as blank-crashed so every later
+  // relaunch in this login sees it too (the runtime dir goes with the login).
+  Process {
+    id: blankCrashCheckProc
+    command: ["bash", "-c",
+      "[[ -e $1/display-off ]] && mv -f \"$1/display-off\" \"$1/blank-crashed\"; [[ -e $1/blank-crashed ]]",
+      "bash", root.blankMarkerDir]
+    onExited: function(exitCode) {
+      if (exitCode !== 0) return
+      root.blankCrashed = true
+      root.logEvent("blank-crashed: keeping displays on for this login")
+    }
   }
 
   Timer {
@@ -2849,6 +2877,7 @@ echo "$out"
     refreshSessionLockXray()
     rescanUserDesigns()
     detectAvatar()
+    blankCrashCheckProc.running = true
     checkStrandedLock()
   }
 

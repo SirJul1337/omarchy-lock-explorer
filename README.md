@@ -192,6 +192,14 @@ This uses more monitor power. It avoids a display-sleep trigger; it does not fix
 driver hotplug faults or prevent explicit system suspend. The setting follows
 Hyprland's visible HDMI screen names, not USB dock presence.
 
+Some monitors disconnect when they go to sleep, and with no output left the shell can
+crash while the screen is locked. The lock always comes back after a crash like that. If
+the shell went down with the display off, it keeps the displays on for the rest of the
+login instead of blanking again, so it happens at most once. The shell log then shows
+`blank-crashed: keeping displays on for this login`, and `displayBlankingSuppressed`
+reads `true`. Logging out or rebooting resets it. On a monitor that does this every
+time, pick **Never**.
+
 With no avatar set, the first of `~/.config/omarchy/lock-avatar.{png,jpg,jpeg,webp}`, `~/.face`,
 `~/.face.icon` and `/var/lib/AccountsService/icons/$USER` is used, so an existing profile picture
 shows up on its own.

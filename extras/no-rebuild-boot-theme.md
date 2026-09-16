@@ -8,7 +8,8 @@ UKI** (see `addon-vm-test.sh`, 2026-08-24).
 "The boot decrypt screen is baked into the encrypted disk, so it can't be
 changed without rebuilding" is only half right. The Plymouth theme *is* baked
 into the initramfs — but the initramfs lives inside the UKI at
-`/boot/EFI/Linux/omarchy_linux.efi`, which sits on the **unencrypted ESP**
+`/boot/EFI/Linux/omarchy_<kernel-package>.efi`, which sits on the
+**unencrypted ESP**
 (firmware has to read it before LUKS is unlocked). What made theme changes
 expensive was never encryption; it was that the UKI is a packed archive that
 `limine-mkinitcpio` regenerates as a whole (~30s).
@@ -23,7 +24,15 @@ systemd-stub (v256+, Omarchy currently ships 261) loads **companion addons**
 from the ESP next to the UKI, with no signature requirement while Secure Boot
 is disabled (Omarchy's default):
 
-    /boot/EFI/Linux/omarchy_linux.efi.extra.d/*.addon.efi
+    /boot/EFI/Linux/omarchy_<kernel-package>.efi.extra.d/*.addon.efi
+
+The UKI filename follows the kernel **package** (`CUSTOM_UKI_NAME="omarchy"`
+in Omarchy's `limine-entry-tool` defaults): `omarchy_linux.efi` for `linux`,
+`omarchy_linux-omarchy.efi` since Omarchy 4.0.4 migrated to the Omarchy
+kernel, `omarchy_linux-t2.efi` on T2 Macs. 4.0.4 leaves the replaced kernel
+installed as a fallback, so several of these can sit side by side and the old
+one is no longer the one that boots (issue #33). `apply.sh` therefore drops
+the addon next to **every** `omarchy_linux*.efi` rather than a fixed name.
 
 An addon is a tiny PE file whose `.initrd` section holds a cpio archive. The
 stub concatenates addon initrds **after** the UKI's embedded initrd — the

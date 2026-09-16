@@ -8,10 +8,10 @@
 #                                  (handy for testing in a VM, no root needed)
 #
 # On Omarchy's UKI boot (Limine -> systemd-stub) the theme ships as a stub
-# initrd ADDON on the ESP — omarchy_linux.efi.extra.d/*.addon.efi — which the
+# initrd ADDON on the ESP — omarchy_linux*.efi.extra.d/*.addon.efi — which the
 # stub concatenates after the baked-in initrd, so later cpio entries win and
 # the theme applies with NO initramfs rebuild (proven on real hardware
-# 2026-08-24, see extras/no-rebuild-boot-theme.md). Systems without the UKI
+# 2026-08-24, see extras/no-rebuild-boot-theme.md). Systems without a UKI
 # or the addon stub fall back to the old bake-and-rebuild path.
 #
 # The privileged part (one file write to the ESP, or the legacy install +
@@ -21,10 +21,23 @@
 set -euo pipefail
 here="$(dirname "$(realpath "$0")")"
 
-uki=/boot/EFI/Linux/omarchy_linux.efi
+# Limine's entry tool names every kernel's UKI after its package, so there is
+# no single fixed filename: omarchy_linux.efi for `linux`, omarchy_linux-t2.efi
+# on T2 Macs, and omarchy_linux-omarchy.efi since Omarchy 4.0.4 moved to the
+# linux-omarchy kernel. That update leaves the old kernel installed as a
+# fallback, so omarchy_linux.efi is still on the ESP while the machine boots a
+# different image: matching only that name parked the addon next to a UKI
+# nothing boots and the boot screen silently stopped changing (issue #33).
+# Every Omarchy UKI gets the addon instead, which also matches the legacy
+# bake-and-rebuild path — limine-mkinitcpio with no argument rebuilds every
+# kernel — so the boot screen is the same whichever entry is picked.
+uki_dir=/boot/EFI/Linux
+uki_glob='omarchy_linux*.efi'
 addon_stub=/usr/lib/systemd/boot/efi/addonx64.efi.stub
 
-addon_capable() { [[ -f $uki && -f $addon_stub ]]; }
+ukis() { find "$uki_dir" -maxdepth 1 -name "$uki_glob" -type f 2>/dev/null; }
+
+addon_capable() { [[ -f $addon_stub && -n $(ukis) ]]; }
 
 # Wrap a staged theme as a systemd-stub initrd addon: the theme dir, a
 # plymouthd.conf pointing at it, and the mono font under the names the

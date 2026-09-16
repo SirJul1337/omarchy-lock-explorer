@@ -3,8 +3,10 @@
 # systemd-stub initrd ADDON instead of rebuilding the initramfs.
 #
 # Boots the REAL chain in QEMU — OVMF firmware → Limine (protocol: efi) →
-# the host's actual, untouched UKI — with the theme sitting next to it as
+# the host's actual, untouched UKI (whichever kernel it is built for) — with
+# the theme sitting next to it as
 #   EFI/Linux/omarchy_linux.efi.extra.d/theme.addon.efi
+# on the synthetic ESP this script builds.
 # systemd-stub concatenates the addon's .initrd section AFTER the UKI's
 # embedded initrd, so the addon's files override the baked-in theme.
 # Nothing on the host is touched; working files live in
@@ -23,7 +25,21 @@ work="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-lock-explorer/addonvm"; mkdir -p "
 THEME_DIR="$(realpath "${1:?usage: addon-vm-test.sh <theme-dir> [headless]}")"
 MODE="${2:-window}"
 THEME_NAME="$(basename "$THEME_DIR"/*.plymouth .plymouth)"
-UKI=/boot/EFI/Linux/omarchy_linux.efi
+# The UKI of the kernel this machine is running. Limine's entry tool names it
+# after the kernel package, so there is no fixed filename: omarchy_linux.efi
+# for `linux`, omarchy_linux-omarchy.efi since Omarchy 4.0.4 moved to the
+# Omarchy kernel, omarchy_linux-t2.efi on T2 Macs.
+host_uki() {
+  local pkgbase
+  pkgbase=$(cat "/usr/lib/modules/$(uname -r)/pkgbase" 2>/dev/null || true)
+  if [[ -n $pkgbase && -f /boot/EFI/Linux/omarchy_$pkgbase.efi ]]; then
+    echo "/boot/EFI/Linux/omarchy_$pkgbase.efi"
+    return
+  fi
+  find /boot/EFI/Linux -maxdepth 1 -name 'omarchy_linux*.efi' -type f | sort | head -1
+}
+UKI=$(host_uki)
+[[ -n $UKI ]] || { echo "No Omarchy UKI under /boot/EFI/Linux" >&2; exit 1; }
 STUB=/usr/lib/systemd/boot/efi/addonx64.efi.stub
 
 # 1. Overlay: theme + plymouthd.conf switch + font override (label-freetype in

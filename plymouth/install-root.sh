@@ -2,14 +2,15 @@
 # Privileged half of apply.sh, run through pkexec.
 #
 #   addon <addon.efi> [bg] [staging]
-#                      install a stub initrd addon next to the UKI — the fast
-#                      path: one file write, no initramfs rebuild. The staged
-#                      theme is also copied to the root fs and made the
-#                      default: plymouth-reboot/poweroff run plymouthd from
-#                      the root, which never sees the addon, so this copy is
-#                      what the shutdown splash shows (same as the rotation
-#                      helper does). The addon still overrides whatever a
-#                      later kernel-update rebuild bakes in on the way up.
+#                      install a stub initrd addon next to every Omarchy UKI —
+#                      the fast path: one small file write per kernel image,
+#                      no initramfs rebuild. The staged theme is also copied
+#                      to the root fs and made the default: plymouth-reboot
+#                      and poweroff run plymouthd from the root, which never
+#                      sees the addon, so this copy is what the shutdown
+#                      splash shows (same as the rotation helper does). The
+#                      addon still overrides whatever a later kernel-update
+#                      rebuild bakes in on the way up.
 #   theme <staging>    legacy path for non-UKI systems: bake the theme into
 #                      the initramfs and rebuild.
 #   stock <stock-dir>  remove the addon and/or the baked theme; only rebuilds
@@ -31,9 +32,27 @@ fi
 theme_root=/usr/share/plymouth/themes
 quit_dropin=/etc/systemd/system/plymouth-quit.service.d/omarchy-lock-explorer.conf
 limine_conf=/boot/limine.conf
-extra_dir=/boot/EFI/Linux/omarchy_linux.efi.extra.d
 addon_name=omarchy-lock-explorer.addon.efi
 need_rebuild=0
+
+# Each kernel's UKI is named after its package (omarchy_linux.efi for `linux`,
+# omarchy_linux-omarchy.efi for the Omarchy kernel that 4.0.4 migrated to,
+# omarchy_linux-t2.efi on T2 Macs), and 4.0.4 leaves the replaced kernel
+# installed as a fallback. Pinning the old name attached the addon to a UKI
+# the machine no longer boots (issue #33), so every Omarchy UKI is covered.
+uki_dir=/boot/EFI/Linux
+uki_glob='omarchy_linux*.efi'
+
+# The addon directory beside every UKI that is currently installed.
+extra_dirs() {
+  find "$uki_dir" -maxdepth 1 -name "$uki_glob" -type f -printf '%p.extra.d\n' 2>/dev/null
+}
+
+# Every addon directory on the ESP, including ones whose kernel has since been
+# removed: a leftover addon there would come back with that kernel.
+stale_extra_dirs() {
+  find "$uki_dir" -maxdepth 1 -name "$uki_glob.extra.d" -type d 2>/dev/null
+}
 
 # Paint the Limine screen the same color as the splash so the bootloader ->
 # plymouth handoff has no dark flash. Only the two color values are saved and
@@ -83,8 +102,17 @@ install_quit_dropin() {
 case $mode in
   addon)
     [[ -f $src ]] || { echo "Not an addon file: $src" >&2; exit 1; }
-    install -Dm644 "$src" "$extra_dir/$addon_name"
-    rm -f "$extra_dir/lock-explorer.addon.efi"   # pre-release test name
+    installed=0
+    while IFS= read -r extra_dir; do
+      [[ -n $extra_dir ]] || continue
+      install -Dm644 "$src" "$extra_dir/$addon_name"
+      rm -f "$extra_dir/lock-explorer.addon.efi"   # pre-release test name
+      installed=1
+    done < <(extra_dirs)
+    if [[ $installed == 0 ]]; then
+      echo "No Omarchy UKI under $uki_dir to attach the boot screen to" >&2
+      exit 1
+    fi
     install_quit_dropin
     [[ -n $bg_hex ]] && sync_limine_backdrop "${bg_hex#\#}"
     # The shutdown half: plymouth-reboot/poweroff run plymouthd from the root
@@ -113,8 +141,11 @@ case $mode in
     ;;
   stock)
     [[ -f $src/omarchy.plymouth ]] || { echo "Not the stock plymouth theme: $src" >&2; exit 1; }
-    rm -f "$extra_dir/$addon_name" "$extra_dir/lock-explorer.addon.efi"
-    rmdir "$extra_dir" 2>/dev/null || true
+    while IFS= read -r extra_dir; do
+      [[ -n $extra_dir ]] || continue
+      rm -f "$extra_dir/$addon_name" "$extra_dir/lock-explorer.addon.efi"
+      rmdir "$extra_dir" 2>/dev/null || true
+    done < <(stale_extra_dirs)
     mkdir -p "$theme_root/omarchy"
     cp -r --no-preserve=mode,ownership "$src/." "$theme_root/omarchy/"
     chmod -R a+rX "$theme_root/omarchy"

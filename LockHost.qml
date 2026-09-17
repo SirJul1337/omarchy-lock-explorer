@@ -4,6 +4,8 @@ import "Designs.js" as Designs
 
 Item {
   id: host
+  focus: true
+  Keys.forwardTo: item ? [item] : []
 
   property string designId: Designs.DEFAULT_ID
   property int revision: 0
@@ -15,6 +17,7 @@ Item {
   property int avatarVersion: 0
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
+  property bool faceAuthenticating: false
   property bool fido2Configured: false
   property bool fido2Active: false
   property bool fido2Authenticating: false
@@ -69,6 +72,7 @@ Item {
   }
 
   onDesignIdChanged: designFallback = false
+  onInputEnabledChanged: if (inputEnabled) Qt.callLater(forcePasswordFocus)
 
   function attach(it) {
     it.backgroundPath = Qt.binding(function() { return host.backgroundPath })
@@ -77,6 +81,7 @@ Item {
     it.avatarVersion = Qt.binding(function() { return host.avatarVersion })
     it.fingerprintConfigured = Qt.binding(function() { return host.fingerprintConfigured })
     it.faceConfigured = Qt.binding(function() { return host.faceConfigured })
+    it.faceAuthenticating = Qt.binding(function() { return host.faceAuthenticating })
     it.fido2Configured = Qt.binding(function() { return host.fido2Configured })
     it.fido2Active = Qt.binding(function() { return host.fido2Active })
     it.fido2Authenticating = Qt.binding(function() { return host.fido2Authenticating })
@@ -100,12 +105,16 @@ Item {
   Loader {
     id: loader
     anchors.fill: parent
+    focus: true
     source: {
       if (host.designFallback) return Qt.resolvedUrl("designs/Classic.qml")
       if (host.design && !host.isUserDesign) return Qt.resolvedUrl("designs/" + host.design.file)
       return ""
     }
-    onLoaded: host.attach(item)
+    onLoaded: {
+      host.attach(item)
+      if (host.inputEnabled) Qt.callLater(host.forcePasswordFocus)
+    }
     onStatusChanged: {
       if (status === Loader.Error) {
         host.loadError = sourceComponent ? sourceComponent.errorString() : "failed to load"

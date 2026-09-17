@@ -4,6 +4,7 @@ import qs.Ui
 
 BorderSurface {
   id: field
+  focus: true
 
   property var lock: null
   // In boot-screen snapshots the box itself stays -- the boot theme puts its
@@ -23,7 +24,7 @@ BorderSurface {
 
   readonly property alias input: input
   readonly property bool errorState: lock ? lock.errorState : false
-  readonly property bool authenticating: lock ? lock.authenticatingPassword : false
+  readonly property bool authenticating: lock ? (lock.authenticatingPassword || lock.faceAuthenticating) : false
   readonly property bool fingerprint: lock ? lock.fingerprintConfigured : false
   readonly property bool face: lock ? lock.faceConfigured : false
   readonly property bool fido2: lock ? lock.fido2Configured : false
@@ -33,7 +34,7 @@ BorderSurface {
   readonly property int fieldFontSize: Math.round(Style.font.heading * fontScale)
   readonly property int dotFontSize: Math.round(Style.font.heading * 1.25 * fontScale)
   readonly property int dotLetterSpacing: Math.round(Style.font.heading * 0.19 * fontScale)
-  readonly property real fingerprintReserve: (fingerprint ? Math.round(fingerprintIcon.implicitWidth + 12) : 0) + (face ? Math.round(faceIcon.implicitWidth + 12) : 0) + (fido2 ? Math.round(fido2Icon.implicitWidth + 12) : 0) + (showToggle ? Math.round(eyeButton.width + 8) : 0)
+  readonly property real fingerprintReserve: trailingRow.width > 0 ? Math.round(trailingRow.width + 8) : 0
   readonly property real glyphReserve: showLockGlyph ? Math.round(lockGlyph.implicitWidth + 12) : 0
   readonly property real dotScale: dotMetrics.advanceWidth > 0
     ? Math.min(1, (input.width - 4) / dotMetrics.advanceWidth)
@@ -109,7 +110,7 @@ BorderSurface {
 
   Text {
     anchors.fill: input
-    text: field.authenticating ? "Checking…"
+    text: field.authenticating ? (field.lock && field.lock.faceAuthenticating ? "Identifying face…" : "Checking…")
       : (field.errorState ? field.lock.failureMessage
       : (field.fido2Active ? (field.lock.fido2Status.length > 0 ? field.lock.fido2Status : "Waiting for your key…") : field.placeholder))
     textFormat: Text.PlainText
@@ -123,80 +124,106 @@ BorderSurface {
     elide: Text.ElideRight
   }
 
-  Item {
-    id: eyeButton
-    visible: field.showToggle
-    width: Math.round(field.fieldFontSize * 1.6)
-    height: parent.height
+  Row {
+    id: trailingRow
     anchors.right: parent.right
-    anchors.rightMargin: field.borderRight + field.sidePadding - 6
-      + (field.fingerprint ? Math.round(fingerprintIcon.implicitWidth + 8) : 0)
-      + (field.face ? Math.round(faceIcon.implicitWidth + 8) : 0)
-      + (field.fido2 ? Math.round(fido2Icon.implicitWidth + 8) : 0)
-    Text {
-      anchors.centerIn: parent
-      text: field.revealed ? "󰈉" : "󰈈"
-      color: field.revealed ? Color.lock.borderActive : Color.lock.placeholder
-      font.family: Style.font.family
-      font.pixelSize: Math.round(field.fieldFontSize * 1.1)
-    }
-    MouseArea {
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      onClicked: {
-        if (field.lock) field.lock.togglePasswordVisible()
-        input.forceActiveFocus()
+    anchors.rightMargin: field.borderRight + field.sidePadding
+    anchors.verticalCenter: parent.verticalCenter
+    spacing: 12
+    height: field.height
+
+    Item {
+      id: eyeButton
+      visible: field.showToggle
+      width: Math.round(field.fieldFontSize * 1.5)
+      height: parent.height
+
+      Text {
+        anchors.centerIn: parent
+        text: field.revealed ? "󰈈" : "󰈉"
+        color: field.revealed ? Color.lock.borderActive : Color.lock.placeholder
+        font.family: Style.font.family
+        font.pixelSize: Math.round(field.fieldFontSize * 1.1)
+      }
+      MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: {
+          if (field.lock) field.lock.togglePasswordVisible()
+          input.forceActiveFocus()
+        }
       }
     }
-  }
 
-  Text {
-    id: fingerprintIcon
-    anchors.right: faceIcon.left
-    anchors.rightMargin: -9
-    anchors.verticalCenter: parent.verticalCenter
-    visible: field.fingerprint
-    text: "󰈷"
-    color: Color.lock.placeholder
-    font.family: Style.font.family
-    font.pixelSize: Math.round(field.fieldFontSize * 1.1)
-  }
+    Item {
+      id: fingerprintContainer
+      visible: field.fingerprint
+      width: Math.max(Math.round(field.fieldFontSize * 1.5), Math.round(fingerprintIcon.implicitWidth + 8))
+      height: parent.height
 
-  Text {
-    id: faceIcon
-    anchors.right: parent.right
-    anchors.rightMargin: field.borderRight + field.sidePadding
-      + (field.fido2 ? Math.round(fido2Icon.implicitWidth + 8) : 0)
-    anchors.verticalCenter: parent.verticalCenter
-    visible: field.face
-    text: "󰱻"
-    color: Color.lock.placeholder
-    font.family: Style.font.family
-    font.pixelSize: Math.round(field.fieldFontSize * 1.1)
-  }
+      Text {
+        id: fingerprintIcon
+        anchors.centerIn: parent
+        text: "󰈷"
+        color: Color.lock.placeholder
+        font.family: Style.font.family
+        font.pixelSize: Math.round(field.fieldFontSize * 1.1)
+      }
+    }
 
-  // Lit while the key is the active factor, dim while it is merely enrolled.
-  // Click: switch to the key, or try it again when already on it.
-  Text {
-    id: fido2Icon
-    anchors.right: parent.right
-    anchors.rightMargin: field.borderRight + field.sidePadding
-    anchors.verticalCenter: parent.verticalCenter
-    visible: field.fido2
-    text: ""
-    color: field.fido2Active ? Color.lock.text : Color.lock.placeholder
-    font.family: Style.font.family
-    font.pixelSize: Math.round(field.fieldFontSize * 1.1)
-    MouseArea {
-      anchors.fill: parent
-      anchors.margins: -8
-      cursorShape: Qt.PointingHandCursor
-      enabled: field.lock ? field.lock.inputEnabled : false
-      onClicked: {
-        field.lock.wakeRequested()
-        field.lock.fido2Requested()
-        input.forceActiveFocus()
+    Item {
+      id: faceContainer
+      visible: field.face
+      width: Math.max(Math.round(field.fieldFontSize * 1.5), Math.round(faceIcon.implicitWidth + 8))
+      height: parent.height
+
+      Text {
+        id: faceIcon
+        anchors.centerIn: parent
+        text: "󰱻"
+        color: field.lock && field.lock.faceAuthenticating ? Color.lock.text : Color.lock.placeholder
+        font.family: Style.font.family
+        font.pixelSize: Math.round(field.fieldFontSize * 1.1)
+      }
+
+      MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        visible: field.face
+        enabled: field.face && (field.lock ? field.lock.inputEnabled : false)
+        onClicked: {
+          field.lock.wakeRequested()
+          field.lock.faceRequested()
+          input.forceActiveFocus()
+        }
+      }
+    }
+
+    Item {
+      id: fido2Container
+      visible: field.fido2
+      width: Math.max(Math.round(field.fieldFontSize * 1.5), Math.round(fido2Icon.implicitWidth + 8))
+      height: parent.height
+
+      Text {
+        id: fido2Icon
+        anchors.centerIn: parent
+        text: ""
+        color: field.fido2Active ? Color.lock.text : Color.lock.placeholder
+        font.family: Style.font.family
+        font.pixelSize: Math.round(field.fieldFontSize * 1.1)
+      }
+
+      MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        enabled: field.fido2 && (field.lock ? field.lock.inputEnabled : false)
+        onClicked: {
+          field.lock.wakeRequested()
+          field.lock.fido2Requested()
+          input.forceActiveFocus()
+        }
       }
     }
   }

@@ -1680,6 +1680,7 @@ echo "$out"
   property bool authenticatingPassword: false
   property bool fingerprintAuthenticating: false
   property bool faceAuthenticating: false
+  property bool pendingFaceStart: false
   property bool passwordPamConfigured: false
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
@@ -1835,6 +1836,8 @@ echo "$out"
     failedAttempts = 0
     authenticatingPassword = false
     fingerprintAuthenticating = false
+    faceAuthenticating = false
+    pendingFaceStart = false
     fingerprintRetryTimer.stop()
     if (passwordPam.active) passwordPam.abort()
     if (fingerprintPam.active) fingerprintPam.abort()
@@ -1959,7 +1962,7 @@ echo "$out"
     // A password submitted while on the key (emergency field, custom design)
     // is a password: leave key mode first so it never meets fido2Pam.
     if (password.length > 0 && fido2Active) setAuthMode("password")
-    if (!lockRequested || authenticatingPassword || password.length === 0) {
+    if (!lockRequested || authenticatingPassword || faceAuthenticating || password.length === 0) {
       if (password.length === 0 && faceConfigured) root.startFace()
       return
     }
@@ -2015,11 +2018,21 @@ echo "$out"
   }
 
   function startFace() {
-    if (!lockRequested || !sessionLock.secure || !faceConfigured) return
+    if (!lockRequested || !faceConfigured) return
+    if (!sessionLock.secure) {
+      pendingFaceStart = true
+      return
+    }
+    pendingFaceStart = false
     if (facePam.active || faceAuthenticating) return
 
+    runWake()
+    failureMessage = ""
     faceAuthenticating = true
-    if (!facePam.start()) faceAuthenticating = false
+    if (!facePam.start()) {
+      faceAuthenticating = false
+      handleFaceFailure()
+    }
   }
 
   function handleFaceFinished(result) {
@@ -2028,9 +2041,18 @@ echo "$out"
     if (!lockRequested) return
     if (result === PamResult.Success) {
       finishUnlock()
-    } else if (faceConfigured) {
-      faceRetryTimer.restart()
+    } else {
+      handleFaceFailure()
     }
+  }
+
+  function handleFaceFailure() {
+    if (!lockRequested) return
+
+    faceAuthenticating = false
+    failedAttempts += 1
+    failureMessage = "Authentication failed (" + failedAttempts + ")"
+    runWake()
   }
 
   // Key mode when a key is enrolled and plugged in at lock time, password
@@ -2197,6 +2219,10 @@ echo "$out"
         pendingSessionLockTimer.stop()
         root.startFingerprint()
         root.startFido2()
+        if (root.pendingFaceStart) {
+          root.pendingFaceStart = false
+          root.startFace()
+        }
       }
     }
 
@@ -2223,8 +2249,24 @@ echo "$out"
       id: lockSurface
       color: Color.background
 
+      Connections {
+        target: sessionLock
+        function onSecureStateChanged() {
+          if (sessionLock.secure) Qt.callLater(function() {
+            if (lockView) lockView.forcePasswordFocus()
+          })
+        }
+      }
+
+      onVisibleChanged: {
+        if (visible) Qt.callLater(function() {
+          if (lockView) lockView.forcePasswordFocus()
+        })
+      }
+
       UnlockLayer {
         anchors.fill: parent
+        focus: true
         animation: root.unlockAnimation
         duration: root.unlockDuration
         active: root.unlocking
@@ -2234,6 +2276,7 @@ echo "$out"
           id: lockView
           anchors.fill: parent
           fadeIn: true
+          focus: true
           designId: root.showsInput(lockSurface.screen) ? root.designId : "companion"
           revision: root.designsRevision
           backgroundPath: root.backgroundPath
@@ -2242,6 +2285,7 @@ echo "$out"
           avatarVersion: root.avatarVersion
           fingerprintConfigured: root.fingerprintConfigured
           faceConfigured: root.faceConfigured
+          faceAuthenticating: root.faceAuthenticating
           fido2Configured: root.fido2Configured
           fido2Active: root.fido2Active
           fido2Authenticating: root.fido2Authenticating
@@ -2306,6 +2350,7 @@ echo "$out"
         videoPath: root.videoPath
         videoPlaying: root.previewVisible
         faceConfigured: root.faceConfigured
+        faceAuthenticating: root.faceAuthenticating
         fido2Configured: root.fido2Configured
         unlockPlayback: root.previewClipPlaying
         clipSpeed: root.clipSpeed
@@ -2393,7 +2438,7 @@ echo "$out"
 
     onError: function(error) {
       root.faceAuthenticating = false
-      if (root.lockRequested && root.faceConfigured) faceRetryTimer.restart()
+      root.handleFaceFailure()
     }
   }
 
@@ -2434,13 +2479,6 @@ echo "$out"
     interval: 250
     repeat: false
     onTriggered: root.startFingerprint()
-  }
-
-  Timer {
-    id: faceRetryTimer
-    interval: 250
-    repeat: false
-    onTriggered: root.startFace()
   }
 
   // A key plugged in after the lock came up has to be noticed, and polling for
@@ -2548,8 +2586,7 @@ echo "$out"
     stdout: StdioCollector { id: faceCheckStdout; waitForEnd: true }
     onExited: {
       root.faceConfigured = String(faceCheckStdout.text || "").trim() === "yes"
-      if (root.lockRequested && root.faceConfigured) root.startFace()
-      else if (!root.faceConfigured && facePam.active) facePam.abort()
+      if (!root.faceConfigured && facePam.active) facePam.abort()
     }
   }
 
@@ -2874,6 +2911,8 @@ echo "$out"
     refreshMenuEntry()
     refreshBackground()
     refreshFingerprintStatus()
+    refreshFaceStatus()
+    refreshFido2Status()
     refreshSessionLockXray()
     rescanUserDesigns()
     detectAvatar()

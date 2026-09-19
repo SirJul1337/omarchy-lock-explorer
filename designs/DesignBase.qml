@@ -23,6 +23,8 @@ Item {
   property string failureMessage: ""
   property int failedAttempts: 0
   property bool inputEnabled: true
+  // True from the display blanking until it is lit again: keys only wake.
+  property bool inputBlocked: false
   property bool loadBackground: true
   property string passwordText: ""
 

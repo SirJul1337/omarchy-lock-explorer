@@ -1,26 +1,50 @@
 # Lock Screen Explorer
 
-A few lock screen designs for Omarchy 4 and a picker to preview and switch between them.
-Colors and fonts come from your Omarchy theme.
+31 lock screens for Omarchy 4, an explorer to preview and switch between them, and a designer to
+build your own. Unlock with your password, a FIDO2 security key, a fingerprint or your face.
+Colors and fonts follow your Omarchy theme.
 
-![preview](preview.png)
+![The explorer browsing designs and opening a full screen preview](media/explorer.gif)
 
-Designs: Greeting Card, Classic (the stock one), Editorial, Zen, Split, Terminal, Ring, Poster, Dock, Aurora, Analog, Flip, Island, Cinema, Sheet, Neon, Calendar, Frame, Dayline, Profile, Weather, Music, System, Rain.
-
-Weather fetches from wttr.in (same location as the bar widget), Music reads MPRIS players, System shows uptime, memory, load and battery.
-
-Every password field has an eye button to show what you typed (Ctrl+E does the same). It hides again after a failed attempt or when the field is cleared.
+- **31 designs**, from minimal to animated, typing-reactive, and video clips that play as you unlock
+- **Security key, fingerprint and face unlock** next to the password
+- **A visual designer** for your own layouts, or write the QML yourself
+- **Unlock animations** that fade, zoom or rise the lock screen away
+- **A matching boot screen** for the disk decryption prompt (experimental)
+- **Multi-monitor aware**, with a clock-only screen on the others, and a 12-hour clock option
 
 ## Install
 
 ```sh
 omarchy plugin add https://github.com/SirJul1337/omarchy-lock-explorer.git --enable
-omarchy restart shell
+omarchy-shell lock explore
 ```
 
-The restart is needed: the shell loads this service before it unloads the stock one, so for a
-moment both claim the `lock` IPC target and the stock one keeps it. Until you restart,
-`omarchy-shell lock explore` answers `Function not found`.
+## Designs
+
+<table>
+<tr><td align="center"><img src="media/designs/card.jpg" width="200" alt="Greeting Card"><br><sub>Greeting Card</sub></td><td align="center"><img src="media/designs/classic.jpg" width="200" alt="Classic"><br><sub>Classic</sub></td><td align="center"><img src="media/designs/editorial.jpg" width="200" alt="Editorial"><br><sub>Editorial</sub></td><td align="center"><img src="media/designs/zen.jpg" width="200" alt="Zen"><br><sub>Zen</sub></td></tr>
+<tr><td align="center"><img src="media/designs/split.jpg" width="200" alt="Split"><br><sub>Split</sub></td><td align="center"><img src="media/designs/terminal.jpg" width="200" alt="Terminal"><br><sub>Terminal</sub></td><td align="center"><img src="media/designs/ring.jpg" width="200" alt="Ring"><br><sub>Ring</sub></td><td align="center"><img src="media/designs/poster.jpg" width="200" alt="Poster"><br><sub>Poster</sub></td></tr>
+<tr><td align="center"><img src="media/designs/dock.jpg" width="200" alt="Dock"><br><sub>Dock</sub></td><td align="center"><img src="media/designs/aurora.jpg" width="200" alt="Aurora"><br><sub>Aurora</sub></td><td align="center"><img src="media/designs/analog.jpg" width="200" alt="Analog"><br><sub>Analog</sub></td><td align="center"><img src="media/designs/flip.jpg" width="200" alt="Flip"><br><sub>Flip</sub></td></tr>
+<tr><td align="center"><img src="media/designs/island.jpg" width="200" alt="Island"><br><sub>Island</sub></td><td align="center"><img src="media/designs/cinema.jpg" width="200" alt="Cinema"><br><sub>Cinema</sub></td><td align="center"><img src="media/designs/sheet.jpg" width="200" alt="Sheet"><br><sub>Sheet</sub></td><td align="center"><img src="media/designs/neon.jpg" width="200" alt="Neon"><br><sub>Neon</sub></td></tr>
+<tr><td align="center"><img src="media/designs/calendar.jpg" width="200" alt="Calendar"><br><sub>Calendar</sub></td><td align="center"><img src="media/designs/frame.jpg" width="200" alt="Frame"><br><sub>Frame</sub></td><td align="center"><img src="media/designs/dayline.jpg" width="200" alt="Dayline"><br><sub>Dayline</sub></td><td align="center"><img src="media/designs/profile.jpg" width="200" alt="Profile"><br><sub>Profile</sub></td></tr>
+<tr><td align="center"><img src="media/designs/weather.jpg" width="200" alt="Weather"><br><sub>Weather</sub></td><td align="center"><img src="media/designs/music.jpg" width="200" alt="Music"><br><sub>Music</sub></td><td align="center"><img src="media/designs/system.jpg" width="200" alt="System"><br><sub>System</sub></td><td align="center"><img src="media/designs/rain.jpg" width="200" alt="Rain"><br><sub>Rain</sub></td></tr>
+<tr><td align="center"><img src="media/designs/motion.jpg" width="200" alt="Motion"><br><sub>Motion</sub></td><td align="center"><img src="media/designs/pond.jpg" width="200" alt="Pond"><br><sub>Pond</sub></td><td align="center"><img src="media/designs/constellation.jpg" width="200" alt="Constellation"><br><sub>Constellation</sub></td><td align="center"><img src="media/designs/sparks.jpg" width="200" alt="Sparks"><br><sub>Sparks</sub></td></tr>
+<tr><td align="center"><img src="media/designs/storm.jpg" width="200" alt="Storm"><br><sub>Storm</sub></td><td align="center"><img src="media/designs/eyes.jpg" width="200" alt="Eyes"><br><sub>Eyes</sub></td><td align="center"><img src="media/designs/river.jpg" width="200" alt="River"><br><sub>River</sub></td></tr>
+</table>
+
+Weather fetches from wttr.in (same location as the bar widget), Music reads MPRIS players, System shows uptime, memory, load and battery.
+Motion loops a video you pick. Pond, Constellation and Sparks react to your typing. Storm, Eyes and River play their clip when you unlock.
+
+Every password field has an eye button to show what you typed (Ctrl+E does the same). It hides again after a failed attempt or when the field is cleared.
+
+Show off the one you ended up with, or one you built, in [Show your lock screen](https://github.com/SirJul1337/omarchy-lock-explorer/discussions/32).
+
+## Install details
+
+The shell loads this service a moment before it unloads the stock one, and the `lock` IPC target
+moves over once the stock one is gone, within a few seconds. If `omarchy-shell lock explore`
+still answers `Function not found` after that, run `omarchy restart shell`.
 
 This replaces the built-in `omarchy.lock` service (the manifest has `clonedFrom: omarchy.lock`
 so the shell swaps them and everything that locks the screen keeps working). Disable or remove

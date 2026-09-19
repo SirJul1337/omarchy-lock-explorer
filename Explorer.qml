@@ -366,7 +366,10 @@ Item {
   // 1920x1080. Plymouth scales the capture to the framebuffer, so a 16:9 grab
   // on an ultrawide came out stretched; and a responsive design laid out for
   // 1920 wide is the wrong composition at 3440 even before any stretch.
-  readonly property var snapshotScreen: panel.screen
+  // The window that renders the snapshot decides its geometry. A headless
+  // snapshot can run before the explorer has ever been mapped, when
+  // panel.screen may still be empty and the grab would fall to 1920x1080.
+  readonly property var snapshotScreen: snapshotWindow.screen || panel.screen || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
   readonly property int snapshotWidth: snapshotScreen && snapshotScreen.width > 0 ? snapshotScreen.width : 1920
   readonly property int snapshotHeight: snapshotScreen && snapshotScreen.height > 0 ? snapshotScreen.height : 1080
   // grabToImage wants device pixels; the item is sized in logical ones, so a
@@ -1015,6 +1018,9 @@ Item {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
+    // Click-through: it is mapped full-screen on the overlay layer for a second
+    // or two per snapshot, and must not swallow clicks meant for the explorer.
+    mask: Region {}
 
     // Off-screen full-resolution render used to snapshot a lock design into a
     // boot background. Parked far outside the window so it never shows.

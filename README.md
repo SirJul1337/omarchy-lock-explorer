@@ -170,6 +170,11 @@ a "Blank the display after" row — 5s, 15s, 30s, 1m, 5m, Custom, or Never. Cust
 (1 to 60) typed into an inline field. By hand: `omarchy-shell lock setBlankDelay 30000`, or
 `setKeepDisplayOn true` for Never — anything longer than an hour is what Never is for.
 
+While the display is blanked the password field is inert: a key press or the pointer wakes the
+screen and nothing else, so the keys that switched it on never end up in the password. Typing
+reaches the field again a second after the wake has run, once the panel has had time to light up.
+`omarchy-shell lock status` reports this as `inputBlocked`.
+
 **Never** keeps the lock screen lit for the whole lock: video designs keep playing, and slow
 monitors are never re-blanked mid-wake on resume — the display was never off to begin with.
 

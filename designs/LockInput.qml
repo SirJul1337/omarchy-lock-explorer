@@ -22,7 +22,7 @@ TextInput {
   // Only while pam_u2f actually has an assertion open, though: with no key
   // plugged in there is nothing to protect the keystrokes from, and refusing
   // them would leave the user with no way in.
-  readOnly: lock ? (lock.authenticatingPassword || (lock.fido2Active && lock.fido2Authenticating && !lock.fido2NeedsPin)) : true
+  readOnly: lock ? (lock.inputBlocked === true || lock.authenticatingPassword || (lock.fido2Active && lock.fido2Authenticating && !lock.fido2NeedsPin)) : true
   color: Color.lock.text
   selectionColor: Color.lock.selection
   selectedTextColor: Color.lock.text
@@ -71,6 +71,12 @@ TextInput {
   Keys.onPressed: function(event) {
     if (!lock) return
     lock.wakeRequested()
+
+    // The screen is still dark: this key woke it and does nothing else.
+    if (lock.inputBlocked === true) {
+      event.accepted = true
+      return
+    }
 
     if (lock.fido2Configured && (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab)) {
       if (lock.fido2Active) lock.passwordRequested()

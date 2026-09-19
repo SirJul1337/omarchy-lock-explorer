@@ -44,6 +44,12 @@ var DESIGNS = [
   { id: "pond", file: "Pond.qml", name: "Pond", description: "Keystrokes ripple across the screen", tags: ["reactive", "clock"], anim: true },
   { id: "constellation", file: "Constellation.qml", name: "Constellation", description: "Your typing draws a constellation", tags: ["reactive", "dark"], anim: true },
   { id: "sparks", file: "Sparks.qml", name: "Sparks", description: "The field throws embers as you type", tags: ["reactive", "fun"], anim: true },
+  { id: "forge", file: "Forge.qml", name: "Forge", description: "The Omarchy logo burns into place", tags: ["dark", "fun"], anim: true },
+  { id: "mainframe", file: "Mainframe.qml", name: "Mainframe", description: "The Omarchy logo decrypts itself", tags: ["dark", "minimal"], anim: true },
+  { id: "beacon", file: "Beacon.qml", name: "Beacon", description: "Beams light the Omarchy logo, then it pulses", tags: ["dark", "fun"], anim: true },
+  { id: "supernova", file: "Supernova.qml", name: "Supernova", description: "The Omarchy logo bursts out of a black hole", tags: ["dark", "fun"], anim: true },
+  { id: "core", file: "Core.qml", name: "Core", description: "Type into the middle of the Omarchy logo", tags: ["dark", "minimal"], anim: true },
+  { id: "panel", file: "Panel.qml", name: "Panel", description: "The Omarchy logo cut out of an accent panel", tags: ["cards", "type"], anim: true },
   // clip: the design's video is held on its first frame while locked and plays
   // through as the unlock, see UnlockClip.qml. One clip per design.
   { id: "storm", file: "Storm.qml", name: "Storm", clip: true, description: "Calm ridge, the lightning is your unlock", tags: ["motion", "dark"], boot: true, bootKind: "clip", clipFile: "omarchy-storm.mp4", credit: "@yamzeight", anim: true },

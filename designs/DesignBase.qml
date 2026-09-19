@@ -184,6 +184,13 @@ Item {
     return Qt.rgba(c.r, c.g, c.b, a)
   }
 
+  // A deeper shade of a theme color for a backdrop. Dark themes take the full
+  // factor; a light theme only dips a little, or it turns to muddy grey.
+  function deepen(c, factor) {
+    var light = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b > 0.5
+    return Qt.darker(c, light ? 1 + (factor - 1) * 0.08 : factor)
+  }
+
   function forcePasswordFocus() {
     if (inputEnabled && inputItem) inputItem.forceActiveFocus()
   }

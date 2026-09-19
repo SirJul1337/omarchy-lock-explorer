@@ -107,7 +107,7 @@ DesignBase {
 
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        visible: lock.clipName.length > 0 && !still.ready
+        visible: lock.clipName.length > 0 && still.failed
         text: "Missing " + lock.clipName + " in ~/.config/omarchy/lock-videos"
         textFormat: Text.PlainText
         color: lock.withAlpha(Color.lock.text, 0.55)

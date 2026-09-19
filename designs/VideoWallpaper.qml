@@ -24,7 +24,7 @@ Item {
   readonly property string videoUrl: lock && lock.videoUrl ? lock.videoUrl : ""
   readonly property bool wants: playing && visible && videoUrl.length > 0 && !failed
   property bool failed: false
-  readonly property bool showing: player.hasVideo && player.playbackState === MediaPlayer.PlayingState
+  readonly property bool showing: playerLoader.item ? playerLoader.item.showing : false
 
   Wallpaper {
     anchors.fill: parent
@@ -34,29 +34,53 @@ Item {
     vignette: false
   }
 
-  MediaPlayer {
-    id: player
-    source: wall.videoUrl
-    videoOutput: output
-    loops: MediaPlayer.Infinite
-    onSourceChanged: { wall.failed = false; wall.sync() }
-    onErrorOccurred: function(error, errorString) {
-      wall.failed = true
-      console.warn("lock-explorer: cannot play", wall.videoUrl, errorString)
+  // The player is built only while something actually shows this item: a
+  // MediaPlayer makes FFmpeg enumerate its hardware decoders, which opens the
+  // NVIDIA device nodes on a hybrid laptop and keeps the dGPU awake for as
+  // long as it lives. The explorer preview and the lock surface keep their
+  // design loaded in windows that are not mapped, where items still report
+  // visible, so the window has to be checked too.
+  readonly property bool mapped: visible && Window.window !== null && Window.window.visible
+
+  Loader {
+    id: playerLoader
+    anchors.fill: parent
+    active: wall.mapped && wall.videoUrl.length > 0 && !wall.failed
+    sourceComponent: Item {
+      readonly property bool showing: player.hasVideo && player.playbackState === MediaPlayer.PlayingState
+
+      function sync() {
+        if (wall.wants) player.play()
+        else player.pause()
+      }
+
+      MediaPlayer {
+        id: player
+        source: wall.videoUrl
+        videoOutput: output
+        loops: MediaPlayer.Infinite
+        onErrorOccurred: function(error, errorString) {
+          wall.failed = true
+          console.warn("lock-explorer: cannot play", wall.videoUrl, errorString)
+        }
+      }
+
+      VideoOutput {
+        id: output
+        anchors.fill: parent
+        fillMode: VideoOutput.PreserveAspectCrop
+        opacity: wall.showing ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+      }
+
+      Component.onCompleted: sync()
     }
   }
 
-  VideoOutput {
-    id: output
-    anchors.fill: parent
-    fillMode: VideoOutput.PreserveAspectCrop
-    opacity: wall.showing ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
-  }
+  onVideoUrlChanged: { failed = false; sync() }
 
   function sync() {
-    if (wants) player.play()
-    else player.pause()
+    if (playerLoader.item) playerLoader.item.sync()
   }
 
   onWantsChanged: sync()

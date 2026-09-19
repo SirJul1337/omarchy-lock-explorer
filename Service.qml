@@ -111,6 +111,26 @@ Item {
   }
   readonly property int blankDelay: blankDelayOverride >= 0 ? blankDelayOverride : configuredBlankDelay
 
+  // How long after the wake has run the password field stays inert, so the
+  // keys that lit a dark panel do not land in the password. Nothing reports a
+  // panel as physically lit, so this is the allowance for one to come up; 0
+  // drops only the keys pressed before the wake ran. Saved on the plugin entry
+  // as `wakeGraceMs`.
+  readonly property int defaultWakeGrace: 1000
+  readonly property int maxWakeGrace: 5000
+  property int wakeGraceOverride: -1
+  readonly property int configuredWakeGrace: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.wakeGraceMs !== undefined)
+        return Math.max(0, Math.min(maxWakeGrace, Number(entry.wakeGraceMs) || 0))
+    }
+    return defaultWakeGrace
+  }
+  readonly property int wakeInputGrace: wakeGraceOverride >= 0 ? wakeGraceOverride : configuredWakeGrace
+
   // When true the display stays powered while locked: the DPMS-off is skipped
   // entirely, so video designs keep playing and slow monitors are never
   // re-blanked. Takes precedence over blankDelay. Lives on the plugin entry
@@ -384,6 +404,22 @@ Item {
       writeEntry(current)
     }
     logEvent("unlock-ms=" + value)
+    return true
+  }
+
+  function setWakeGrace(ms) {
+    var text = String(ms === undefined ? "" : ms).trim()
+    var value = Math.round(Number(text))
+    if (text.length === 0 || !isFinite(value) || value < 0 || value > maxWakeGrace) return false
+
+    wakeGraceOverride = value
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (value === defaultWakeGrace) delete current.wakeGraceMs
+      else current.wakeGraceMs = value
+      writeEntry(current)
+    }
+    logEvent("wake-grace=" + value)
     return true
   }
 
@@ -1741,7 +1777,6 @@ echo "$out"
   // the wake has run and the panel has had wakeInputGrace to light up, so the
   // keystrokes that switched the screen on never land in the password.
   property bool inputBlocked: false
-  readonly property int wakeInputGrace: 1000
 
   // With `misc:session_lock_xray` the compositor keeps drawing the desktop
   // under the lock surface, so the unlock fades straight into it and the
@@ -2803,6 +2838,8 @@ echo "$out"
       readonly property int defaultUnlockDuration: root.defaultUnlockDuration
       readonly property int blankDelay: root.blankDelay
       readonly property int defaultBlankDelay: root.defaultBlankDelay
+      readonly property int wakeGrace: root.wakeInputGrace
+      readonly property int defaultWakeGrace: root.defaultWakeGrace
       readonly property bool keepDisplayOn: root.keepDisplayOn
       readonly property bool displayBlankingSuppressed: root.displayBlankingSuppressed
       readonly property bool fingerprintConfigured: root.fingerprintConfigured
@@ -2869,6 +2906,7 @@ echo "$out"
       function setUnlockAnimation(name) { return root.setUnlockAnimation(name) }
       function setUnlockDuration(ms) { return root.setUnlockDuration(ms) }
       function setBlankDelay(ms) { return root.setBlankDelay(ms) }
+      function setWakeGrace(ms) { return root.setWakeGrace(ms) }
       function setKeepDisplayOn(on) { return root.setKeepDisplayOn(on) }
       function refreshBackground() { return root.refreshBackground() }
       function refreshFingerprintStatus() { return root.refreshFingerprintStatus() }
@@ -2978,6 +3016,7 @@ echo "$out"
         unlockAnimated: root.unlockAnimated,
         blankMs: root.blankDelay,
         inputBlocked: root.inputBlocked,
+        wakeGraceMs: root.wakeInputGrace,
         keepDisplayOn: root.keepDisplayOn,
         displayBlankingSuppressed: root.displayBlankingSuppressed,
         unlocking: root.unlocking,
@@ -3029,6 +3068,14 @@ echo "$out"
 
     function setBlankDelay(value: string): string {
       return root.setBlankDelay(value) ? "ok" : "invalid-value"
+    }
+
+    function wakeGrace(): string {
+      return String(root.wakeInputGrace)
+    }
+
+    function setWakeGrace(value: string): string {
+      return root.setWakeGrace(value) ? "ok" : "invalid-value"
     }
 
     function boot(): string {

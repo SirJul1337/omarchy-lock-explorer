@@ -112,6 +112,7 @@ Item {
   readonly property bool keepDisplayOn: service ? service.keepDisplayOn : false
   readonly property int blankDelay: service ? service.blankDelay : 5000
   readonly property var blankPresets: [5000, 15000, 30000, 60000, 300000]
+  readonly property int wakeGrace: service && service.wakeGrace !== undefined ? service.wakeGrace : 1000
   property bool customDelayEditing: false
   property string customDelayText: ""
   readonly property bool blankDelayIsCustom: !root.keepDisplayOn && root.blankPresets.indexOf(root.blankDelay) === -1
@@ -817,6 +818,13 @@ Item {
     }
     root.service.setKeepDisplayOn(false)
     root.service.setBlankDelay(ms)
+  }
+
+  // How long the field stays inert after a key has woken the display, so the
+  // keys that lit the panel stay out of the password.
+  function setWakeGrace(ms) {
+    if (!root.service || typeof root.service.setWakeGrace !== "function") return
+    root.service.setWakeGrace(ms)
   }
 
   function beginCustomDelay() {
@@ -1651,6 +1659,69 @@ Item {
                 text: root.keepDisplayOn
                       ? "The lock screen stays lit for the whole lock: video designs keep playing."
                       : "The lock screen stays lit, then the display powers down."
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+
+              // A key pressed into a blanked screen only wakes it. Nothing
+              // says when a panel is lit again, so this is how long the field
+              // keeps ignoring keys after the wake has run.
+              Row {
+                visible: !root.keepDisplayOn
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Ignore keys after waking for"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: [
+                    { ms: 0, name: "Off" },
+                    { ms: 500, name: "0.5s" },
+                    { ms: 1000, name: "1s" },
+                    { ms: 2000, name: "2s" }
+                  ]
+                  Rectangle {
+                    id: graceChip
+                    required property var modelData
+                    readonly property bool current: root.wakeGrace === modelData.ms
+                    width: graceChipLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, graceChipArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: graceChipLabel
+                      anchors.centerIn: parent
+                      text: graceChip.modelData.name
+                      color: graceChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: graceChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: graceChipArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setWakeGrace(graceChip.modelData.ms)
+                    }
+                  }
+                }
+              }
+
+              Text {
+                visible: !root.keepDisplayOn
+                text: root.wakeGrace === 0
+                      ? "Only the keys pressed before the screen wakes are dropped."
+                      : "Keys keep waking the screen without typing until the panel has had "
+                        + (root.wakeGrace % 1000 === 0 ? root.wakeGrace / 1000 + "s" : root.wakeGrace + "ms") + " to light up."
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption

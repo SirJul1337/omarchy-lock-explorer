@@ -172,8 +172,12 @@ a "Blank the display after" row — 5s, 15s, 30s, 1m, 5m, Custom, or Never. Cust
 
 While the display is blanked the password field is inert: a key press or the pointer wakes the
 screen and nothing else, so the keys that switched it on never end up in the password. Typing
-reaches the field again a second after the wake has run, once the panel has had time to light up.
-`omarchy-shell lock status` reports this as `inputBlocked`.
+reaches the field again once the wake has run and the panel has had a moment to light up —
+a second by default, set by the "Ignore keys after waking for" row under the blank delay
+(Off, 0.5s, 1s, 2s). By hand: `omarchy-shell lock setWakeGrace 500`, up to 5000. **Off** drops
+only the keys pressed before the wake ran, which suits a panel that lights up instantly and
+anyone who types their password into a dark screen. `omarchy-shell lock status` reports the
+current state as `inputBlocked` and the setting as `wakeGraceMs`.
 
 **Never** keeps the lock screen lit for the whole lock: video designs keep playing, and slow
 monitors are never re-blanked mid-wake on resume — the display was never off to begin with.

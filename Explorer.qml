@@ -578,6 +578,11 @@ Item {
   readonly property color muted: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.6)
   readonly property color accent: Color.accent
   readonly property color scrim: Color.menu.scrim
+  // Errors and the delete confirm take the theme's urgent color. Badges and
+  // dimmers over thumbnails are the theme background at an alpha, so their
+  // foreground text stays readable on light themes too.
+  readonly property color danger: Color.urgent
+  function shade(alpha) { return Qt.rgba(Color.background.r, Color.background.g, Color.background.b, alpha) }
   readonly property var borderSpec: Border.surfaceSpec("menu", "border", Color.menu.border, Math.max(1, Style.space(2)))
   // Redesign visual language: sharp corners, everforest-style typography.
   // Colors still follow the Omarchy theme.
@@ -1175,7 +1180,7 @@ Item {
               return (root.mainTab === "styling" ? Designs.stylings().length + " lock screen stylings · " : "") + root.currentThemeName + " · follows your theme"
             }
             textFormat: Text.PlainText
-            color: root.wallpaperBroken ? "#c96a6a" : root.muted
+            color: root.wallpaperBroken ? root.danger : root.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
           }
@@ -2129,7 +2134,7 @@ Item {
                       width: Style.space(252)
                       height: Style.space(142)
                       radius: root.cornerRadius
-                      color: Qt.rgba(0, 0, 0, 0.3)
+                      color: root.shade(0.3)
                       border.width: bootCard.picked ? Math.max(2, Style.space(3)) : 1
                       border.color: bootCard.picked ? root.accent
                                   : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, bootCardArea.containsMouse ? 0.4 : 0.15)
@@ -2192,7 +2197,7 @@ Item {
                         width: Style.space(26)
                         height: Style.space(26)
                         radius: root.cornerRadius
-                        color: root.inRotation(bootCard.modelData.id) ? root.accent : Qt.rgba(0, 0, 0, 0.55)
+                        color: root.inRotation(bootCard.modelData.id) ? root.accent : root.shade(0.55)
                         border.width: 1
                         border.color: root.inRotation(bootCard.modelData.id) ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.4)
 
@@ -2214,7 +2219,7 @@ Item {
                         width: bootEditLabel.implicitWidth + Style.space(14)
                         height: Style.space(24)
                         radius: root.cornerRadius
-                        color: Qt.rgba(0, 0, 0, bootEditArea.containsMouse ? 0.8 : 0.55)
+                        color: root.shade(bootEditArea.containsMouse ? 0.8 : 0.55)
                         border.width: 1
                         border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.3)
 
@@ -2244,15 +2249,15 @@ Item {
                         width: bootDelLabel.implicitWidth + Style.space(14)
                         height: Style.space(24)
                         radius: root.cornerRadius
-                        color: root.confirmingDelete === bootCard.modelData.id ? "#a54242" : Qt.rgba(0, 0, 0, bootDelArea.containsMouse ? 0.8 : 0.55)
+                        color: root.confirmingDelete === bootCard.modelData.id ? root.danger : root.shade(bootDelArea.containsMouse ? 0.8 : 0.55)
                         border.width: 1
-                        border.color: root.confirmingDelete === bootCard.modelData.id ? "#c96a6a" : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.3)
+                        border.color: root.confirmingDelete === bootCard.modelData.id ? Qt.lighter(root.danger, 1.3) : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.3)
 
                         Text {
                           id: bootDelLabel
                           anchors.centerIn: parent
                           text: root.confirmingDelete === bootCard.modelData.id ? "Sure?" : "Delete"
-                          color: root.confirmingDelete === bootCard.modelData.id ? "#ffffff" : root.foreground
+                          color: root.confirmingDelete === bootCard.modelData.id ? Color.background : root.foreground
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
                         }
@@ -2363,7 +2368,7 @@ Item {
                       width: Style.space(252)
                       height: Style.space(142)
                       radius: root.cornerRadius
-                      color: Qt.rgba(0, 0, 0, 0.3)
+                      color: root.shade(0.3)
                       border.width: 1
                       border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, editorCardArea.containsMouse ? 0.4 : 0.15)
                       clip: true
@@ -2589,7 +2594,7 @@ Item {
                         width: Math.floor((settingsColumn.width - Style.space(360) - Style.space(24) - Style.space(14)) / 2)
                         height: Math.round(width * 9 / 16)
                         radius: root.cornerRadius
-                        color: Qt.rgba(0, 0, 0, 0.3)
+                        color: root.shade(0.3)
                         border.width: 1
                         border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.2)
                         clip: true
@@ -2610,7 +2615,7 @@ Item {
                           width: busyLabel1.implicitWidth + Style.space(14)
                           height: Style.space(22)
                           radius: root.cornerRadius
-                          color: Qt.rgba(0, 0, 0, 0.6)
+                          color: root.shade(0.6)
                           Text {
                             id: busyLabel1
                             anchors.centerIn: parent
@@ -2650,7 +2655,7 @@ Item {
                         width: edLockRect.width
                         height: edLockRect.height
                         radius: root.cornerRadius
-                        color: Qt.rgba(0, 0, 0, 0.3)
+                        color: root.shade(0.3)
                         border.width: 1
                         border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.2)
                         clip: true
@@ -2671,7 +2676,7 @@ Item {
                           width: busyLabel2.implicitWidth + Style.space(14)
                           height: Style.space(22)
                           radius: root.cornerRadius
-                          color: Qt.rgba(0, 0, 0, 0.6)
+                          color: root.shade(0.6)
                           Text {
                             id: busyLabel2
                             anchors.centerIn: parent
@@ -3159,11 +3164,11 @@ Item {
             Rectangle {
               anchors.left: parent.left; anchors.top: parent.top; anchors.margins: Style.space(10)
               width: Style.space(24); height: Style.space(24); radius: 5
-              color: Qt.rgba(0, 0, 0, 0.55)
+              color: root.shade(0.55)
               Text {
                 anchors.centerIn: parent
                 text: (cell.index + 1)
-                color: "#ffffff"
+                color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
                 font.bold: true
@@ -3214,15 +3219,15 @@ Item {
               }
               Rectangle {
                 width: custLabel.implicitWidth + Style.space(16); height: Style.space(26); radius: 6
-                color: Qt.rgba(0, 0, 0, 0.6)
+                color: root.shade(0.6)
                 border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.25)
+                border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.25)
                 Text {
                   id: custLabel
                   anchors.centerIn: parent
                   text: cell.modelData.designer ? "Design  E"
                     : (cell.modelData.path ? "Edit  E" : "Customize  C")
-                  color: "#ffffff"
+                  color: root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
                   font.bold: true
@@ -3233,14 +3238,14 @@ Item {
               Rectangle {
                 visible: cell.modelData.path ? true : false
                 width: delLabel.implicitWidth + Style.space(16); height: Style.space(26); radius: 6
-                color: root.confirmingDelete === cell.modelData.id ? "#a54242" : Qt.rgba(0, 0, 0, 0.6)
+                color: root.confirmingDelete === cell.modelData.id ? root.danger : root.shade(0.6)
                 border.width: 1
-                border.color: root.confirmingDelete === cell.modelData.id ? "#c96a6a" : Qt.rgba(1, 1, 1, 0.25)
+                border.color: root.confirmingDelete === cell.modelData.id ? Qt.lighter(root.danger, 1.3) : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.25)
                 Text {
                   id: delLabel
                   anchors.centerIn: parent
                   text: root.confirmingDelete === cell.modelData.id ? "Sure?  X" : "Delete  X"
-                  color: "#ffffff"
+                  color: root.confirmingDelete === cell.modelData.id ? Color.background : root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
                   font.bold: true

@@ -24,6 +24,7 @@ Item {
   property string failureMessage: ""
   property int failedAttempts: 0
   property bool inputEnabled: true
+  property bool inputBlocked: false
   property bool loadBackground: true
   property string passwordText: ""
   property string videoPath: ""
@@ -86,6 +87,7 @@ Item {
     it.failureMessage = Qt.binding(function() { return host.failureMessage })
     it.failedAttempts = Qt.binding(function() { return host.failedAttempts })
     it.inputEnabled = Qt.binding(function() { return host.inputEnabled })
+    if (it.inputBlocked !== undefined) it.inputBlocked = Qt.binding(function() { return host.inputBlocked })
     it.loadBackground = Qt.binding(function() { return host.loadBackground })
     it.passwordText = Qt.binding(function() { return host.passwordText })
     if (it.videoPath !== undefined) it.videoPath = Qt.binding(function() { return host.videoPath })
@@ -215,6 +217,8 @@ Item {
           color: "#eeeeee"
           font.pixelSize: 18
           enabled: host.inputEnabled && !host.authenticatingPassword
+          readOnly: host.inputBlocked
+          Keys.onPressed: host.wakeRequested()
           onTextChanged: host.passwordTextEdited(text)
           onAccepted: host.submitPassword(text)
         }

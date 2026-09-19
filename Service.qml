@@ -1731,6 +1731,11 @@ echo "$out"
   property bool previewClipPlaying: false
   // Nothing should decode video into a screen that is switched off.
   property bool screenBlanked: false
+  // Keys pressed into a dark panel only wake it: the field stays inert until
+  // the wake has run and the panel has had wakeInputGrace to light up, so the
+  // keystrokes that switched the screen on never land in the password.
+  property bool inputBlocked: false
+  readonly property int wakeInputGrace: 1000
 
   // With `misc:session_lock_xray` the compositor keeps drawing the desktop
   // under the lock surface, so the unlock fades straight into it and the
@@ -1854,6 +1859,8 @@ echo "$out"
 
     cancelUnlockAnimation()
     resetAuthenticationState()
+    inputBlocked = false
+    inputUnblockTimer.stop()
     lockRequested = true
     armBlankTimer()
     logEvent("lock-requested")
@@ -1944,6 +1951,11 @@ echo "$out"
 
   function runWake() {
     screenBlanked = false
+    // Failsafe: a wake that never exits must not leave the field inert.
+    if (inputBlocked && !inputUnblockTimer.running) {
+      inputUnblockTimer.interval = 3000
+      inputUnblockTimer.restart()
+    }
     if (!wakeProcess.running) wakeProcess.running = true
     if (lockRequested) armBlankTimer()
   }
@@ -1951,6 +1963,8 @@ echo "$out"
   function runBlank() {
     if (keepDisplayOn) return
     screenBlanked = !displayBlankingSuppressed
+    inputBlocked = screenBlanked
+    inputUnblockTimer.stop()
     if (!blankProcess.running) blankProcess.running = true
   }
 
@@ -2251,6 +2265,7 @@ echo "$out"
           failureMessage: root.failureMessage
           failedAttempts: root.failedAttempts
           inputEnabled: root.lockRequested
+          inputBlocked: root.inputBlocked
           loadBackground: root.locked
           passwordText: root.enteredPassword
           videoPath: root.videoPath
@@ -2607,6 +2622,17 @@ echo "$out"
   Process {
     id: wakeProcess
     command: ["bash", "-c", "rm -f \"$1/display-off\"; omarchy-system-wake", "bash", root.blankMarkerDir]
+    onExited: {
+      if (!root.inputBlocked || root.screenBlanked) return
+      inputUnblockTimer.interval = root.wakeInputGrace
+      inputUnblockTimer.restart()
+    }
+  }
+
+  Timer {
+    id: inputUnblockTimer
+    repeat: false
+    onTriggered: if (!root.screenBlanked) root.inputBlocked = false
   }
 
   Process {
@@ -2928,6 +2954,7 @@ echo "$out"
         unlockMs: root.unlockDuration,
         unlockAnimated: root.unlockAnimated,
         blankMs: root.blankDelay,
+        inputBlocked: root.inputBlocked,
         keepDisplayOn: root.keepDisplayOn,
         displayBlankingSuppressed: root.displayBlankingSuppressed,
         unlocking: root.unlocking,

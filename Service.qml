@@ -1680,6 +1680,12 @@ echo "$out"
   property bool authenticatingPassword: false
   property bool fingerprintAuthenticating: false
   property bool faceAuthenticating: false
+  // Face retries on its own after a miss, but not forever: a camera that
+  // errors out at once would otherwise spin the PAM stack four times a
+  // second for as long as the screen stays locked. Enter on an empty field
+  // or the face button starts a fresh round.
+  readonly property int faceRetryLimit: 5
+  property int faceMisses: 0
   property bool passwordPamConfigured: false
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
@@ -1836,6 +1842,8 @@ echo "$out"
     authenticatingPassword = false
     fingerprintAuthenticating = false
     fingerprintRetryTimer.stop()
+    faceMisses = 0
+    faceRetryTimer.stop()
     if (passwordPam.active) passwordPam.abort()
     if (fingerprintPam.active) fingerprintPam.abort()
     if (facePam.active) facePam.abort()
@@ -1960,7 +1968,7 @@ echo "$out"
     // is a password: leave key mode first so it never meets fido2Pam.
     if (password.length > 0 && fido2Active) setAuthMode("password")
     if (!lockRequested || authenticatingPassword || password.length === 0) {
-      if (password.length === 0 && faceConfigured) root.startFace()
+      if (password.length === 0 && faceConfigured) root.retryFace()
       return
     }
 
@@ -2022,15 +2030,27 @@ echo "$out"
     if (!facePam.start()) faceAuthenticating = false
   }
 
+  function retryFace() {
+    faceMisses = 0
+    startFace()
+  }
+
   function handleFaceFinished(result) {
     faceAuthenticating = false
 
     if (!lockRequested) return
     if (result === PamResult.Success) {
       finishUnlock()
-    } else if (faceConfigured) {
-      faceRetryTimer.restart()
+    } else {
+      faceMissed()
     }
+  }
+
+  function faceMissed() {
+    if (!lockRequested || !faceConfigured) return
+    faceMisses += 1
+    if (faceMisses < faceRetryLimit) faceRetryTimer.restart()
+    else logEvent("face-paused after " + faceMisses + " misses")
   }
 
   // Key mode when a key is enrolled and plugged in at lock time, password
@@ -2196,6 +2216,7 @@ echo "$out"
         sessionLockStabilizeTimer.stop()
         pendingSessionLockTimer.stop()
         root.startFingerprint()
+        root.startFace()
         root.startFido2()
       }
     }
@@ -2263,7 +2284,7 @@ echo "$out"
           onSubmitPassword: function(password) { root.submitPassword(password) }
           onClearFailureRequested: root.failureMessage = ""
           onWakeRequested: root.runWake()
-          onFaceRequested: root.startFace()
+          onFaceRequested: root.retryFace()
           onFido2Requested: root.requestFido2()
           onPasswordRequested: root.setAuthMode("password")
           onSubmitFido2Pin: function(pin) { root.submitFido2Pin(pin) }
@@ -2314,7 +2335,7 @@ echo "$out"
         // to the start; Esc (hidePreview) resets it.
         onUnlockFinished: {}
         onPasswordTextEdited: function(password) { root.previewTyped = password }
-        onFaceRequested: root.startFace()
+        onFaceRequested: root.retryFace()
       }
     }
 
@@ -2393,7 +2414,7 @@ echo "$out"
 
     onError: function(error) {
       root.faceAuthenticating = false
-      if (root.lockRequested && root.faceConfigured) faceRetryTimer.restart()
+      root.faceMissed()
     }
   }
 
@@ -2874,6 +2895,8 @@ echo "$out"
     refreshMenuEntry()
     refreshBackground()
     refreshFingerprintStatus()
+    refreshFaceStatus()
+    refreshFido2Status()
     refreshSessionLockXray()
     rescanUserDesigns()
     detectAvatar()

@@ -6,7 +6,7 @@ Colors and fonts follow your Omarchy theme.
 
 ![The explorer browsing designs and opening a full screen preview](media/explorer.gif)
 
-- **31 designs**, from minimal to animated, typing-reactive, and video clips that play as you unlock
+- **54 designs**, from minimal to animated, typing-reactive, drawn by Omarchy's own ttfx, and video clips that play as you unlock
 - **Security key, fingerprint and face unlock** next to the password
 - **A visual designer** for your own layouts, or write the QML yourself
 - **Unlock animations** that fade, zoom or rise the lock screen away
@@ -31,10 +31,21 @@ omarchy-shell lock explore
 <tr><td align="center"><img src="media/designs/weather.jpg" width="200" alt="Weather"><br><sub>Weather</sub></td><td align="center"><img src="media/designs/music.jpg" width="200" alt="Music"><br><sub>Music</sub></td><td align="center"><img src="media/designs/system.jpg" width="200" alt="System"><br><sub>System</sub></td><td align="center"><img src="media/designs/rain.jpg" width="200" alt="Rain"><br><sub>Rain</sub></td></tr>
 <tr><td align="center"><img src="media/designs/motion.jpg" width="200" alt="Motion"><br><sub>Motion</sub></td><td align="center"><img src="media/designs/pond.jpg" width="200" alt="Pond"><br><sub>Pond</sub></td><td align="center"><img src="media/designs/constellation.jpg" width="200" alt="Constellation"><br><sub>Constellation</sub></td><td align="center"><img src="media/designs/sparks.jpg" width="200" alt="Sparks"><br><sub>Sparks</sub></td></tr>
 <tr><td align="center"><img src="media/designs/storm.jpg" width="200" alt="Storm"><br><sub>Storm</sub></td><td align="center"><img src="media/designs/eyes.jpg" width="200" alt="Eyes"><br><sub>Eyes</sub></td><td align="center"><img src="media/designs/river.jpg" width="200" alt="River"><br><sub>River</sub></td></tr>
+<tr><td align="center"><img src="media/designs/cipher.jpg" width="200" alt="Cipher"><br><sub>Cipher</sub></td><td align="center"><img src="media/designs/ember.jpg" width="200" alt="Ember"><br><sub>Ember</sub></td><td align="center"><img src="media/designs/synthwave.jpg" width="200" alt="Synthwave"><br><sub>Synthwave</sub></td><td align="center"><img src="media/designs/etch.jpg" width="200" alt="Etch"><br><sub>Etch</sub></td></tr>
+<tr><td align="center"><img src="media/designs/bounce.jpg" width="200" alt="Bounce"><br><sub>Bounce</sub></td><td align="center"><img src="media/designs/digital.jpg" width="200" alt="Digital"><br><sub>Digital</sub></td><td align="center"><img src="media/designs/spotlight.jpg" width="200" alt="Spotlight"><br><sub>Spotlight</sub></td><td align="center"><img src="media/designs/fireworks.jpg" width="200" alt="Fireworks"><br><sub>Fireworks</sub></td></tr>
+<tr><td align="center"><img src="media/designs/vhs.jpg" width="200" alt="VHS"><br><sub>VHS</sub></td><td align="center"><img src="media/designs/horizon.jpg" width="200" alt="Event Horizon"><br><sub>Event Horizon</sub></td><td align="center"><img src="media/designs/orbit.jpg" width="200" alt="Orbit"><br><sub>Orbit</sub></td><td align="center"><img src="media/designs/screensaver.jpg" width="200" alt="Screensaver"><br><sub>Screensaver</sub></td></tr>
+<tr><td align="center"><img src="media/designs/forge.jpg" width="200" alt="Forge"><br><sub>Forge</sub></td><td align="center"><img src="media/designs/mainframe.jpg" width="200" alt="Mainframe"><br><sub>Mainframe</sub></td><td align="center"><img src="media/designs/beacon.jpg" width="200" alt="Beacon"><br><sub>Beacon</sub></td><td align="center"><img src="media/designs/supernova.jpg" width="200" alt="Supernova"><br><sub>Supernova</sub></td></tr>
+<tr><td align="center"><img src="media/designs/binary.jpg" width="200" alt="Binary"><br><sub>Binary</sub></td><td align="center"><img src="media/designs/tracking.jpg" width="200" alt="Tracking"><br><sub>Tracking</sub></td><td align="center"><img src="media/designs/login.jpg" width="200" alt="Login"><br><sub>Login</sub></td><td align="center"><img src="media/designs/keycode.jpg" width="200" alt="Keycode"><br><sub>Keycode</sub></td></tr>
+<tr><td align="center"><img src="media/designs/core.jpg" width="200" alt="Core"><br><sub>Core</sub></td><td align="center"><img src="media/designs/panel.jpg" width="200" alt="Panel"><br><sub>Panel</sub></td><td align="center"><img src="media/designs/statusline.jpg" width="200" alt="Statusline"><br><sub>Statusline</sub></td></tr>
 </table>
 
 Weather fetches from wttr.in (same location as the bar widget), Music reads MPRIS players, System shows uptime, memory, load and battery.
 Motion loops a video you pick. Pond, Constellation and Sparks react to your typing. Storm, Eyes and River play their clip when you unlock.
+
+Cipher through Statusline are drawn by `ttfx`, the terminal text effects Omarchy ships: the clock or
+your branding logo is animated a character at a time, in your theme colors, and a wrong password
+glitches it apart. Screensaver runs the logo through one effect after another, the way the Omarchy
+screensaver does.
 
 Every password field has an eye button to show what you typed (Ctrl+E does the same). It hides again after a failed attempt or when the field is cleared.
 

@@ -271,9 +271,9 @@ click the Boot screen chip) and pick "Match lock screen" to keep it in sync with
 design, pick a specific design to pin it, or "Untouched" to restore the stock one.
 
 Applying generates a Plymouth theme from your current Omarchy theme colors and ships it as a
-systemd-stub initrd addon on the EFI partition (`omarchy_linux.efi.extra.d/`), which the boot
-stub layers over the boot image -- one small file write, near-instant, one password prompt, no
-initramfs rebuild. The first apply after updating from an older version of this plugin also
+systemd-stub initrd addon on the EFI partition (`omarchy_linux*.efi.extra.d/`, one per
+installed kernel), which the boot stub layers over the boot image -- one small file write,
+near-instant, one password prompt, no initramfs rebuild. The first apply after updating from an older version of this plugin also
 cleans up the previously baked-in theme, which runs one last rebuild (~30s). Colors are baked
 into the addon at apply time, so re-apply after switching Omarchy theme (the explorer offers
 this automatically). If a generated theme ever misbehaves the boot itself is fine -- Plymouth
@@ -456,6 +456,14 @@ sudo pacman -S qt6-multimedia && omarchy restart shell
 
 On plugin versions up to 1.5.1 the missing package took the whole service down, which is the
 other way `Target not found` used to happen.
+
+The boot screen went back to the stock Omarchy one after updating to Omarchy 4.0.4: that
+update replaced the `linux` kernel with `linux-omarchy` and each kernel's boot image has its
+own name on the EFI partition, so the boot screen addon stayed next to the kernel image that
+is no longer booted (the old kernel is kept installed as a fallback, which is why nothing
+errored). Update the plugin -- it now installs the addon next to every Omarchy kernel image --
+then pick the boot screen again once in the explorer (`B`). The lock screen itself is
+unaffected.
 
 Designs show the theme color instead of your wallpaper (and the explorer header says the
 wallpaper failed to load): stock Omarchy ships Qt without a WebP decoder, so `.webp` wallpapers

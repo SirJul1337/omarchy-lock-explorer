@@ -17,7 +17,21 @@ work="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-lock-explorer/bootvm"; mkdir -p "$
 THEME_DIR="$(realpath "${1:?usage: run-vm.sh <theme-dir> [headless]}")"
 MODE="${2:-window}"
 THEME_NAME="$(basename "$THEME_DIR"/*.plymouth .plymouth)"
-UKI=/boot/EFI/Linux/omarchy_linux.efi
+# The UKI of the kernel this machine is running. Limine's entry tool names it
+# after the kernel package, so there is no fixed filename: omarchy_linux.efi
+# for `linux`, omarchy_linux-omarchy.efi since Omarchy 4.0.4 moved to the
+# Omarchy kernel, omarchy_linux-t2.efi on T2 Macs.
+host_uki() {
+  local pkgbase
+  pkgbase=$(cat "/usr/lib/modules/$(uname -r)/pkgbase" 2>/dev/null || true)
+  if [[ -n $pkgbase && -f /boot/EFI/Linux/omarchy_$pkgbase.efi ]]; then
+    echo "/boot/EFI/Linux/omarchy_$pkgbase.efi"
+    return
+  fi
+  find /boot/EFI/Linux -maxdepth 1 -name 'omarchy_linux*.efi' -type f | sort | head -1
+}
+UKI=$(host_uki)
+[[ -n $UKI ]] || { echo "No Omarchy UKI under /boot/EFI/Linux" >&2; exit 1; }
 
 # 1. Extract kernel + initramfs from the UKI (cached until the UKI changes)
 if [[ ! -f vmlinuz || ! -f main.cpio || $UKI -nt vmlinuz ]]; then

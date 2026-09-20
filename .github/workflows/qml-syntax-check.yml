@@ -1,0 +1,15 @@
+name: QML syntax check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  qml-syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install qmllint
+        run: sudo apt-get update -q && sudo apt-get install -qy qt6-declarative-dev-tools
+      - name: Parse every QML file
+        run: bash extras/qml-syntax-check.sh

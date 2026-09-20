@@ -543,6 +543,35 @@ Item {
     return decodeURIComponent(u.replace(/^file:\/\//, "")).replace(/\/$/, "")
   }
 
+  // A timestamped backup copy left in ~/.config/omarchy/plugins/ is found as a
+  // second plugin with this same id, and which of the two the shell loads is
+  // not something either copy decides. It costs an afternoon to work out from
+  // the symptoms, so say it plainly at startup (issue #29).
+  property var shadowingDirs: []
+
+  Process {
+    id: duplicatePluginProc
+    // The id is matched in the manifest rather than parsed out of it: a
+    // grep says whether this file claims the same id, which is the whole
+    // question. Hidden directories count, and a backup copy is usually one.
+    command: ["bash", "-c",
+      "find \"$1\" -mindepth 2 -maxdepth 2 -name manifest.json 2>/dev/null | while read -r m; do " +
+      "grep -q \"\\\"id\\\"[[:space:]]*:[[:space:]]*\\\"$2\\\"\" \"$m\" && dirname \"$m\"; done",
+      "bash", Quickshell.env("HOME") + "/.config/omarchy/plugins", root.pluginId]
+    stdout: StdioCollector { id: duplicatePluginStdout; waitForEnd: true }
+    onExited: {
+      var found = String(duplicatePluginStdout.text || "").split("\n")
+        .map(function(line) { return line.trim().replace(/\/$/, "") })
+        .filter(function(line) { return line.length > 0 && line !== root.pluginDir })
+      root.shadowingDirs = found
+      if (found.length === 0) return
+      root.logEvent("shadowed-by " + found.join(" "))
+      console.warn("lock-explorer: another copy of this plugin is installed under the same id and"
+        + " may load instead of this one: " + found.join(", ")
+        + ". Move it out of ~/.config/omarchy/plugins/ (a backup belongs anywhere else).")
+    }
+  }
+
   readonly property string checkFaceAuthPath: pluginDir + "/check-face-auth.sh"
   readonly property string checkFido2AuthPath: pluginDir + "/check-fido2-auth.sh"
 
@@ -3083,6 +3112,7 @@ echo "$out"
     rescanUserDesigns()
     detectAvatar()
     blankCrashCheckProc.running = true
+    duplicatePluginProc.running = true
     checkStrandedLock()
   }
 
@@ -3136,6 +3166,7 @@ echo "$out"
         inputBlocked: root.inputBlocked,
         keyboardLayout: root.keyboardLayout,
         capsLock: root.capsLock,
+        shadowedBy: root.shadowingDirs,
         wakeGraceMs: root.wakeInputGrace,
         powerActions: root.powerActions,
         keepDisplayOn: root.keepDisplayOn,

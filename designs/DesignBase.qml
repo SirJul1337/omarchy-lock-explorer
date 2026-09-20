@@ -29,10 +29,10 @@ Item {
   // be read. PasswordField shows it when it is not a US keyboard, because a
   // password typed on the wrong layout is invisible otherwise.
   property string keyboardLayout: ""
-  // Caps lock, raised by LockInput when the key is pressed on the lock screen
-  // and seeded from Hyprland at lock. PasswordField says so in the box.
+  // Caps lock as Hyprland reports it, seeded at lock and re-read while
+  // someone types. PasswordField says so in the box.
   property bool capsLock: false
-  signal capsLockToggled()
+  signal capsProbeRequested()
   readonly property bool foreignLayout: keyboardLayout.length > 0 && keyboardLayout !== "US"
 
   // Sleep, restart and shut down, off unless the owner turned them on. Every

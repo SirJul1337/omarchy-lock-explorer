@@ -27,7 +27,7 @@ Item {
   property bool inputBlocked: false
   property string keyboardLayout: ""
   property bool capsLock: false
-  signal capsLockToggled()
+  signal capsProbeRequested()
   property bool powerActions: false
   signal powerActionRequested(string action)
   property bool loadBackground: true
@@ -188,7 +188,7 @@ Item {
     function onPasswordRequested() { host.passwordRequested() }
     function onSubmitFido2Pin(pin) { host.submitFido2Pin(pin) }
     function onPowerActionRequested(action) { host.powerActionRequested(action) }
-    function onCapsLockToggled() { host.capsLockToggled() }
+    function onCapsProbeRequested() { host.capsProbeRequested() }
   }
 
   // Last line of defense: if nothing rendered at all — the design AND the

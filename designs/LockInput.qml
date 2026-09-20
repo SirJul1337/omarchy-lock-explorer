@@ -72,13 +72,9 @@ TextInput {
     if (!lock) return
     lock.wakeRequested()
 
-    // Caps lock says so in the box rather than costing an attempt. The key
-    // is watched here because nothing announces it: the press is the event.
-    if (event.key === Qt.Key_CapsLock && lock.capsLockToggled !== undefined) {
-      lock.capsLockToggled()
-      event.accepted = true
-      return
-    }
+    // Someone is typing a password: worth asking whether caps is on, which
+    // the service rate-limits to one probe per second and a half.
+    if (lock.capsProbeRequested !== undefined) lock.capsProbeRequested()
 
     // The screen is still dark: this key woke it and does nothing else.
     if (lock.inputBlocked === true) {

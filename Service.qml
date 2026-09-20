@@ -1852,12 +1852,23 @@ echo "$out"
   // the code when it is not US. Read from Hyprland, which is what the session
   // is running under; anywhere else this stays empty and nothing is shown.
   property string keyboardLayout: ""
-  // Caps lock, the other thing a password typed blind cannot show. Seeded
-  // from Hyprland when the lock comes up and flipped from the lock screen's
-  // own key events after that: there is no event to subscribe to for it, and
-  // a probe per keystroke is not worth the shell it would spawn.
+  // Caps lock, the other thing a password typed blind cannot show. The state
+  // is read from Hyprland, never inferred from a key: Omarchy maps Caps Lock
+  // to Compose by default (`compose:caps`), so the key that looks like it
+  // toggles caps usually does not, and a lock screen that says CAPS when it
+  // does not is worse than one that says nothing. Hyprland raises no event
+  // for it either, so the lock screen asks while someone is typing into it,
+  // at most this often.
   property bool capsLock: false
-  function noteCapsLockKey() { capsLock = !capsLock }
+  readonly property int capsProbeInterval: 1500
+  property double lastCapsProbe: 0
+
+  function probeCapsLock() {
+    var now = Date.now()
+    if (now - lastCapsProbe < capsProbeInterval) return
+    lastCapsProbe = now
+    refreshKeyboardLayout()
+  }
   readonly property bool foreignLayout: keyboardLayout.length > 0 && keyboardLayout !== "US"
 
   function refreshKeyboardLayout() {
@@ -2405,7 +2416,7 @@ echo "$out"
           fingerprintConfigured: root.fingerprintConfigured
           keyboardLayout: root.keyboardLayout
           capsLock: root.capsLock
-          onCapsLockToggled: root.noteCapsLockKey()
+          onCapsProbeRequested: root.probeCapsLock()
           powerActions: root.powerActions
           onPowerActionRequested: function(action) { root.runPowerAction(action) }
           faceConfigured: root.faceConfigured

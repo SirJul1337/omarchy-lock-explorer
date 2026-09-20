@@ -53,7 +53,20 @@ Item {
   // Stop ttfx while nothing shows it. Items keep visible: true inside a window
   // that is not mapped, and the lock surface and the explorer preview both
   // keep their design loaded in one, so the window has to be checked too.
-  property bool active: visible && Window.window !== null && Window.window.visible
+  // Nothing to draw for while the display is off, and ttfx is a process and a
+  // canvas repaint per frame -- the most expensive thing a design does. The
+  // design carries that as DesignBase.animating; this sits some way inside it,
+  // so the flag is found by walking up the parents. Reading it here is what
+  // binds to it, so the effect stops and starts with the panel.
+  readonly property bool designAwake: {
+    var p = parent
+    while (p) {
+      if (p.animating !== undefined) return p.animating === true
+      p = p.parent
+    }
+    return true
+  }
+  property bool active: designAwake && visible && Window.window !== null && Window.window.visible
 
   readonly property bool playing: proc.running
   readonly property int textColumns: {

@@ -102,7 +102,7 @@ DesignBase {
   // A few embers drifting up on their own, so it is never quite still.
   Timer {
     interval: 900
-    running: lock.visible
+    running: lock.animating
     repeat: true
     onTriggered: {
       var e = emberComponent.createObject(embers, {

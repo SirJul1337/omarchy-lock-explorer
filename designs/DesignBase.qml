@@ -29,6 +29,10 @@ Item {
   // be read. PasswordField shows it when it is not a US keyboard, because a
   // password typed on the wrong layout is invisible otherwise.
   property string keyboardLayout: ""
+  // Caps lock, raised by LockInput when the key is pressed on the lock screen
+  // and seeded from Hyprland at lock. PasswordField says so in the box.
+  property bool capsLock: false
+  signal capsLockToggled()
   readonly property bool foreignLayout: keyboardLayout.length > 0 && keyboardLayout !== "US"
 
   // Sleep, restart and shut down, off unless the owner turned them on. Every
@@ -44,6 +48,12 @@ Item {
   // goes false while the screen is blanked so nothing decodes into a dark panel.
   property string videoPath: ""
   property bool videoPlaying: true
+
+  // False while the display is blanked. Anything that animates should stop
+  // then rather than paint into a dark panel -- effects, canvases, loops.
+  // The field keeps its focus through it, so a key still wakes the screen.
+  property bool screenAwake: true
+  readonly property bool animating: screenAwake && visible
 
   // Raised by the service instead of dropping the lock when the design is
   // built around a clip (see UnlockClip): the clip plays through and

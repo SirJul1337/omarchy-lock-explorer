@@ -38,8 +38,10 @@ BorderSurface {
   // said in the box. It goes with the lock glyph on the left, and is left out
   // of boot snapshots like the rest of the chrome.
   readonly property bool showLayout: lock ? (lock.foreignLayout === true && !snapshotBox) : false
+  readonly property bool showCaps: lock ? (lock.capsLock === true && !snapshotBox) : false
   readonly property real glyphReserve: (showLockGlyph ? Math.round(lockGlyph.implicitWidth + 12) : 0)
     + (showLayout ? Math.round(layoutBadge.width + 8) : 0)
+    + (showCaps ? Math.round(capsBadge.width + 8) : 0)
   readonly property real dotScale: dotMetrics.advanceWidth > 0
     ? Math.min(1, (input.width - 4) / dotMetrics.advanceWidth)
     : 1
@@ -111,6 +113,34 @@ BorderSurface {
       text: field.lock ? field.lock.keyboardLayout : ""
       textFormat: Text.PlainText
       color: Color.lock.placeholder
+      font.family: Style.font.family
+      font.pixelSize: Math.round(field.fieldFontSize * 0.62)
+      font.letterSpacing: 1
+    }
+  }
+
+  // Caps lock earns the accent: it is the one that turns every character
+  // wrong, and the reader is about to type a password they cannot see.
+  Rectangle {
+    id: capsBadge
+    visible: field.showCaps
+    anchors.left: field.showLayout ? layoutBadge.right
+      : (field.showLockGlyph ? lockGlyph.right : parent.left)
+    anchors.leftMargin: field.showLayout || field.showLockGlyph ? 8 : field.borderLeft + field.sidePadding
+    anchors.verticalCenter: parent.verticalCenter
+    width: capsLabel.implicitWidth + 10
+    height: Math.round(field.fieldFontSize * 1.15)
+    radius: 3
+    color: "transparent"
+    border.width: 1
+    border.color: Color.lock.borderActive
+
+    Text {
+      id: capsLabel
+      anchors.centerIn: parent
+      text: "CAPS"
+      textFormat: Text.PlainText
+      color: Color.lock.borderActive
       font.family: Style.font.family
       font.pixelSize: Math.round(field.fieldFontSize * 0.62)
       font.letterSpacing: 1

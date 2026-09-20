@@ -53,7 +53,7 @@ DesignBase {
 
   Timer {
     interval: 66
-    running: canvas.visible
+    running: canvas.visible && lock.animating
     repeat: true
     onTriggered: canvas.requestPaint()
   }

@@ -74,7 +74,7 @@ DesignBase {
 
       SequentialAnimation on opacity {
         loops: Animation.Infinite
-        running: lock.visible
+        running: lock.animating
         NumberAnimation { to: 0.35; duration: 1400 + Math.round(lock.scatter(seed * 5) * 2600) }
         NumberAnimation { to: 1.0; duration: 1400 + Math.round(lock.scatter(seed * 13) * 2600) }
       }

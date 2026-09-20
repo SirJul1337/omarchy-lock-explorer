@@ -1823,6 +1823,12 @@ echo "$out"
   // the code when it is not US. Read from Hyprland, which is what the session
   // is running under; anywhere else this stays empty and nothing is shown.
   property string keyboardLayout: ""
+  // Caps lock, the other thing a password typed blind cannot show. Seeded
+  // from Hyprland when the lock comes up and flipped from the lock screen's
+  // own key events after that: there is no event to subscribe to for it, and
+  // a probe per keystroke is not worth the shell it would spawn.
+  property bool capsLock: false
+  function noteCapsLockKey() { capsLock = !capsLock }
   readonly property bool foreignLayout: keyboardLayout.length > 0 && keyboardLayout !== "US"
 
   function refreshKeyboardLayout() {
@@ -2369,6 +2375,8 @@ echo "$out"
           avatarVersion: root.avatarVersion
           fingerprintConfigured: root.fingerprintConfigured
           keyboardLayout: root.keyboardLayout
+          capsLock: root.capsLock
+          onCapsLockToggled: root.noteCapsLockKey()
           powerActions: root.powerActions
           onPowerActionRequested: function(action) { root.runPowerAction(action) }
           faceConfigured: root.faceConfigured
@@ -2386,6 +2394,7 @@ echo "$out"
           passwordText: root.enteredPassword
           videoPath: root.videoPath
           videoPlaying: root.locked && !root.screenBlanked
+          screenAwake: !root.screenBlanked
           unlockPlayback: root.unlockPlayback && root.showsInput(lockSurface.screen)
           clipSpeed: root.clipSpeed
           twelveHour: root.twelveHour
@@ -2689,6 +2698,8 @@ echo "$out"
       var at = Number(kb.active_layout_index || 0)
       var code = codes.length > at ? codes[at] : codes[0]
       root.keyboardLayout = String(code || "").trim().toUpperCase()
+      // Older Hyprland does not report it; then it stays off rather than lying.
+      root.capsLock = kb.capsLock === true
     }
   }
 
@@ -3124,6 +3135,7 @@ echo "$out"
         blankMs: root.blankDelay,
         inputBlocked: root.inputBlocked,
         keyboardLayout: root.keyboardLayout,
+        capsLock: root.capsLock,
         wakeGraceMs: root.wakeInputGrace,
         powerActions: root.powerActions,
         keepDisplayOn: root.keepDisplayOn,

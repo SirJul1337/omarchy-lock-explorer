@@ -26,12 +26,18 @@ Item {
   property bool inputEnabled: true
   property bool inputBlocked: false
   property string keyboardLayout: ""
+  property bool capsLock: false
+  signal capsLockToggled()
   property bool powerActions: false
   signal powerActionRequested(string action)
   property bool loadBackground: true
   property string passwordText: ""
   property string videoPath: ""
   property bool videoPlaying: true
+  // False while the display is blanked. Designs stop animating then: the
+  // panel is off, and a laptop should not spend its battery on a picture
+  // nobody can see.
+  property bool screenAwake: true
   property bool unlockPlayback: false
   property real clipSpeed: 1
   // 12-hour clocks with AM/PM, see `omarchy-shell lock setClockFormat`.
@@ -92,11 +98,13 @@ Item {
     it.inputEnabled = Qt.binding(function() { return host.inputEnabled })
     if (it.inputBlocked !== undefined) it.inputBlocked = Qt.binding(function() { return host.inputBlocked })
     if (it.keyboardLayout !== undefined) it.keyboardLayout = Qt.binding(function() { return host.keyboardLayout })
+    if (it.capsLock !== undefined) it.capsLock = Qt.binding(function() { return host.capsLock })
     if (it.powerActions !== undefined) it.powerActions = Qt.binding(function() { return host.powerActions })
     it.loadBackground = Qt.binding(function() { return host.loadBackground })
     it.passwordText = Qt.binding(function() { return host.passwordText })
     if (it.videoPath !== undefined) it.videoPath = Qt.binding(function() { return host.videoPath })
     if (it.videoPlaying !== undefined) it.videoPlaying = Qt.binding(function() { return host.videoPlaying })
+    if (it.screenAwake !== undefined) it.screenAwake = Qt.binding(function() { return host.screenAwake })
     if (it.unlockPlayback !== undefined) it.unlockPlayback = Qt.binding(function() { return host.unlockPlayback })
     if (it.clipSpeed !== undefined) it.clipSpeed = Qt.binding(function() { return host.clipSpeed })
     if (it.twelveHour !== undefined) it.twelveHour = Qt.binding(function() { return host.twelveHour })
@@ -180,6 +188,7 @@ Item {
     function onPasswordRequested() { host.passwordRequested() }
     function onSubmitFido2Pin(pin) { host.submitFido2Pin(pin) }
     function onPowerActionRequested(action) { host.powerActionRequested(action) }
+    function onCapsLockToggled() { host.capsLockToggled() }
   }
 
   // Last line of defense: if nothing rendered at all — the design AND the

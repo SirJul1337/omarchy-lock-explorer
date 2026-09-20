@@ -94,7 +94,7 @@ DesignBase {
   Timer {
     id: drip
     interval: 3000
-    running: true
+    running: lock.animating
     repeat: true
     onTriggered: {
       interval = 2500 + Math.round(Math.random() * 4000)

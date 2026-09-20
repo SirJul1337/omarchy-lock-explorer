@@ -34,7 +34,12 @@ BorderSurface {
   readonly property int dotFontSize: Math.round(Style.font.heading * 1.25 * fontScale)
   readonly property int dotLetterSpacing: Math.round(Style.font.heading * 0.19 * fontScale)
   readonly property real fingerprintReserve: (fingerprint ? Math.round(fingerprintIcon.implicitWidth + 12) : 0) + (face ? Math.round(faceIcon.implicitWidth + 12) : 0) + (fido2 ? Math.round(fido2Icon.implicitWidth + 12) : 0) + (showToggle ? Math.round(eyeButton.width + 8) : 0)
-  readonly property real glyphReserve: showLockGlyph ? Math.round(lockGlyph.implicitWidth + 12) : 0
+  // A password is typed blind, so a layout that is not a plain US keyboard is
+  // said in the box. It goes with the lock glyph on the left, and is left out
+  // of boot snapshots like the rest of the chrome.
+  readonly property bool showLayout: lock ? (lock.foreignLayout === true && !snapshotBox) : false
+  readonly property real glyphReserve: (showLockGlyph ? Math.round(lockGlyph.implicitWidth + 12) : 0)
+    + (showLayout ? Math.round(layoutBadge.width + 8) : 0)
   readonly property real dotScale: dotMetrics.advanceWidth > 0
     ? Math.min(1, (input.width - 4) / dotMetrics.advanceWidth)
     : 1
@@ -85,6 +90,31 @@ BorderSurface {
     color: field.errorState ? Color.lock.textError : Color.lock.placeholder
     font.family: Style.font.family
     font.pixelSize: Math.round(field.fieldFontSize * 1.1)
+  }
+
+  Rectangle {
+    id: layoutBadge
+    visible: field.showLayout
+    anchors.left: field.showLockGlyph ? lockGlyph.right : parent.left
+    anchors.leftMargin: field.showLockGlyph ? 8 : field.borderLeft + field.sidePadding
+    anchors.verticalCenter: parent.verticalCenter
+    width: layoutCode.implicitWidth + 10
+    height: Math.round(field.fieldFontSize * 1.15)
+    radius: 3
+    color: "transparent"
+    border.width: 1
+    border.color: Color.lock.placeholder
+
+    Text {
+      id: layoutCode
+      anchors.centerIn: parent
+      text: field.lock ? field.lock.keyboardLayout : ""
+      textFormat: Text.PlainText
+      color: Color.lock.placeholder
+      font.family: Style.font.family
+      font.pixelSize: Math.round(field.fieldFontSize * 0.62)
+      font.letterSpacing: 1
+    }
   }
 
   LockInput {

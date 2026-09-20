@@ -113,6 +113,8 @@ Item {
   readonly property int blankDelay: service ? service.blankDelay : 5000
   readonly property var blankPresets: [5000, 15000, 30000, 60000, 300000]
   readonly property int wakeGrace: service && service.wakeGrace !== undefined ? service.wakeGrace : 1000
+  readonly property bool powerActions: service && service.powerActions === true
+  readonly property var onOffOptions: [{ id: "on", name: "On" }, { id: "off", name: "Off" }]
   property bool customDelayEditing: false
   property string customDelayText: ""
   readonly property bool blankDelayIsCustom: !root.keepDisplayOn && root.blankPresets.indexOf(root.blankDelay) === -1
@@ -822,6 +824,13 @@ Item {
 
   // How long the field stays inert after a key has woken the display, so the
   // keys that lit the panel stay out of the password.
+  // Sleep, restart and shut down on the lock screen. Off by default: with it
+  // on, anyone at the machine can restart it without the password.
+  function setPowerActions(on) {
+    if (!root.service || typeof root.service.setPowerActions !== "function") return
+    root.service.setPowerActions(on)
+  }
+
   function setWakeGrace(ms) {
     if (!root.service || typeof root.service.setWakeGrace !== "function") return
     root.service.setWakeGrace(ms)
@@ -1859,6 +1868,61 @@ Item {
                     }
                   }
                 }
+              }
+
+              // Sleep, restart and shut down in the corner of the lock
+              // screen. Off by default: with it on, anyone at the machine can
+              // restart it without knowing the password.
+              Row {
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Power buttons"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: root.onOffOptions
+                  Rectangle {
+                    id: powerChip
+                    required property var modelData
+                    readonly property bool current: (modelData.id === "on") === root.powerActions
+                    width: powerChipLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, powerChipArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: powerChipLabel
+                      anchors.centerIn: parent
+                      text: powerChip.modelData.name
+                      color: powerChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: powerChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: powerChipArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setPowerActions(powerChip.modelData.id === "on")
+                    }
+                  }
+                }
+              }
+
+              Text {
+                text: root.powerActions
+                      ? "Sleep, restart and shut down sit in the corner. Each asks once more before it happens."
+                      : "The lock screen takes a password and nothing else."
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
               }
 
               // Only shown once /etc/pam.d/omarchy-lock-fido2 is in place; off

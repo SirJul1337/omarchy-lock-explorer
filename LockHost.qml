@@ -25,6 +25,9 @@ Item {
   property int failedAttempts: 0
   property bool inputEnabled: true
   property bool inputBlocked: false
+  property string keyboardLayout: ""
+  property bool powerActions: false
+  signal powerActionRequested(string action)
   property bool loadBackground: true
   property string passwordText: ""
   property string videoPath: ""
@@ -88,6 +91,8 @@ Item {
     it.failedAttempts = Qt.binding(function() { return host.failedAttempts })
     it.inputEnabled = Qt.binding(function() { return host.inputEnabled })
     if (it.inputBlocked !== undefined) it.inputBlocked = Qt.binding(function() { return host.inputBlocked })
+    if (it.keyboardLayout !== undefined) it.keyboardLayout = Qt.binding(function() { return host.keyboardLayout })
+    if (it.powerActions !== undefined) it.powerActions = Qt.binding(function() { return host.powerActions })
     it.loadBackground = Qt.binding(function() { return host.loadBackground })
     it.passwordText = Qt.binding(function() { return host.passwordText })
     if (it.videoPath !== undefined) it.videoPath = Qt.binding(function() { return host.videoPath })
@@ -174,6 +179,7 @@ Item {
     function onFido2Requested() { host.fido2Requested() }
     function onPasswordRequested() { host.passwordRequested() }
     function onSubmitFido2Pin(pin) { host.submitFido2Pin(pin) }
+    function onPowerActionRequested(action) { host.powerActionRequested(action) }
   }
 
   // Last line of defense: if nothing rendered at all — the design AND the

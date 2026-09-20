@@ -25,6 +25,17 @@ Item {
   property bool inputEnabled: true
   // True from the display blanking until it is lit again: keys only wake.
   property bool inputBlocked: false
+  // The layout being typed on as a short code ("DK"), empty when it could not
+  // be read. PasswordField shows it when it is not a US keyboard, because a
+  // password typed on the wrong layout is invisible otherwise.
+  property string keyboardLayout: ""
+  readonly property bool foreignLayout: keyboardLayout.length > 0 && keyboardLayout !== "US"
+
+  // Sleep, restart and shut down, off unless the owner turned them on. Every
+  // design gets them from here, in the corner, and each asks a second time
+  // before it happens.
+  property bool powerActions: false
+  signal powerActionRequested(string action)
   property bool loadBackground: true
   property string passwordText: ""
 
@@ -102,6 +113,85 @@ Item {
   function togglePasswordVisible() { if (!fido2Active) passwordVisible = !passwordVisible }
   onFido2ActiveChanged: if (fido2Active) passwordVisible = false
   onPasswordTextChanged: if (passwordText.length === 0) passwordVisible = false
+
+  // The power row sits above the design but below the fail flash, and is gone
+  // from boot snapshots with the rest of the chrome.
+  Row {
+    id: powerRow
+    z: 900
+    visible: base.powerActions && !base.snapshotMode
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    anchors.rightMargin: 28
+    anchors.bottomMargin: 24
+    spacing: 6
+
+    property string confirming: ""
+
+    Timer {
+      id: powerConfirmTimeout
+      interval: 4000
+      onTriggered: powerRow.confirming = ""
+    }
+
+    component PowerButton: Rectangle {
+      id: powerButton
+      required property string action
+      required property string glyph
+      required property string label
+      readonly property bool asking: powerRow.confirming === action
+      width: asking ? askLabel.implicitWidth + 24 : 34
+      height: 34
+      radius: 17
+      color: asking ? base.withAlpha(Color.lock.textError, 0.9)
+        : base.withAlpha(Color.lock.text, powerArea.containsMouse ? 0.18 : 0.08)
+      Behavior on color { ColorAnimation { duration: 120 } }
+      Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+
+      Text {
+        anchors.centerIn: parent
+        visible: !powerButton.asking
+        text: powerButton.glyph
+        color: base.withAlpha(Color.lock.text, 0.75)
+        font.family: Style.font.family
+        font.pixelSize: 17
+      }
+
+      Text {
+        id: askLabel
+        anchors.centerIn: parent
+        visible: powerButton.asking
+        text: powerButton.label + "?"
+        textFormat: Text.PlainText
+        color: Color.background
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        font.weight: Font.DemiBold
+      }
+
+      MouseArea {
+        id: powerArea
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: {
+          base.wakeRequested()
+          if (powerButton.asking) {
+            powerRow.confirming = ""
+            powerConfirmTimeout.stop()
+            base.powerActionRequested(powerButton.action)
+            return
+          }
+          powerRow.confirming = powerButton.action
+          powerConfirmTimeout.restart()
+        }
+      }
+    }
+
+    PowerButton { action: "suspend"; glyph: "󰤄"; label: "Sleep" }
+    PowerButton { action: "reboot"; glyph: "󰜉"; label: "Restart" }
+    PowerButton { action: "shutdown"; glyph: "󰐥"; label: "Shut down" }
+  }
 
   transform: Translate { id: shakeTranslate }
   SequentialAnimation {

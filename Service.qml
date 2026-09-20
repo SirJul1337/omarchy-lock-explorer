@@ -131,6 +131,34 @@ Item {
   }
   readonly property int wakeInputGrace: wakeGraceOverride >= 0 ? wakeGraceOverride : configuredWakeGrace
 
+  // Sleep, restart and shut down from the lock screen. Off by default: a
+  // locked machine anyone can reboot is a different trade than a locked
+  // machine that only takes a password, and that is the owner's call. Saved
+  // on the plugin entry as `powerActions`.
+  property int powerActionsOverride: -1
+  readonly property bool configuredPowerActions: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId) return entry.powerActions === true
+    }
+    return false
+  }
+  readonly property bool powerActions: powerActionsOverride >= 0 ? powerActionsOverride === 1 : configuredPowerActions
+
+  // Omarchy's own commands, so a lock screen reboot is the reboot the menu
+  // does. Nothing here runs without the setting on and a second click.
+  function runPowerAction(action) {
+    if (!powerActions) return false
+    if (action === "suspend") Quickshell.execDetached(["systemctl", "suspend"])
+    else if (action === "reboot") Quickshell.execDetached(["omarchy-system-reboot"])
+    else if (action === "shutdown") Quickshell.execDetached(["omarchy-system-shutdown"])
+    else return false
+    logEvent("power-action=" + action)
+    return true
+  }
+
   // When true the display stays powered while locked: the DPMS-off is skipped
   // entirely, so video designs keep playing and slow monitors are never
   // re-blanked. Takes precedence over blankDelay. Lives on the plugin entry
@@ -404,6 +432,22 @@ Item {
       writeEntry(current)
     }
     logEvent("unlock-ms=" + value)
+    return true
+  }
+
+  function setPowerActions(value) {
+    var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
+    var off = value === false || value === "false" || value === 0 || value === "0" || value === "off"
+    if (!on && !off) return false
+
+    powerActionsOverride = on ? 1 : 0
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (on) current.powerActions = true
+      else delete current.powerActions
+      writeEntry(current)
+    }
+    logEvent("power-actions=" + (on ? "on" : "off"))
     return true
   }
 
@@ -1773,6 +1817,18 @@ echo "$out"
   property bool previewClipPlaying: false
   // Nothing should decode video into a screen that is switched off.
   property bool screenBlanked: false
+  // The layout being typed on, as a short code ("DK"), and whether that is
+  // something other than a plain US keyboard. A password is typed blind, so a
+  // layout switched since last time is invisible without this: the field shows
+  // the code when it is not US. Read from Hyprland, which is what the session
+  // is running under; anywhere else this stays empty and nothing is shown.
+  property string keyboardLayout: ""
+  readonly property bool foreignLayout: keyboardLayout.length > 0 && keyboardLayout !== "US"
+
+  function refreshKeyboardLayout() {
+    if (!keyboardLayoutProc.running) keyboardLayoutProc.running = true
+  }
+
   // Keys pressed into a dark panel only wake it: the field stays inert until
   // the wake has run and the panel has had wakeInputGrace to light up, so the
   // keystrokes that switched the screen on never land in the password.
@@ -1914,6 +1970,7 @@ echo "$out"
       root.refreshFingerprintStatus()
       root.refreshFaceStatus()
       root.refreshFido2Status()
+      root.refreshKeyboardLayout()
       root.refreshSessionLockXray()
       root.rescanUserDesigns()
       // The frame is ready before the unlock needs it.
@@ -2311,6 +2368,9 @@ echo "$out"
           avatarPath: root.avatarPath
           avatarVersion: root.avatarVersion
           fingerprintConfigured: root.fingerprintConfigured
+          keyboardLayout: root.keyboardLayout
+          powerActions: root.powerActions
+          onPowerActionRequested: function(action) { root.runPowerAction(action) }
           faceConfigured: root.faceConfigured
           fido2Configured: root.fido2Configured
           fido2Active: root.fido2Active
@@ -2602,6 +2662,50 @@ echo "$out"
     onTriggered: root.refreshBackground()
   }
 
+  // The active layout of the keyboard being typed on. `layout` is the list
+  // from the config ("us,dk") and `active_layout_index` picks from it, which
+  // gives a short code without a table to look it up in.
+  Process {
+    id: keyboardLayoutProc
+    command: ["hyprctl", "-j", "devices"]
+    stdout: StdioCollector { id: keyboardLayoutStdout; waitForEnd: true }
+    onExited: function(exitCode) {
+      if (exitCode !== 0) { root.keyboardLayout = ""; return }
+      var listed = []
+      try {
+        listed = JSON.parse(String(keyboardLayoutStdout.text || "{}")).keyboards || []
+      } catch (e) {
+        root.keyboardLayout = ""
+        return
+      }
+      var kb = null
+      for (var i = 0; i < listed.length; i++) {
+        if (!listed[i] || !listed[i].active_keymap) continue
+        if (listed[i].main === true) { kb = listed[i]; break }
+        if (!kb) kb = listed[i]
+      }
+      if (!kb) { root.keyboardLayout = ""; return }
+      var codes = String(kb.layout === undefined ? "" : kb.layout).split(",")
+      var at = Number(kb.active_layout_index || 0)
+      var code = codes.length > at ? codes[at] : codes[0]
+      root.keyboardLayout = String(code || "").trim().toUpperCase()
+    }
+  }
+
+  // Hyprland announces a layout switch on its event socket, so the code stays
+  // right when the layout is toggled with the screen already locked.
+  Socket {
+    id: hyprEvents
+    path: (Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/hypr/"
+      + (Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") || "") + "/.socket2.sock"
+    connected: root.locked && (Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") || "").length > 0
+    parser: SplitParser {
+      onRead: function(line) {
+        if (String(line).indexOf("activelayout") === 0) root.refreshKeyboardLayout()
+      }
+    }
+  }
+
   Process {
     id: fingerprintCheckProc
     command: ["bash", "-c", "if [[ -f /etc/pam.d/omarchy-lock-fingerprint ]] && command -v fprintd-list >/dev/null 2>&1 && fprintd-list \"$USER\" 2>/dev/null | grep -qi finger; then echo yes; else echo no; fi"]
@@ -2840,6 +2944,7 @@ echo "$out"
       readonly property int defaultBlankDelay: root.defaultBlankDelay
       readonly property int wakeGrace: root.wakeInputGrace
       readonly property int defaultWakeGrace: root.defaultWakeGrace
+      readonly property bool powerActions: root.powerActions
       readonly property bool keepDisplayOn: root.keepDisplayOn
       readonly property bool displayBlankingSuppressed: root.displayBlankingSuppressed
       readonly property bool fingerprintConfigured: root.fingerprintConfigured
@@ -2907,6 +3012,8 @@ echo "$out"
       function setUnlockDuration(ms) { return root.setUnlockDuration(ms) }
       function setBlankDelay(ms) { return root.setBlankDelay(ms) }
       function setWakeGrace(ms) { return root.setWakeGrace(ms) }
+      function setPowerActions(value) { return root.setPowerActions(value) }
+      function runPowerAction(action) { return root.runPowerAction(action) }
       function setKeepDisplayOn(on) { return root.setKeepDisplayOn(on) }
       function refreshBackground() { return root.refreshBackground() }
       function refreshFingerprintStatus() { return root.refreshFingerprintStatus() }
@@ -3016,7 +3123,9 @@ echo "$out"
         unlockAnimated: root.unlockAnimated,
         blankMs: root.blankDelay,
         inputBlocked: root.inputBlocked,
+        keyboardLayout: root.keyboardLayout,
         wakeGraceMs: root.wakeInputGrace,
+        powerActions: root.powerActions,
         keepDisplayOn: root.keepDisplayOn,
         displayBlankingSuppressed: root.displayBlankingSuppressed,
         unlocking: root.unlocking,
@@ -3068,6 +3177,14 @@ echo "$out"
 
     function setBlankDelay(value: string): string {
       return root.setBlankDelay(value) ? "ok" : "invalid-value"
+    }
+
+    function powerActions(): string {
+      return root.powerActions ? "on" : "off"
+    }
+
+    function setPowerActions(value: string): string {
+      return root.setPowerActions(value) ? "ok" : "invalid-value"
     }
 
     function wakeGrace(): string {

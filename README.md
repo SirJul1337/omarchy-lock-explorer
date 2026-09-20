@@ -1,6 +1,6 @@
 # Lock Screen Explorer
 
-31 lock screens for Omarchy 4, an explorer to preview and switch between them, and a designer to
+54 lock screens for Omarchy 4, an explorer to preview and switch between them, and a designer to
 build your own. Unlock with your password, a FIDO2 security key, a fingerprint or your face.
 Colors and fonts follow your Omarchy theme.
 
@@ -78,6 +78,10 @@ With a fingerprint reader enrolled the lock screen listens for it as soon as it 
 with face unlock set up (`pam_facelock`, the `omarchy-lock-face` PAM config with a model
 enrolled) pressing Enter on an empty password field starts a face check, the same as the stock
 lock. The password field shows an icon for each one that is available.
+
+The field also shows the keyboard layout when it is not a US one — `DK`, `DE`, and so on,
+read from Hyprland and updated while the screen is locked, so a layout switched since you
+last typed is visible rather than something you discover four wrong passwords later.
 
 A security key works too, once you have enrolled one with the Omarchy menu (Setup > Security >
 Fido2) and run `bash extras/setup-fido2.sh`. That script writes `/etc/pam.d/omarchy-lock-fido2`,
@@ -213,6 +217,12 @@ a second by default, set by the "Ignore keys after waking for" row under the bla
 only the keys pressed before the wake ran, which suits a panel that lights up instantly and
 anyone who types their password into a dark screen. `omarchy-shell lock status` reports the
 current state as `inputBlocked` and the setting as `wakeGraceMs`.
+
+The Settings tab also has a "Power buttons" row, off by default. On, the lock screen carries
+sleep, restart and shut down in the bottom right corner, each asking a second time before it
+happens — handy on a machine that otherwise can only be powered off by holding the button,
+and worth leaving off anywhere a locked screen should do nothing but take a password.
+By hand: `omarchy-shell lock setPowerActions on`.
 
 **Never** keeps the lock screen lit for the whole lock: video designs keep playing, and slow
 monitors are never re-blanked mid-wake on resume — the display was never off to begin with.

@@ -41,36 +41,4 @@ if [[ -z $report ]]; then
   exit 1
 fi
 
-printf '%s' "$report" | python3 - "${#files[@]}" <<'PY'
-import json, sys
-
-count = sys.argv[1]
-try:
-    report = json.load(sys.stdin)
-except json.JSONDecodeError as e:
-    print(f"FAIL: qmllint report is not JSON ({e})")
-    raise SystemExit(1)
-
-# The shape has moved between Qt versions: a top-level list, or {"files": [...]}.
-entries = report.get("files", report) if isinstance(report, dict) else report
-broken = []
-for entry in entries:
-    name = entry.get("filename", "?")
-    for warning in entry.get("warnings", []):
-        severity = str(warning.get("type", warning.get("severity", ""))).lower()
-        if severity not in ("critical", "error"):
-            continue
-        message = str(warning.get("message", ""))
-        # Missing modules are the CI runner's doing, not the file's.
-        if "import" in message.lower() and "not installed" in message.lower():
-            continue
-        broken.append(f"{name}:{warning.get('line', 0)}: {message}")
-
-if broken:
-    print("FAIL: QML that will not parse")
-    for line in broken:
-        print("  " + line)
-    raise SystemExit(1)
-
-print(f"qml syntax: OK ({count} files)")
-PY
+printf '%s' "$report" | python3 "$(dirname "$(realpath "$0")")/qml-syntax-report.py" "${#files[@]}"

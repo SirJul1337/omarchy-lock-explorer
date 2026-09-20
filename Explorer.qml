@@ -3530,7 +3530,7 @@ Item {
     }
 
     BorderSurface {
-      id: editorCard
+      id: editorSurface
       visible: root.editing
       width: root.cardWidth
       height: root.cardHeight
@@ -3543,10 +3543,10 @@ Item {
 
       Item {
         anchors.fill: parent
-        anchors.topMargin: editorCard.contentTopInset + root.contentMargin
-        anchors.bottomMargin: editorCard.contentBottomInset + root.contentMargin
-        anchors.leftMargin: editorCard.contentLeftInset + root.contentMargin
-        anchors.rightMargin: editorCard.contentRightInset + root.contentMargin
+        anchors.topMargin: editorSurface.contentTopInset + root.contentMargin
+        anchors.bottomMargin: editorSurface.contentBottomInset + root.contentMargin
+        anchors.leftMargin: editorSurface.contentLeftInset + root.contentMargin
+        anchors.rightMargin: editorSurface.contentRightInset + root.contentMargin
 
         Item {
           id: editorHeader

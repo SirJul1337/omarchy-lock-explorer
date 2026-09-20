@@ -137,6 +137,33 @@ function textFields(extra) {
 // Every draggable piece. `group` buckets them in the palette, `sized` says
 // whether dragging a corner handle should resize it, `fill` marks the
 // full-screen backgrounds.
+// ttfx effects that suit a drawing: they finish on their own and read well
+// on block art. The names are ttfx's own, see `ttfx --help`.
+var TTFX_EFFECTS = [
+  { id: "decrypt", name: "Decrypt" },
+  { id: "beams", name: "Beams" },
+  { id: "burn", name: "Burn" },
+  { id: "laseretch", name: "Laser etch" },
+  { id: "expand", name: "Expand" },
+  { id: "slide", name: "Slide" },
+  { id: "wipe", name: "Wipe" },
+  { id: "scattered", name: "Scattered" },
+  { id: "spray", name: "Spray" },
+  { id: "pour", name: "Pour" },
+  { id: "rain", name: "Rain" },
+  { id: "print", name: "Print" },
+  { id: "bouncyballs", name: "Bouncy balls" },
+  { id: "bubbles", name: "Bubbles" },
+  { id: "blackhole", name: "Black hole" },
+  { id: "synthgrid", name: "Synth grid" },
+  { id: "swarm", name: "Swarm" },
+  { id: "unstable", name: "Unstable" },
+  { id: "errorcorrect", name: "Error correct" },
+  { id: "crumble", name: "Crumble" },
+  { id: "vhstape", name: "VHS tape" },
+  { id: "colorshift", name: "Color shift" }
+]
+
 var KINDS = {
   wallpaper: {
     name: "Wallpaper", group: "Background", glyph: "󰸉",
@@ -324,6 +351,25 @@ var KINDS = {
     ]
   },
 
+  // Drawn in the designer's grid editor and animated by ttfx, the terminal
+  // text effects Omarchy ships. The drawing is block characters, so it is
+  // just text: it lives in the design file with everything else.
+  ttfx: {
+    name: "ttfx art", group: "Effects", glyph: "󰸴",
+    hint: "A drawing animated by ttfx — draw it in the grid editor",
+    spec: { art: "", effect: "decrypt", size: 14, color: "text", accent: "accent", rate: 60, margin: 1, replay: true },
+    fields: [
+      { key: "art", type: "art", label: "Drawing" },
+      { key: "effect", type: "choice", label: "Effect", options: TTFX_EFFECTS },
+      { key: "size", type: "number", label: "Cell size", min: 4, max: 80, step: 1 },
+      { key: "color", type: "color", label: "Color" },
+      { key: "accent", type: "color", label: "Accent" },
+      { key: "rate", type: "number", label: "Frames per second", min: 10, max: 240, step: 10 },
+      { key: "margin", type: "number", label: "Canvas margin", min: 0, max: 20, step: 1 },
+      { key: "replay", type: "bool", label: "Play again on a wrong password" }
+    ]
+  },
+
   custom: {
     name: "Custom QML", group: "Yours", glyph: "󰘦",
     hint: "Write the QML yourself — lock.now, lock.userName and the rest are in scope",
@@ -336,7 +382,7 @@ var KINDS = {
   }
 }
 
-var GROUPS = ["Background", "Text", "Input", "Media", "Shapes", "Yours"]
+var GROUPS = ["Background", "Text", "Input", "Media", "Shapes", "Effects", "Yours"]
 
 function kind(id) { return KINDS[id] || null }
 

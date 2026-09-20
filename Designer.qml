@@ -51,6 +51,17 @@ Item {
   // place when the explorer comes back.
   property string pendingFileKey: ""
   property bool namingComponent: false
+
+  // The grid editor behind the `art` field: `artGrid` is rows of booleans and
+  // the drawing itself is block characters, so it travels in the design file
+  // as ordinary text. BLOCK is U+2588, what ttfx paints as a solid cell.
+  readonly property string artBlock: "█"
+  property bool artEditing: false
+  property string artKey: ""
+  property var artGrid: []
+  property bool artPaint: true
+  readonly property int artCols: artGrid.length > 0 ? artGrid[0].length : 0
+  readonly property int artRows: artGrid.length
   property string hoverHint: ""
 
   readonly property var primary: selection.length === 0 ? null : nodeById(selection[selection.length - 1])
@@ -316,6 +327,9 @@ Item {
   function addNode(kindId, x, y) {
     var plain = D.newNode(kindId, newNodeId())
     if (!plain) return
+    // A ttfx piece with nothing drawn yet would be an empty canvas: start it
+    // on the branding logo, which is what it is usually there for.
+    if (kindId === "ttfx" && String(plain.spec.art || "").length === 0) plain.spec.art = artLogo.text
     pushUndo()
     var fill = D.isFill(plain)
     if (!fill) plain.anchor = D.anchorAt(x, y, screenWidth, screenHeight)
@@ -483,6 +497,106 @@ Item {
       D.reanchor(designer.nodes[index], anchor, r.w, r.h, screenWidth, screenHeight)
     }
     touch()
+  }
+
+  // ------------------------------------------------------------------- art
+
+  OmarchyLogo { id: artLogo }
+
+  function artRow(cols, fill) {
+    var row = []
+    for (var i = 0; i < cols; i++) row.push(!!fill)
+    return row
+  }
+
+  // Text -> grid. Anything that is not a space is a filled cell, so a logo
+  // drawn with any character comes in as blocks.
+  function artGridOf(text, minCols, minRows) {
+    var lines = String(text || "").replace(/\s+$/, "").split("
+")
+    var cols = minCols || 0
+    for (var i = 0; i < lines.length; i++) cols = Math.max(cols, lines[i].length)
+    cols = Math.max(8, cols)
+    var rows = Math.max(minRows || 0, lines.length, 4)
+    var grid = []
+    for (var r = 0; r < rows; r++) {
+      var row = artRow(cols, false)
+      var line = r < lines.length ? lines[r] : ""
+      for (var c = 0; c < line.length && c < cols; c++) row[c] = line.charAt(c) !== " "
+      grid.push(row)
+    }
+    return grid
+  }
+
+  function artTextOf(grid) {
+    var out = []
+    for (var r = 0; r < grid.length; r++) {
+      var line = ""
+      for (var c = 0; c < grid[r].length; c++) line += grid[r][c] ? designer.artBlock : " "
+      out.push(line.replace(/\s+$/, ""))
+    }
+    // Blank rows top and bottom are the canvas margin's job, not the drawing's.
+    while (out.length > 0 && out[0].length === 0) out.shift()
+    while (out.length > 0 && out[out.length - 1].length === 0) out.pop()
+    return out.join("
+")
+  }
+
+  function openArtEditor(key, value) {
+    designer.artKey = key
+    designer.artGrid = designer.artGridOf(value, 24, 10)
+    designer.artEditing = true
+  }
+
+  function artSet(r, c, value) {
+    if (r < 0 || c < 0 || r >= designer.artGrid.length || c >= designer.artGrid[0].length) return
+    if (designer.artGrid[r][c] === value) return
+    var grid = designer.artGrid.slice()
+    grid[r] = grid[r].slice()
+    grid[r][c] = value
+    designer.artGrid = grid
+  }
+
+  function artResize(dCols, dRows) {
+    var cols = Math.max(8, Math.min(96, designer.artCols + dCols))
+    var rows = Math.max(4, Math.min(48, designer.artRows + dRows))
+    var grid = []
+    for (var r = 0; r < rows; r++) {
+      var row = artRow(cols, false)
+      for (var c = 0; c < cols; c++)
+        if (r < designer.artGrid.length && c < designer.artGrid[r].length) row[c] = designer.artGrid[r][c]
+      grid.push(row)
+    }
+    designer.artGrid = grid
+  }
+
+  function artFill(value) {
+    var grid = []
+    for (var r = 0; r < designer.artRows; r++) grid.push(artRow(designer.artCols, value))
+    designer.artGrid = grid
+  }
+
+  function artInvert() {
+    var grid = []
+    for (var r = 0; r < designer.artGrid.length; r++) {
+      var row = designer.artGrid[r].slice()
+      for (var c = 0; c < row.length; c++) row[c] = !row[c]
+      grid.push(row)
+    }
+    designer.artGrid = grid
+  }
+
+  // The branding logo as a starting point: about.txt, the stock icon, or the
+  // copy in Ttfx.js, whichever OmarchyLogo found.
+  function artLoadLogo() {
+    designer.artGrid = designer.artGridOf(artLogo.text, 0, 0)
+  }
+
+  function artApply() {
+    if (designer.artKey.length > 0) designer.setProp(designer.artKey, designer.artTextOf(designer.artGrid))
+    designer.artEditing = false
+    designer.artKey = ""
+    designer.focusCanvas()
   }
 
   // ------------------------------------------------------------ components
@@ -1333,6 +1447,7 @@ Item {
               designer.pendingFileKey = modelData.key
               designer.pickFileRequested()
             }
+            onDrawArtRequested: designer.openArtEditor(modelData.key, designer.primary ? designer.primary.spec[modelData.key] : "")
           }
         }
 
@@ -1562,6 +1677,175 @@ Item {
       font.family: designer.fontFamily
       font.pixelSize: Style.font.caption
       elide: Text.ElideRight
+    }
+  }
+
+  // ------------------------------------------------------------ art editor
+
+  // Draw the shape ttfx animates: click or drag to fill cells, and the
+  // drawing goes back into the piece as block characters.
+  Rectangle {
+    id: artEditor
+    anchors.fill: parent
+    visible: designer.artEditing
+    color: Qt.rgba(designer.background.r, designer.background.g, designer.background.b, 0.97)
+    z: 90
+
+    // Nothing behind this reacts while it is up.
+    MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.AllButtons }
+
+    Keys.onEscapePressed: { designer.artEditing = false; designer.artKey = ""; designer.focusCanvas() }
+    Keys.onReturnPressed: designer.artApply()
+    focus: designer.artEditing
+    onVisibleChanged: if (visible) forceActiveFocus()
+
+    Column {
+      anchors.centerIn: parent
+      spacing: Style.space(12)
+
+      Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "DRAW THE SHAPE"
+        color: designer.muted
+        font.family: designer.fontFamily
+        font.pixelSize: Style.font.caption
+        font.letterSpacing: 2
+      }
+
+      // The grid, sized to fit whatever is left of the screen.
+      Rectangle {
+        id: gridBox
+        anchors.horizontalCenter: parent.horizontalCenter
+        readonly property real cell: Math.max(4, Math.floor(Math.min(
+          (designer.width * 0.8) / Math.max(1, designer.artCols),
+          (designer.height * 0.6) / Math.max(1, designer.artRows))))
+        width: designer.artCols * cell + 2
+        height: designer.artRows * cell + 2
+        color: designer.well
+        border.width: 1
+        border.color: designer.line
+
+        Item {
+          id: cells
+          x: 1
+          y: 1
+          width: designer.artCols * gridBox.cell
+          height: designer.artRows * gridBox.cell
+
+          Repeater {
+            model: designer.artRows * designer.artCols
+
+            Rectangle {
+              required property int index
+              readonly property int row: Math.floor(index / Math.max(1, designer.artCols))
+              readonly property int col: index % Math.max(1, designer.artCols)
+              x: col * gridBox.cell
+              y: row * gridBox.cell
+              width: gridBox.cell
+              height: gridBox.cell
+              color: designer.artGrid[row] && designer.artGrid[row][col] ? designer.accent : "transparent"
+              border.width: gridBox.cell >= 8 ? 1 : 0
+              border.color: Qt.rgba(designer.foreground.r, designer.foreground.g, designer.foreground.b, 0.08)
+            }
+          }
+
+          // One area for the whole grid: a press decides whether this stroke
+          // fills or clears, and the drag paints every cell it crosses.
+          MouseArea {
+            anchors.fill: parent
+            hoverEnabled: false
+            function cellAt(mx, my) {
+              return { r: Math.floor(my / gridBox.cell), c: Math.floor(mx / gridBox.cell) }
+            }
+            onPressed: function(mouse) {
+              var at = cellAt(mouse.x, mouse.y)
+              if (at.r < 0 || at.r >= designer.artRows || at.c < 0 || at.c >= designer.artCols) return
+              designer.artPaint = !designer.artGrid[at.r][at.c]
+              designer.artSet(at.r, at.c, designer.artPaint)
+            }
+            onPositionChanged: function(mouse) {
+              if (!pressed) return
+              var at = cellAt(mouse.x, mouse.y)
+              designer.artSet(at.r, at.c, designer.artPaint)
+            }
+          }
+        }
+      }
+
+      Row {
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: Style.space(6)
+
+        DesignerButton {
+          label: "Omarchy logo"
+          foreground: designer.foreground
+          accent: designer.accent
+          onClicked: designer.artLoadLogo()
+        }
+        DesignerButton {
+          label: "Clear"
+          foreground: designer.foreground
+          accent: designer.accent
+          onClicked: designer.artFill(false)
+        }
+        DesignerButton {
+          label: "Invert"
+          foreground: designer.foreground
+          accent: designer.accent
+          onClicked: designer.artInvert()
+        }
+        DesignerButton {
+          label: "Wider"
+          foreground: designer.foreground
+          accent: designer.accent
+          onClicked: designer.artResize(4, 0)
+        }
+        DesignerButton {
+          label: "Narrower"
+          foreground: designer.foreground
+          accent: designer.accent
+          onClicked: designer.artResize(-4, 0)
+        }
+        DesignerButton {
+          label: "Taller"
+          foreground: designer.foreground
+          accent: designer.accent
+          onClicked: designer.artResize(0, 2)
+        }
+        DesignerButton {
+          label: "Shorter"
+          foreground: designer.foreground
+          accent: designer.accent
+          onClicked: designer.artResize(0, -2)
+        }
+      }
+
+      Row {
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: Style.space(8)
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: designer.artCols + " x " + designer.artRows + " cells   ·   Esc cancels, Enter keeps it"
+          color: designer.muted
+          font.family: designer.fontFamily
+          font.pixelSize: Style.font.caption
+        }
+
+        DesignerButton {
+          label: "Cancel"
+          foreground: designer.foreground
+          accent: designer.accent
+          onClicked: { designer.artEditing = false; designer.artKey = ""; designer.focusCanvas() }
+        }
+        DesignerButton {
+          label: "Done"
+          primary: true
+          foreground: designer.foreground
+          accent: designer.accent
+          onClicked: designer.artApply()
+        }
+      }
     }
   }
 

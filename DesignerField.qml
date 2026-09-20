@@ -22,6 +22,7 @@ Item {
 
   signal edited(var next)
   signal pickFileRequested()
+  signal drawArtRequested()
   // Esc in a field leaves it rather than closing the designer; the canvas
   // takes the keyboard back.
   signal escaped()
@@ -59,6 +60,7 @@ Item {
         case "color": return colorC
         case "bool": return boolC
         case "file": return fileC
+        case "art": return artC
         case "code": return codeC
         }
         return textC
@@ -385,6 +387,78 @@ Item {
   }
 
   // ------------------------------------------------------------------ file
+
+  // ------------------------------------------------------------------- art
+
+  // The drawing itself is block characters, so the row can show it as it is.
+  Component {
+    id: artC
+    Row {
+      spacing: Style.space(6)
+      Rectangle {
+        width: Style.space(70)
+        height: Style.space(26)
+        radius: 4
+        color: drawArea.containsMouse ? Qt.rgba(field.foreground.r, field.foreground.g, field.foreground.b, 0.16) : field.well
+        border.width: 1
+        border.color: field.line
+        Text {
+          anchors.centerIn: parent
+          text: "Draw…"
+          color: field.foreground
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.caption
+        }
+        MouseArea {
+          id: drawArea
+          anchors.fill: parent
+          hoverEnabled: true
+          onClicked: field.drawArtRequested()
+        }
+      }
+
+      Rectangle {
+        width: field.width - Style.space(82)
+        height: Style.space(48)
+        radius: 4
+        color: field.well
+        border.width: 1
+        border.color: field.line
+        clip: true
+
+        Text {
+          id: artPreview
+          anchors.centerIn: parent
+          readonly property var lines: String(field.value || "").split("
+")
+          readonly property int cols: {
+            var w = 0
+            for (var i = 0; i < lines.length; i++) w = Math.max(w, lines[i].length)
+            return Math.max(1, w)
+          }
+          text: String(field.value || "")
+          textFormat: Text.PlainText
+          color: field.foreground
+          font.family: "monospace"
+          // Shrunk to fit the row, whatever the drawing's size.
+          font.pixelSize: Math.max(2, Math.min(
+            Math.floor((parent.height - 6) / Math.max(1, lines.length) * 1.35),
+            Math.floor((parent.width - 8) / cols * 1.9)))
+          lineHeight: 0.74
+          visible: String(field.value || "").length > 0
+        }
+
+        Text {
+          anchors.centerIn: parent
+          text: "nothing drawn yet"
+          color: field.muted
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.caption
+          visible: !artPreview.visible
+        }
+      }
+    }
+  }
 
   Component {
     id: fileC

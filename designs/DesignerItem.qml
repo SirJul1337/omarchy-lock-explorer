@@ -144,6 +144,7 @@ Item {
       case "image": return imageC
       case "panel": return panelC
       case "line": return lineC
+      case "ttfx": return ttfxC
       case "custom": return null
       }
       return piece.isText ? textC : null
@@ -367,6 +368,32 @@ Item {
         shadowColor: Qt.rgba(0, 0, 0, 0.5)
         shadowBlur: 1.0
         shadowVerticalOffset: 12
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ ttfx
+
+  Component {
+    id: ttfxC
+    TtfxText {
+      id: art
+      text: String(piece.p("art", ""))
+      effect: piece.p("effect", "decrypt")
+      // Redrawing while it is being drawn in the editor: play the same effect
+      // again so the canvas shows what the change looks like.
+      replayEffect: piece.p("effect", "decrypt")
+      pixelSize: piece.p("size", 14)
+      frameRate: piece.p("rate", 60)
+      margin: piece.p("margin", 1)
+      textColor: piece.roleColor(piece.p("color", "text"))
+      accentColor: piece.roleColor(piece.p("accent", "accent"))
+
+      Connections {
+        target: piece.p("replay", true) ? piece.lock : null
+        function onFailureMessageChanged() {
+          if (piece.lock.failureMessage.length > 0) art.play(art.effect)
+        }
       }
     }
   }

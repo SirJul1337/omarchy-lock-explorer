@@ -117,10 +117,13 @@ if [[ $entry != none ]]; then
   fg_i=$(hex_ints "$fg_t")
   # Loading: a rotating arc, clearly distinct from the passphrase bullets.
   # Pre-rendered frames -- text and font rendering die after switch_root.
+  # Drawn at 96 px and scaled by the script to the entry it replaces, so it
+  # stays in proportion on a 4K framebuffer instead of shrinking to a speck:
+  # the old 22 px arc's geometry, scaled up (radius 8 -> 35, stroke 3 -> 13).
   for i in $(seq 1 12); do
     a=$(( (i - 1) * 30 ))
-    magick -size 22x22 xc:none -stroke "rgba($fg_i,0.95)" -strokewidth 3 -fill none \
-      -draw "ellipse 11,11 8,8 $a,$((a + 120))" "$staging/spin$i.png"
+    magick -size 96x96 xc:none -stroke "rgba($fg_i,0.95)" -strokewidth 13 -fill none \
+      -draw "ellipse 48,48 35,35 $a,$((a + 120))" "$staging/spin$i.png"
   done
   # One passphrase bullet; the script draws one sprite per typed character,
   # so the row aligns exactly inside the entry box.
@@ -290,6 +293,8 @@ entry.sprite = Sprite(entry.image);
 entry.cx = screen.w * $entry_x / 100;
 entry.cy = screen.h * $entry_y / 100;
 entry.iw = entry.image.GetWidth() - 48;
+# The text area inside the pill, about as tall as a snapshot's measured one.
+entry.ih = entry.image.GetHeight() * 0.6;
 entry.sprite.SetPosition(entry.cx - entry.image.GetWidth() / 2, entry.cy - entry.image.GetHeight() / 2, 5);
 
 # Hidden until a passphrase prompt actually fires: plymouthd runs this theme
@@ -307,6 +312,9 @@ entry.sprite = Sprite();
 entry.cx = bg.x + bg.w * $entry_x / 100;
 entry.cy = bg.y + bg.h * $entry_y / 100;
 entry.iw = bg.w * $entry_wp / 100;
+# The measured input area's height; 0 in a snapshot conf from before it was
+# recorded, which leaves the wait arc at its minimum size below.
+entry.ih = bg.h * $entry_hp / 100;
 EOF
 fi
 cat <<EOF
@@ -333,8 +341,14 @@ global.boot_frame = 0;
 booting.sprite = Sprite();
 booting.sprite.SetOpacity(0);
 EOF
+cat <<'EOF'
+# The wait arc replaces what was typed, so it takes that line's size -- about
+# half the box -- and never shrinks below the 22 px it was once drawn at.
+spinsize = Math.Int(entry.ih * 0.95);
+if (spinsize < 22) spinsize = 22;
+EOF
 # Literal lines: plymouth script string+number concatenation is unreliable.
-for i in $(seq 1 12); do echo "spin[$i] = Image(\"spin$i.png\");"; done
+for i in $(seq 1 12); do echo "spin[$i] = Image(\"spin$i.png\").Scale(spinsize, spinsize);"; done
 cat <<EOF
 
 fun display_password_callback(prompt_text, count) {

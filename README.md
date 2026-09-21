@@ -1,12 +1,12 @@
 # Lock Screen Explorer
 
-54 lock screens for Omarchy 4, an explorer to preview and switch between them, and a designer to
+Lock screens for Omarchy 4, an explorer to preview and switch between them, and a designer to
 build your own. Unlock with your password, a FIDO2 security key, a fingerprint or your face.
 Colors and fonts follow your Omarchy theme.
 
 ![The explorer browsing designs and opening a full screen preview](media/explorer.gif)
 
-- **54 designs**, from minimal to animated, typing-reactive, drawn by Omarchy's own ttfx, and video clips that play as you unlock
+- **Designs** from minimal to animated, typing-reactive, drawn by Omarchy's own ttfx, and video clips that play as you unlock
 - **Security key, fingerprint and face unlock** next to the password
 - **A visual designer** for your own layouts, or write the QML yourself
 - **Unlock animations** that fade, zoom or rise the lock screen away

@@ -2942,19 +2942,6 @@ Item {
               font.pixelSize: Style.font.caption
             }
 
-            // The boot screen ships as experimental; say so where it is picked.
-            Text {
-              anchors.right: parent.right
-              anchors.rightMargin: Style.space(12)
-              anchors.verticalCenter: parent.verticalCenter
-              visible: navItem.modelData.id === "boot" && !root.bootApplying
-              text: "EXP"
-              color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.75)
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-              font.letterSpacing: 1
-            }
-
             // Pending dot when the boot screen has an unapplied change.
             Rectangle {
               anchors.right: parent.right

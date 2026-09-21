@@ -213,8 +213,12 @@ BorderSurface {
 
   Text {
     id: fingerprintIcon
-    anchors.right: faceIcon.left
-    anchors.rightMargin: -9
+    // Beside the face icon when there is one; otherwise in the slot the face
+    // icon would take. Anchoring to an invisible face icon left it on top of
+    // the eye button whenever a reader was enrolled without face unlock.
+    anchors.right: field.face ? faceIcon.left : parent.right
+    anchors.rightMargin: field.face ? -9 : field.borderRight + field.sidePadding
+      + (field.fido2 ? Math.round(fido2Icon.implicitWidth + 8) : 0)
     anchors.verticalCenter: parent.verticalCenter
     visible: field.fingerprint
     text: "󰈷"

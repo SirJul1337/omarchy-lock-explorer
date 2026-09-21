@@ -19,6 +19,19 @@ Item {
   property bool fido2Authenticating: false
   property bool fido2NeedsPin: false
   property string fido2Status: ""
+  // What the fingerprint reader is saying, in pam_fprintd's own words, and
+  // whether it is a failure ("Failed to match fingerprint"). Empty while no
+  // scan is running.
+  property string fingerprintStatus: ""
+  property bool fingerprintStatusIsError: false
+
+  // For a design's fingerprint hint: its own wording, unless the reader has
+  // something new to say. The plain "place your finger" prompt repeats after
+  // every attempt and says nothing a design's hint does not; a failed match
+  // does, so that is what replaces it.
+  function fingerprintHint(fallback) {
+    return fingerprintStatusIsError && fingerprintStatus.length > 0 ? fingerprintStatus : fallback
+  }
   property bool authenticatingPassword: false
   property string failureMessage: ""
   property int failedAttempts: 0

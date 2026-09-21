@@ -115,7 +115,7 @@ DesignBase {
       ? "  Touch your key or Tab for password  ·  Esc clears"
       : (lock.faceConfigured
       ? "󰱻  Look at sensor or type password  ·  Esc clears"
-      : (lock.fingerprintConfigured ? "󰆠  Touch sensor or type password  ·  Esc clears" : "󰌾  Locked  ·  Esc clears input"))
+      : (lock.fingerprintConfigured ? lock.fingerprintHint("󰆠  Touch sensor or type password  ·  Esc clears") : "󰌾  Locked  ·  Esc clears input"))
     color: lock.withAlpha(Color.lock.text, 0.55)
     font.family: Style.font.family
     font.pixelSize: Style.font.bodySmall

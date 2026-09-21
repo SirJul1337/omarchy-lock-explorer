@@ -125,7 +125,7 @@ DesignBase {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.authenticatingPassword ? "Checking…"
         : (lock.errorState ? lock.failureMessage
-        : (lock.fingerprintConfigured ? "Type your password or touch the sensor" : "Type your password"))
+        : (lock.fingerprintConfigured ? lock.fingerprintHint("Type your password or touch the sensor") : "Type your password"))
       textFormat: Text.PlainText
       color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
       font.family: Style.font.family

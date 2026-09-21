@@ -20,6 +20,8 @@ Item {
   property bool fido2Authenticating: false
   property bool fido2NeedsPin: false
   property string fido2Status: ""
+  property string fingerprintStatus: ""
+  property bool fingerprintStatusIsError: false
   property bool authenticatingPassword: false
   property string failureMessage: ""
   property int failedAttempts: 0
@@ -92,6 +94,8 @@ Item {
     it.fido2Authenticating = Qt.binding(function() { return host.fido2Authenticating })
     it.fido2NeedsPin = Qt.binding(function() { return host.fido2NeedsPin })
     it.fido2Status = Qt.binding(function() { return host.fido2Status })
+    if (it.fingerprintStatus !== undefined) it.fingerprintStatus = Qt.binding(function() { return host.fingerprintStatus })
+    if (it.fingerprintStatusIsError !== undefined) it.fingerprintStatusIsError = Qt.binding(function() { return host.fingerprintStatusIsError })
     it.authenticatingPassword = Qt.binding(function() { return host.authenticatingPassword })
     it.failureMessage = Qt.binding(function() { return host.failureMessage })
     it.failedAttempts = Qt.binding(function() { return host.failedAttempts })

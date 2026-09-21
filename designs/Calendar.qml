@@ -125,7 +125,7 @@ DesignBase {
       }
       Text {
         opacity: lock.snapshotMode ? 0 : 1
-        text: lock.fingerprintConfigured ? "󰆠  Touch sensor or press Enter" : "Press Enter to unlock"
+        text: lock.fingerprintConfigured ? lock.fingerprintHint("󰆠  Touch sensor or press Enter") : "Press Enter to unlock"
         color: lock.withAlpha(Color.lock.text, 0.5)
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall

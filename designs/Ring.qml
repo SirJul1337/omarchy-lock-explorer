@@ -143,7 +143,7 @@ DesignBase {
           : (lock.errorState ? lock.failureMessage
           : (lock.passwordText.length > 0
             ? (lock.passwordVisible ? lock.passwordText : lock.passwordText.length + " characters, Enter to unlock")
-            : (lock.fingerprintConfigured ? "Type your password or touch the sensor" : "Type your password")))
+            : (lock.fingerprintConfigured ? lock.fingerprintHint("Type your password or touch the sensor") : "Type your password")))
         textFormat: Text.PlainText
         color: lock.errorState ? Color.lock.textError : (lock.passwordVisible && lock.passwordText.length > 0 ? Color.lock.text : lock.withAlpha(Color.lock.text, 0.55))
         font.family: Style.font.family

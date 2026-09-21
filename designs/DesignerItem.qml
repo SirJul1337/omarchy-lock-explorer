@@ -118,15 +118,20 @@ Item {
     case "hostname": return lock.hostName
     case "status":
       if (lock.failureMessage.length > 0) return lock.failureMessage
+      if (piece.fingerprintFailed) return lock.fingerprintStatus
       if (p("attempts", true) && lock.failedAttempts > 0)
         return lock.failedAttempts + (lock.failedAttempts === 1 ? " failed attempt" : " failed attempts")
       if (lock.authenticatingPassword) return "Checking…"
+      if ((lock.fingerprintStatus || "").length > 0) return lock.fingerprintStatus
       return String(p("text", ""))
     }
     return String(p("text", ""))
   }
 
-  readonly property color textColor: (kind === "status" && lock && lock.failureMessage.length > 0)
+  // The reader reported a failure. The designer's preview has no reader, so
+  // the property can be missing there.
+  readonly property bool fingerprintFailed: !!(lock && lock.fingerprintStatusIsError && (lock.fingerprintStatus || "").length > 0)
+  readonly property color textColor: (kind === "status" && lock && (lock.failureMessage.length > 0 || fingerprintFailed))
     ? Color.lock.textError
     : tint(p("color", "text"), p("alpha", 1))
 

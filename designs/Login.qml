@@ -102,7 +102,7 @@ DesignBase {
       }
 
       Line {
-        text: "enter unlocks · esc clears" + (lock.fingerprintConfigured ? " · or touch the reader" : "")
+        text: lock.fingerprintHint("enter unlocks · esc clears" + (lock.fingerprintConfigured ? " · or touch the reader" : "")).toLowerCase()
           + (lock.fido2Configured ? " · tab for your key" : "")
         color: lock.withAlpha(Color.lock.text, 0.3)
         font.pixelSize: Math.round(lock.fs * 0.8)

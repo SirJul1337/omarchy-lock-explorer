@@ -38,7 +38,7 @@ DesignBase {
     anchors.top: parent.top
     anchors.margins: lock.margin
     opacity: lock.snapshotMode ? 0 : 1
-    text: lock.fingerprintConfigured ? "󰆠  FINGERPRINT READY" : "󰌾  LOCKED"
+    text: lock.fingerprintConfigured ? lock.fingerprintHint("󰆠  FINGERPRINT READY").toUpperCase() : "󰌾  LOCKED"
     color: lock.withAlpha(Color.lock.text, 0.75)
     font.family: Style.font.family
     font.pixelSize: Style.font.subtitle

@@ -1814,6 +1814,44 @@ echo "$out"
   property bool fido2Authenticating: false
   property bool fido2NeedsPin: false
   property string fido2Status: ""
+  // What the fingerprint reader is saying, in pam_fprintd's own words: "Place
+  // your finger on the fingerprint reader", "Failed to match fingerprint".
+  // Empty while no scan is running. The fido2Status of the fingerprint path.
+  property string fingerprintStatus: ""
+  property bool fingerprintStatusIsError: false
+  property string fingerprintPendingStatus: ""
+
+  // A failed match is followed within a moment by the next attempt's prompt,
+  // which would wipe it before anyone could read it. It is held on screen for
+  // a beat, with the prompt that arrives meanwhile queued behind it. None of
+  // it wakes the display: the prompt repeats after every attempt, and
+  // pam_fprintd reports its own periodic timeout as an error too, so waking
+  // on either would keep a blanked screen lit for as long as it is locked.
+  function handleFingerprintMessage() {
+    if (!lockRequested) return
+    var text = String(fingerprintPam.message || "").trim()
+    if (text.length === 0) return
+    if (fingerprintPam.messageIsError) {
+      fingerprintPendingStatus = ""
+      fingerprintStatus = text
+      fingerprintStatusIsError = true
+      fingerprintErrorHold.restart()
+      return
+    }
+    if (fingerprintErrorHold.running) {
+      fingerprintPendingStatus = text
+      return
+    }
+    fingerprintStatus = text
+    fingerprintStatusIsError = false
+  }
+
+  function clearFingerprintStatus() {
+    fingerprintErrorHold.stop()
+    fingerprintPendingStatus = ""
+    fingerprintStatus = ""
+    fingerprintStatusIsError = false
+  }
   // Last thing pam_u2f said that did not want an answer, i.e. the cue.
   property string fido2Cue: ""
   // PIN attempts in this lock. A wrong PIN costs one of the key's retries,
@@ -1984,6 +2022,7 @@ echo "$out"
     authenticatingPassword = false
     fingerprintAuthenticating = false
     fingerprintRetryTimer.stop()
+    clearFingerprintStatus()
     faceMisses = 0
     faceRetryTimer.stop()
     if (passwordPam.active) passwordPam.abort()
@@ -2425,6 +2464,8 @@ echo "$out"
           fido2Authenticating: root.fido2Authenticating
           fido2NeedsPin: root.fido2NeedsPin
           fido2Status: root.fido2Status
+          fingerprintStatus: root.fingerprintStatus
+          fingerprintStatusIsError: root.fingerprintStatusIsError
           authenticatingPassword: root.authenticatingPassword
           failureMessage: root.failureMessage
           failedAttempts: root.failedAttempts
@@ -2552,6 +2593,8 @@ echo "$out"
     config: "omarchy-lock-fingerprint"
     user: root.userName
 
+    onPamMessage: root.handleFingerprintMessage()
+
     onCompleted: function(result) {
       root.handleFingerprintFinished(result)
     }
@@ -2614,6 +2657,21 @@ echo "$out"
     interval: 250
     repeat: false
     onTriggered: root.startFingerprint()
+  }
+
+  Timer {
+    id: fingerprintErrorHold
+    interval: 2500
+    onTriggered: {
+      if (root.fingerprintPendingStatus.length > 0) {
+        root.fingerprintStatus = root.fingerprintPendingStatus
+        root.fingerprintStatusIsError = false
+        root.fingerprintPendingStatus = ""
+      } else if (root.fingerprintStatusIsError) {
+        root.fingerprintStatus = ""
+        root.fingerprintStatusIsError = false
+      }
+    }
   }
 
   Timer {
@@ -3177,6 +3235,7 @@ echo "$out"
         inputBlocked: root.inputBlocked,
         keyboardLayout: root.keyboardLayout,
         capsLock: root.capsLock,
+        fingerprintStatus: root.fingerprintStatus,
         shadowedBy: root.shadowingDirs,
         wakeGraceMs: root.wakeInputGrace,
         powerActions: root.powerActions,

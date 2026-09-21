@@ -1716,11 +1716,26 @@ Item {
       Rectangle {
         id: gridBox
         anchors.horizontalCenter: parent.horizontalCenter
-        readonly property real cell: Math.max(4, Math.floor(Math.min(
+        // ttfx draws every cell as a character of the theme's monospace font,
+        // about twice as tall as it is wide. Square cells showed the shape at
+        // double its width, so the cells take the font's own proportions,
+        // measured the way TtfxText measures them.
+        readonly property real aspect: cellProbe.contentWidth > 0
+          ? Math.max(1, Math.ceil(cellProbe.contentHeight) / (cellProbe.contentWidth / 10)) : 2
+        readonly property real cell: Math.max(3, Math.floor(Math.min(
           (designer.width * 0.8) / Math.max(1, designer.artCols),
-          (designer.height * 0.6) / Math.max(1, designer.artRows))))
+          (designer.height * 0.6) / Math.max(1, designer.artRows * aspect))))
+        readonly property real cellH: Math.round(cell * aspect)
         width: designer.artCols * cell + 2
-        height: designer.artRows * cell + 2
+        height: designer.artRows * cellH + 2
+
+        Text {
+          id: cellProbe
+          visible: false
+          text: "MMMMMMMMMM"
+          font.family: Style.font.family
+          font.pixelSize: 100
+        }
         color: designer.well
         border.width: 1
         border.color: designer.line
@@ -1730,7 +1745,7 @@ Item {
           x: 1
           y: 1
           width: designer.artCols * gridBox.cell
-          height: designer.artRows * gridBox.cell
+          height: designer.artRows * gridBox.cellH
 
           Repeater {
             model: designer.artRows * designer.artCols
@@ -1740,9 +1755,9 @@ Item {
               readonly property int row: Math.floor(index / Math.max(1, designer.artCols))
               readonly property int col: index % Math.max(1, designer.artCols)
               x: col * gridBox.cell
-              y: row * gridBox.cell
+              y: row * gridBox.cellH
               width: gridBox.cell
-              height: gridBox.cell
+              height: gridBox.cellH
               color: designer.artGrid[row] && designer.artGrid[row][col] ? designer.accent : "transparent"
               border.width: gridBox.cell >= 8 ? 1 : 0
               border.color: Qt.rgba(designer.foreground.r, designer.foreground.g, designer.foreground.b, 0.08)
@@ -1755,7 +1770,7 @@ Item {
             anchors.fill: parent
             hoverEnabled: false
             function cellAt(mx, my) {
-              return { r: Math.floor(my / gridBox.cell), c: Math.floor(mx / gridBox.cell) }
+              return { r: Math.floor(my / gridBox.cellH), c: Math.floor(mx / gridBox.cell) }
             }
             onPressed: function(mouse) {
               var at = cellAt(mouse.x, mouse.y)

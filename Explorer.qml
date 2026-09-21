@@ -1214,7 +1214,7 @@ Item {
             text: {
               if (root.wallpaperBroken) return "Wallpaper failed to load" + (root.wallpaperIsWebp ? " — WebP needs:  sudo pacman -S qt6-imageformats  (then omarchy restart shell)" : "")
               if (root.mainTab === "settings") return "Unlock transition, avatar and sign-in monitor"
-              if (root.mainTab === "boot") return "The disk-passphrase screen at first boot · experimental — a broken theme falls back to a plain text prompt"
+              if (root.mainTab === "boot") return "The disk-passphrase screen at first boot · a broken theme falls back to a plain text prompt"
               if (root.mainTab === "animation") return Designs.animations().length + " animated lock screens"
               if (root.mainTab === "editor") return root.bootEditing.length > 0 ? "Editing " + root.bootEditing : "Make a matching lock screen and boot screen"
               return (root.mainTab === "styling" ? Designs.stylings().length + " lock screen stylings · " : "") + root.currentThemeName + " · follows your theme"

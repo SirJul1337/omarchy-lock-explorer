@@ -10,7 +10,7 @@ Colors and fonts follow your Omarchy theme.
 - **Security key, fingerprint and face unlock** next to the password
 - **A visual designer** for your own layouts, or write the QML yourself
 - **Unlock animations** that fade, zoom or rise the lock screen away
-- **A matching boot screen** for the disk decryption prompt (experimental)
+- **A matching boot screen** for the disk decryption prompt
 - **Multi-monitor aware**, with a clock-only screen on the others, and a 12-hour clock option
 
 ## Install
@@ -258,11 +258,10 @@ With no avatar set, the first of `~/.config/omarchy/lock-avatar.{png,jpg,jpeg,we
 `~/.face.icon` and `/var/lib/AccountsService/icons/$USER` is used, so an existing profile picture
 shows up on its own.
 
-## Boot screen (drive decryption) — experimental
+## Boot screen (drive decryption)
 
-The boot screen support is experimental: it works and fails safe (a broken theme drops
-Plymouth to its plain text prompt, and the boot itself is never touched), but it is younger
-than the rest of the plugin.
+The boot screen fails safe: a broken theme drops Plymouth to its plain text prompt, and the
+boot itself is never touched.
 
 The screen that asks for your disk passphrase at first boot is Plymouth, not the shell, so it
 normally stays the stock Omarchy one no matter which design you pick. Designs with a boot twin

@@ -393,6 +393,9 @@ Item {
       margin: piece.p("margin", 1)
       textColor: piece.roleColor(piece.p("color", "text"))
       accentColor: piece.roleColor(piece.p("accent", "accent"))
+      // Picking another effect in the inspector cuts the running one short
+      // and plays the new one, instead of leaving it for the next replay.
+      onEffectChanged: play(effect)
 
       Connections {
         target: piece.p("replay", true) ? piece.lock : null

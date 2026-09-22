@@ -79,6 +79,18 @@ with face unlock set up (`pam_facelock`, the `omarchy-lock-face` PAM config with
 enrolled) pressing Enter on an empty password field starts a face check, the same as the stock
 lock. The password field shows an icon for each one that is available.
 
+**When the camera looks** is yours to set, under *Face unlock starts* in Settings:
+
+| | |
+| --- | --- |
+| **On wake** (default) | When the display comes back on, or when you return to a screen that stayed lit. Locking the screen while you sit in front of it does not scan, so it cannot recognise you and let you straight back in. |
+| **Always** | As soon as the session locks. |
+| **On request** | Never on its own; Enter on an empty field or the face button. |
+
+Either way the camera is only used behind a lock screen that is actually on: when the display
+blanks the scan stops and the camera is released, and a result that arrives from a scan the
+blanking cut short is ignored. Enter and the face button work in every mode.
+
 The field also shows the keyboard layout when it is not a US one — `DK`, `DE`, and so on,
 read from Hyprland and updated while the screen is locked, so a layout switched since you
 last typed is visible rather than something you discover four wrong passwords later.

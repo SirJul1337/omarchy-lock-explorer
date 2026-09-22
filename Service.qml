@@ -131,6 +131,38 @@ Item {
   }
   readonly property int wakeInputGrace: wakeGraceOverride >= 0 ? wakeGraceOverride : configuredWakeGrace
 
+  // When face unlock starts scanning on its own. "wake" (the default) scans
+  // when a blanked or sleeping panel comes back -- a lid opened, a key
+  // pressed -- but not when the screen is locked while you are sitting in
+  // front of it, which would recognise you and unlock again. "always" scans
+  // as soon as the session locks, "off" leaves it to Enter on an empty field
+  // or the face button. Saved on the plugin entry as `faceStart`.
+  readonly property string defaultFaceStart: "wake"
+  readonly property var faceStartOptions: ["always", "wake", "off"]
+  property string faceStartOverride: ""
+  readonly property string configuredFaceStart: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.faceStart !== undefined) {
+        var value = String(entry.faceStart)
+        if (faceStartOptions.indexOf(value) !== -1) return value
+      }
+    }
+    return defaultFaceStart
+  }
+  readonly property string faceStart: faceStartOverride.length > 0 ? faceStartOverride : configuredFaceStart
+  // "wake" needs a moment that says somebody came back. A panel powering on
+  // is the clear one, but a screen that never blanks (the keep-lit option, or
+  // hardware the display-power helper cannot drive) has none -- so an
+  // interaction a while after the lock counts too. The delay keeps the lock
+  // you just asked for from scanning the face still sitting in front of it.
+  readonly property int faceWakeQuiet: 15000
+  readonly property int faceRoundGap: 10000
+  property real lockedAt: 0
+  property real lastFaceRound: 0
+
   // Sleep, restart and shut down from the lock screen. Off by default: a
   // locked machine anyone can reboot is a different trade than a locked
   // machine that only takes a password, and that is the owner's call. Saved
@@ -448,6 +480,22 @@ Item {
       writeEntry(current)
     }
     logEvent("power-actions=" + (on ? "on" : "off"))
+    return true
+  }
+
+  function setFaceStart(value) {
+    var text = String(value === undefined ? "" : value).trim().toLowerCase()
+    if (faceStartOptions.indexOf(text) === -1) return false
+
+    faceStartOverride = text
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (text === defaultFaceStart) delete current.faceStart
+      else current.faceStart = text
+      writeEntry(current)
+    }
+    logEvent("face-start=" + text)
+    if (text === "off") stopFace()
     return true
   }
 
@@ -2046,6 +2094,8 @@ echo "$out"
     inputBlocked = false
     inputUnblockTimer.stop()
     lockRequested = true
+    lockedAt = Date.now()
+    lastFaceRound = 0
     armBlankTimer()
     logEvent("lock-requested")
     queueSessionLock()
@@ -2135,7 +2185,17 @@ echo "$out"
   }
 
   function runWake() {
+    var wasBlanked = screenBlanked
     screenBlanked = false
+    // A panel coming back is the moment to look: the lid just opened, or
+    // somebody touched the machine. Locking with the screen already on is
+    // not, unless the setting says otherwise.
+    if (lockRequested && sessionLock.secure && faceStart !== "off") {
+      var now = Date.now()
+      if (wasBlanked
+          || (faceStart === "wake" && now - lockedAt > faceWakeQuiet && now - lastFaceRound > faceRoundGap))
+        Qt.callLater(retryFace)
+    }
     // Failsafe: a wake that never exits must not leave the field inert.
     if (inputBlocked && !inputUnblockTimer.running) {
       inputUnblockTimer.interval = 3000
@@ -2150,6 +2210,9 @@ echo "$out"
     screenBlanked = !displayBlankingSuppressed
     inputBlocked = screenBlanked
     inputUnblockTimer.stop()
+    // Nothing to authenticate to while the panel is dark: drop the scan and
+    // let go of the camera until it comes back.
+    if (screenBlanked) stopFace()
     if (!blankProcess.running) blankProcess.running = true
   }
 
@@ -2213,11 +2276,18 @@ echo "$out"
     }
   }
 
+  // The camera runs only behind a lock screen someone can actually see: a
+  // dark panel means nobody is in front of it, and a scan there is a camera
+  // on for no one. Blanking stops the round; the wake starts a fresh one.
   function startFace() {
     if (!lockRequested || !sessionLock.secure || !faceConfigured) return
+    // "off" stops the automatic rounds, not the face button or Enter on an
+    // empty field, which come through retryFace.
+    if (screenBlanked) return
     if (facePam.active || faceAuthenticating) return
 
     faceAuthenticating = true
+    lastFaceRound = Date.now()
     if (!facePam.start()) faceAuthenticating = false
   }
 
@@ -2226,10 +2296,20 @@ echo "$out"
     startFace()
   }
 
+  function stopFace() {
+    faceRetryTimer.stop()
+    faceMisses = 0
+    if (facePam.active) facePam.abort()
+    faceAuthenticating = false
+  }
+
   function handleFaceFinished(result) {
     faceAuthenticating = false
 
     if (!lockRequested) return
+    // A result from a round the blanking cut short says nothing about who is
+    // in front of the screen now.
+    if (screenBlanked) return
     if (result === PamResult.Success) {
       finishUnlock()
     } else {
@@ -2238,7 +2318,7 @@ echo "$out"
   }
 
   function faceMissed() {
-    if (!lockRequested || !faceConfigured) return
+    if (!lockRequested || !faceConfigured || screenBlanked) return
     faceMisses += 1
     if (faceMisses < faceRetryLimit) faceRetryTimer.restart()
     else logEvent("face-paused after " + faceMisses + " misses")
@@ -2407,7 +2487,7 @@ echo "$out"
         sessionLockStabilizeTimer.stop()
         pendingSessionLockTimer.stop()
         root.startFingerprint()
-        root.startFace()
+        if (root.faceStart === "always") root.startFace()
         root.startFido2()
       }
     }
@@ -2832,7 +2912,7 @@ echo "$out"
     stdout: StdioCollector { id: faceCheckStdout; waitForEnd: true }
     onExited: {
       root.faceConfigured = String(faceCheckStdout.text || "").trim() === "yes"
-      if (root.lockRequested && root.faceConfigured) root.startFace()
+      if (root.lockRequested && root.faceConfigured && root.faceStart === "always") root.startFace()
       else if (!root.faceConfigured && facePam.active) facePam.abort()
     }
   }
@@ -3058,6 +3138,7 @@ echo "$out"
       readonly property bool displayBlankingSuppressed: root.displayBlankingSuppressed
       readonly property bool fingerprintConfigured: root.fingerprintConfigured
       readonly property bool faceConfigured: root.faceConfigured
+      readonly property string faceStart: root.faceStart
       readonly property bool fido2Configured: root.fido2Configured
       readonly property bool fido2Installed: root.fido2Installed
       readonly property bool fido2Enabled: root.fido2Enabled
@@ -3121,6 +3202,7 @@ echo "$out"
       function setUnlockDuration(ms) { return root.setUnlockDuration(ms) }
       function setBlankDelay(ms) { return root.setBlankDelay(ms) }
       function setWakeGrace(ms) { return root.setWakeGrace(ms) }
+      function setFaceStart(value) { return root.setFaceStart(value) }
       function setPowerActions(value) { return root.setPowerActions(value) }
       function runPowerAction(action) { return root.runPowerAction(action) }
       function setKeepDisplayOn(on) { return root.setKeepDisplayOn(on) }
@@ -3238,6 +3320,7 @@ echo "$out"
         fingerprintStatus: root.fingerprintStatus,
         shadowedBy: root.shadowingDirs,
         wakeGraceMs: root.wakeInputGrace,
+        faceStart: root.faceStart,
         powerActions: root.powerActions,
         keepDisplayOn: root.keepDisplayOn,
         displayBlankingSuppressed: root.displayBlankingSuppressed,
@@ -3306,6 +3389,14 @@ echo "$out"
 
     function setWakeGrace(value: string): string {
       return root.setWakeGrace(value) ? "ok" : "invalid-value"
+    }
+
+    function faceStart(): string {
+      return root.faceStart
+    }
+
+    function setFaceStart(value: string): string {
+      return root.setFaceStart(value) ? "ok" : "invalid-value (always, wake or off)"
     }
 
     function boot(): string {

@@ -114,6 +114,8 @@ Item {
   readonly property var blankPresets: [5000, 15000, 30000, 60000, 300000]
   readonly property int wakeGrace: service && service.wakeGrace !== undefined ? service.wakeGrace : 1000
   readonly property bool powerActions: service && service.powerActions === true
+  readonly property bool faceConfigured: service && service.faceConfigured === true
+  readonly property string faceStart: service && service.faceStart !== undefined ? String(service.faceStart) : "wake"
   readonly property var onOffOptions: [{ id: "on", name: "On" }, { id: "off", name: "Off" }]
   property bool customDelayEditing: false
   property string customDelayText: ""
@@ -834,6 +836,11 @@ Item {
   function setWakeGrace(ms) {
     if (!root.service || typeof root.service.setWakeGrace !== "function") return
     root.service.setWakeGrace(ms)
+  }
+
+  function setFaceStart(value) {
+    if (!root.service || typeof root.service.setFaceStart !== "function") return
+    root.service.setFaceStart(value)
   }
 
   function beginCustomDelay() {
@@ -1731,6 +1738,71 @@ Item {
                       ? "Only the keys pressed before the screen wakes are dropped."
                       : "Keys keep waking the screen without typing until the panel has had "
                         + (root.wakeGrace % 1000 === 0 ? root.wakeGrace / 1000 + "s" : root.wakeGrace + "ms") + " to light up."
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+
+              // Face unlock can look the moment the lock comes up, which
+              // recognises whoever locked the screen and lets them straight
+              // back in. Only shown when a face is enrolled.
+              Row {
+                visible: root.faceConfigured
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Face unlock starts"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: [
+                    { id: "wake", name: "On wake" },
+                    { id: "always", name: "Always" },
+                    { id: "off", name: "On request" }
+                  ]
+                  Rectangle {
+                    id: faceChip
+                    required property var modelData
+                    readonly property bool current: root.faceStart === modelData.id
+                    width: faceChipLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, faceChipArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: faceChipLabel
+                      anchors.centerIn: parent
+                      text: faceChip.modelData.name
+                      color: faceChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: faceChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: faceChipArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setFaceStart(faceChip.modelData.id)
+                    }
+                  }
+                }
+              }
+
+              Text {
+                visible: root.faceConfigured
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: root.faceStart === "always"
+                      ? "The camera looks as soon as the screen locks. Locking while you sit in front of it can unlock it again."
+                      : root.faceStart === "off"
+                        ? "The camera only looks when you press Enter on an empty field or click the face button."
+                        : "The camera looks when the display wakes, or when you come back to a screen that stayed lit, and on Enter or the face button. It never looks at a blanked screen."
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption

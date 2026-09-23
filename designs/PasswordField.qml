@@ -164,8 +164,17 @@ BorderSurface {
     anchors.fill: parent
     anchors.topMargin: field.borderTop
     anchors.bottomMargin: field.borderBottom
-    anchors.leftMargin: field.borderLeft + field.sidePadding + Math.max(field.fingerprintReserve, field.glyphReserve)
-    anchors.rightMargin: field.borderRight + field.sidePadding + Math.max(field.fingerprintReserve, field.glyphReserve)
+    // Mirrored only when the text is centred, which is what the mirroring is
+    // for: keeping it centred between the chrome on either side. A design that
+    // aligns left or right has no such need, and mirroring there opens a gap
+    // the width of the opposite side's icons before the first character.
+    // Each side still reserves its own chrome, so text never runs under it.
+    anchors.leftMargin: field.borderLeft + field.sidePadding
+      + (field.textAlignment === TextInput.AlignHCenter
+        ? Math.max(field.fingerprintReserve, field.glyphReserve) : field.glyphReserve)
+    anchors.rightMargin: field.borderRight + field.sidePadding
+      + (field.textAlignment === TextInput.AlignHCenter
+        ? Math.max(field.fingerprintReserve, field.glyphReserve) : field.fingerprintReserve)
     verticalAlignment: TextInput.AlignVCenter
     horizontalAlignment: field.textAlignment
     font.pixelSize: text.length > 0 && !field.revealed ? Math.max(1, Math.floor(field.dotFontSize * field.dotScale)) : field.fieldFontSize

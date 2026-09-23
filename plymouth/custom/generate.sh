@@ -183,8 +183,41 @@ dim.r = ${dim_f%%,*}; dim.g = $(echo "$dim_f" | cut -d, -f2); dim.b = $(echo "$d
 Window.SetBackgroundTopColor(${bg_f});
 Window.SetBackgroundBottomColor(${bg_f});
 
-screen.w = Window.GetWidth();
-screen.h = Window.GetHeight();
+# Plymouth composites one canvas and every head shows its own slice of it, so
+# a layout built from a single Window.GetWidth() lands wrong on any head of a
+# different size: on a wider one it is cropped, on a narrower one it sits off
+# to the side (issue #38). Each head is measured separately here, and the
+# background below is drawn once per head, at that head's own origin.
+display_count = 0;
+i = 0;
+while (i < 8) {
+  dw = Window.GetWidth(i);
+  dh = Window.GetHeight(i);
+  if (dw > 0) {
+    dsp_x[display_count] = Window.GetX(i);
+    dsp_y[display_count] = Window.GetY(i);
+    dsp_w[display_count] = dw;
+    dsp_h[display_count] = dh;
+    display_count++;
+  }
+  i++;
+}
+# An older plymouth that does not take a display index answers for the one
+# screen it has; that is the single-head case and it still works.
+if (display_count == 0) {
+  dsp_x[0] = 0;
+  dsp_y[0] = 0;
+  dsp_w[0] = Window.GetWidth();
+  dsp_h[0] = Window.GetHeight();
+  display_count = 1;
+}
+
+# The prompt, the logo and the hint live on the first head; the others carry
+# the background alone.
+screen.x = dsp_x[0];
+screen.y = dsp_y[0];
+screen.w = dsp_w[0];
+screen.h = dsp_h[0];
 EOF
 
 # Where the background gets drawn. One scale factor for both axes, and the
@@ -197,12 +230,27 @@ EOF
 # identity transform; it earns its keep when Plymouth comes up on a mode the
 # session was not using.
 [[ -f $staging/bg.png ]] && cat <<EOF
-bg.scale = screen.w / $bg_iw;
-if (screen.h / $bg_ih $bg_fit bg.scale) bg.scale = screen.h / $bg_ih;
-bg.w = $bg_iw * bg.scale;
-bg.h = $bg_ih * bg.scale;
-bg.x = (screen.w - bg.w) / 2;
-bg.y = (screen.h - bg.h) / 2;
+# Per head: one scale factor for both axes, the leftover centred on that head.
+# Scaling each axis to the head independently distorted any background whose
+# aspect ratio did not match it -- 1920x1080 blown up to an ultrawide came out
+# 34% too wide. bg_fit picks which of the two factors wins.
+# Inline rather than in a function: a bare assignment inside a script function
+# creates a local, so the sizes would never reach the sprites below.
+i = 0;
+while (i < display_count) {
+  s = dsp_w[i] / $bg_iw;
+  if (dsp_h[i] / $bg_ih $bg_fit s) s = dsp_h[i] / $bg_ih;
+  bg_w[i] = $bg_iw * s;
+  bg_h[i] = $bg_ih * s;
+  bg_x[i] = dsp_x[i] + (dsp_w[i] - bg_w[i]) / 2;
+  bg_y[i] = dsp_y[i] + (dsp_h[i] - bg_h[i]) / 2;
+  i++;
+}
+# What the entry and the rest measure against: the copy on the first head.
+bg.w = bg_w[0];
+bg.h = bg_h[0];
+bg.x = bg_x[0];
+bg.y = bg_y[0];
 EOF
 
 if [[ -n $bg_has_box && -f $staging/bg-plain.png ]]; then
@@ -212,20 +260,38 @@ cat <<'EOF'
 # prompt up -- and bg.png with the box overlays it exactly while a passphrase
 # prompt is live, so the box is never dead chrome. The boxed image loads
 # lazily; a run that never prompts never decodes it.
-bg.plain_sprite = Sprite(Image("bg-plain.png").Scale(bg.w, bg.h));
-bg.plain_sprite.SetPosition(bg.x, bg.y, 0);
-bg.sprite = Sprite();
-bg.sprite.SetPosition(bg.x, bg.y, 1);
+bg.plain_image = Image("bg-plain.png");
+i = 0;
+while (i < display_count) {
+  bg_plain_sprites[i] = Sprite(bg.plain_image.Scale(bg_w[i], bg_h[i]));
+  bg_plain_sprites[i].SetPosition(bg_x[i], bg_y[i], 0);
+  bg_sprites[i] = Sprite();
+  bg_sprites[i].SetPosition(bg_x[i], bg_y[i], 1);
+  i++;
+}
 global.bg_loaded = 0;
 fun bg_prompt() {
   if (global.bg_loaded == 0) {
-    bg.sprite.SetImage(Image("bg.png").Scale(bg.w, bg.h));
+    boxed = Image("bg.png");
+    i = 0;
+    while (i < display_count) {
+      bg_sprites[i].SetImage(boxed.Scale(bg_w[i], bg_h[i]));
+      i++;
+    }
     global.bg_loaded = 1;
   }
-  bg.sprite.SetOpacity(1);
+  i = 0;
+  while (i < display_count) {
+    bg_sprites[i].SetOpacity(1);
+    i++;
+  }
 }
 fun bg_idle() {
-  bg.sprite.SetOpacity(0);
+  i = 0;
+  while (i < display_count) {
+    bg_sprites[i].SetOpacity(0);
+    i++;
+  }
 }
 EOF
 elif [[ -n $bg_has_box ]]; then
@@ -236,53 +302,77 @@ cat <<'EOF'
 # image out and show the plain theme background. A prompt that does fire
 # brings it back -- the bullets belong inside the painted box -- and loading
 # lazily spares the decode entirely on a promptless shutdown.
-bg.sprite = Sprite();
-bg.sprite.SetPosition(bg.x, bg.y, 0);
+i = 0;
+while (i < display_count) {
+  bg_sprites[i] = Sprite();
+  bg_sprites[i].SetPosition(bg_x[i], bg_y[i], 0);
+  i++;
+}
 global.bg_loaded = 0;
 fun bg_prompt() {
   if (global.bg_loaded == 0) {
-    bg.sprite.SetImage(Image("bg.png").Scale(bg.w, bg.h));
+    boxed = Image("bg.png");
+    i = 0;
+    while (i < display_count) {
+      bg_sprites[i].SetImage(boxed.Scale(bg_w[i], bg_h[i]));
+      i++;
+    }
     global.bg_loaded = 1;
   }
-  bg.sprite.SetOpacity(1);
+  i = 0;
+  while (i < display_count) {
+    bg_sprites[i].SetOpacity(1);
+    i++;
+  }
 }
 EOF
 emit_downward_gate bg_wanted
 cat <<'EOF'
 fun bg_idle() {
-  if (global.bg_wanted == 0) bg.sprite.SetOpacity(0);
+  if (global.bg_wanted == 0) {
+    i = 0;
+    while (i < display_count) {
+      bg_sprites[i].SetOpacity(0);
+      i++;
+    }
+  }
 }
 if (global.bg_wanted == 1) bg_prompt();
 EOF
 elif [[ -f $staging/bg.png ]]; then
 cat <<'EOF'
-bg.sprite = Sprite(Image("bg.png").Scale(bg.w, bg.h));
-bg.sprite.SetPosition(bg.x, bg.y, 0);
+bg.image = Image("bg.png");
+i = 0;
+while (i < display_count) {
+  bg_sprites[i] = Sprite(bg.image.Scale(bg_w[i], bg_h[i]));
+  bg_sprites[i].SetPosition(bg_x[i], bg_y[i], 0);
+  i++;
+}
 EOF
 fi
 
 [[ -f $staging/scanline.png ]] && cat <<'EOF'
 scan.sprite = Sprite(Image("scanline.png").Tile(screen.w, screen.h));
-scan.sprite.SetPosition(0, 0, 1);
+scan.sprite.SetPosition(screen.x, screen.y, 1);
 EOF
 
 [[ -f $staging/logo.png ]] && cat <<EOF
 logo.image = Image("logo.png");
 logo.scaled = logo.image.Scale(logo.image.GetWidth() * $logo_h / logo.image.GetHeight(), $logo_h);
 logo.sprite = Sprite(logo.scaled);
-logo.sprite.SetPosition(screen.w / 2 - logo.scaled.GetWidth() / 2, screen.h * $logo_y / 100 - logo.scaled.GetHeight() / 2, 5);
+logo.sprite.SetPosition(screen.x + screen.w / 2 - logo.scaled.GetWidth() / 2, screen.y + screen.h * $logo_y / 100 - logo.scaled.GetHeight() / 2, 5);
 EOF
 
 [[ -n $title ]] && cat <<EOF
 title.image = Image.Text("$title", $title_f, 1, "$family $title_size");
 title.sprite = Sprite(title.image);
-title.sprite.SetPosition(screen.w / 2 - title.image.GetWidth() / 2, screen.h * $title_y / 100 - title.image.GetHeight() / 2, 5);
+title.sprite.SetPosition(screen.x + screen.w / 2 - title.image.GetWidth() / 2, screen.y + screen.h * $title_y / 100 - title.image.GetHeight() / 2, 5);
 EOF
 
 [[ -n $subtitle ]] && cat <<EOF
 subtitle.image = Image.Text("$subtitle", $subtitle_f, 1, "$family $subtitle_size");
 subtitle.sprite = Sprite(subtitle.image);
-subtitle.sprite.SetPosition(screen.w / 2 - subtitle.image.GetWidth() / 2, screen.h * $subtitle_y / 100 - subtitle.image.GetHeight() / 2, 5);
+subtitle.sprite.SetPosition(screen.x + screen.w / 2 - subtitle.image.GetWidth() / 2, screen.y + screen.h * $subtitle_y / 100 - subtitle.image.GetHeight() / 2, 5);
 EOF
 
 if [[ $entry != none ]]; then
@@ -290,8 +380,8 @@ if [[ -f $staging/entry.png ]]; then
 cat <<EOF
 entry.image = Image("entry.png");
 entry.sprite = Sprite(entry.image);
-entry.cx = screen.w * $entry_x / 100;
-entry.cy = screen.h * $entry_y / 100;
+entry.cx = screen.x + screen.w * $entry_x / 100;
+entry.cy = screen.y + screen.h * $entry_y / 100;
 entry.iw = entry.image.GetWidth() - 48;
 # The text area inside the pill, about as tall as a snapshot's measured one.
 entry.ih = entry.image.GetHeight() * 0.6;
@@ -405,7 +495,7 @@ if [[ -n $hint ]]; then
 cat <<EOF
 hint.image = Image.Text("$hint", dim.r, dim.g, dim.b, 1, "$family 12");
 hint.sprite = Sprite(hint.image);
-hint.sprite.SetPosition(screen.w - hint.image.GetWidth() - 60, screen.h - hint.image.GetHeight() - 50, 5);
+hint.sprite.SetPosition(screen.x + screen.w - hint.image.GetWidth() - 60, screen.y + screen.h - hint.image.GetHeight() - 50, 5);
 EOF
 [[ $entry != none ]] && cat <<'EOF'
 # Hidden until a prompt fires, like the entry it explains.
@@ -416,7 +506,7 @@ fi
 cat <<EOF
 
 message_sprite = Sprite();
-message_sprite.SetPosition(20, screen.h - 40, 6);
+message_sprite.SetPosition(screen.x + 20, screen.y + screen.h - 40, 6);
 
 fun display_message_callback(text) {
   message_sprite.SetImage(Image.Text(text, dim.r, dim.g, dim.b, 1, "$family 12"));

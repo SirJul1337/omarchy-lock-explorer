@@ -104,6 +104,7 @@ DesignBase {
     anchors.bottomMargin: 36
     anchors.horizontalCenter: parent.horizontalCenter
     text: lock.fingerprintConfigured ? lock.fingerprintHint("TOUCH SENSOR OR TYPE PASSWORD").toUpperCase() : "TYPE PASSWORD  ·  ENTER TO UNLOCK"
+    textFormat: Text.PlainText
     color: lock.withAlpha(Color.lock.text, 0.45)
     font.family: Style.font.family
     font.pixelSize: Style.font.caption

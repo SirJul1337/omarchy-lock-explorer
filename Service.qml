@@ -1875,9 +1875,20 @@ echo "$out"
   // it wakes the display: the prompt repeats after every attempt, and
   // pam_fprintd reports its own periodic timeout as an error too, so waking
   // on either would keep a blanked screen lit for as long as it is locked.
+  // What a PAM module says is shown on the lock screen, so it is treated as
+  // foreign text: the first line only, capped, and every design renders it as
+  // PlainText. A module that sends markup, a novel or a screenful of newlines
+  // cannot reshape the lock screen with it.
+  readonly property int pamMessageMax: 120
+
+  function pamMessageText(raw) {
+    var text = String(raw || "").replace(/\s+/g, " ").trim()
+    return text.length > pamMessageMax ? text.substring(0, pamMessageMax - 1) + "…" : text
+  }
+
   function handleFingerprintMessage() {
     if (!lockRequested) return
-    var text = String(fingerprintPam.message || "").trim()
+    var text = pamMessageText(fingerprintPam.message)
     if (text.length === 0) return
     if (fingerprintPam.messageIsError) {
       fingerprintPendingStatus = ""
@@ -2447,7 +2458,7 @@ echo "$out"
     }
 
     fido2NeedsPin = false
-    var text = String(fido2Pam.message || "").trim()
+    var text = pamMessageText(fido2Pam.message)
     if (text.length > 0) {
       fido2Cue = text
       fido2Status = text
@@ -2946,7 +2957,10 @@ echo "$out"
       var codes = String(kb.layout === undefined ? "" : kb.layout).split(",")
       var at = Number(kb.active_layout_index || 0)
       var code = codes.length > at ? codes[at] : codes[0]
-      root.keyboardLayout = String(code || "").trim().toUpperCase()
+      // Hyprland reports the configured layout verbatim, and a custom XKB
+      // layout is a free-form name. The badge bounds what it draws; this
+      // bounds what is kept.
+      root.keyboardLayout = String(code || "").trim().toUpperCase().substring(0, 24)
       // Older Hyprland does not report it; then it stays off rather than lying.
       root.capsLock = kb.capsLock === true
     }

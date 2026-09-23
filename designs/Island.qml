@@ -89,6 +89,7 @@ DesignBase {
     anchors.horizontalCenter: parent.horizontalCenter
     opacity: lock.snapshotMode ? 0 : 1
     text: lock.fingerprintConfigured ? lock.fingerprintHint("󰆠  Touch sensor or type password") : "󰌾  " + lock.hostName
+    textFormat: Text.PlainText
     color: lock.withAlpha(Color.lock.text, 0.5)
     font.family: Style.font.family
     font.pixelSize: Style.font.bodySmall

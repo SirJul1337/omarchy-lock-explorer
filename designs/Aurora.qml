@@ -123,6 +123,7 @@ DesignBase {
     text: lock.failedAttempts > 0
       ? lock.failedAttempts + " failed " + (lock.failedAttempts === 1 ? "attempt" : "attempts")
       : (lock.fingerprintConfigured ? lock.fingerprintHint("Touch the sensor or press Enter") : "Press Enter to unlock")
+    textFormat: Text.PlainText
     color: lock.failedAttempts > 0 ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.45)
     font.family: Style.font.family
     font.pixelSize: Style.font.bodySmall

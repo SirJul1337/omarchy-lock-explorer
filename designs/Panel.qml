@@ -185,6 +185,7 @@ DesignBase {
         text: lock.fingerprintHint("enter to unlock"
           + (lock.fingerprintConfigured ? " · or touch the reader" : "")
           + (lock.fido2Configured ? " · tab for your key" : "")).toLowerCase()
+        textFormat: Text.PlainText
         color: lock.withAlpha(Color.lock.text, 0.28)
         font.family: Style.font.family
         font.pixelSize: Style.font.body

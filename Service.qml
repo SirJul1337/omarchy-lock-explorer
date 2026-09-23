@@ -1910,6 +1910,18 @@ echo "$out"
   property int fido2PinAttempts: 0
   property bool fido2PinSubmitted: false
   readonly property int fido2PinAttemptLimit: 3
+  // pam_u2f waits about 30s for a touch and then returns PamResult.Failed --
+  // the same code a touch that did not verify gives. A round that ran the
+  // whole wait with no PIN typed is the no-touch case, and it spends nothing:
+  // no PIN retry, no on-key biometric retry. Anything shorter had a user in it.
+  readonly property int fido2NoTouchMs: 20000
+  property real fido2RoundStarted: 0
+  // A touch that did not verify costs one of the key's own UV retries, not a
+  // PIN retry, and the key caps those itself and resets them on a match. The
+  // round is offered again rather than the user having to Tab back, and this
+  // many in a row is the key at its own limit: hand over the password.
+  readonly property int fido2TouchRetryLimit: 3
+  property int fido2TouchMisses: 0
   readonly property bool fido2Exhausted: fido2PinAttempts >= fido2PinAttemptLimit
   readonly property bool fido2Active: authMode === "fido2"
   property bool previewVisible: false
@@ -2079,6 +2091,7 @@ echo "$out"
     abortFido2()
     fido2PinAttempts = 0
     fido2PinSubmitted = false
+    fido2TouchMisses = 0
     authMode = "password"
     authModeSettled = false
   }
@@ -2196,6 +2209,7 @@ echo "$out"
           || (faceStart === "wake" && now - lockedAt > faceWakeQuiet && now - lastFaceRound > faceRoundGap))
         Qt.callLater(retryFace)
     }
+    if (wasBlanked && lockRequested && sessionLock.secure) Qt.callLater(retryFido2)
     // Failsafe: a wake that never exits must not leave the field inert.
     if (inputBlocked && !inputUnblockTimer.running) {
       inputUnblockTimer.interval = 3000
@@ -2291,6 +2305,11 @@ echo "$out"
     if (!facePam.start()) faceAuthenticating = false
   }
 
+  function retryFido2() {
+    fido2TouchMisses = 0
+    startFido2()
+  }
+
   function retryFace() {
     faceMisses = 0
     startFace()
@@ -2370,18 +2389,21 @@ echo "$out"
     refreshFido2Status()
   }
 
+  // Same reasoning as startFace: a dark panel means nobody is in front of it,
+  // and a key blinking there is asking for a finger that is not coming.
+  // Blanking ends the round; the wake starts a fresh one.
   function startFido2() {
     // Same gate as startFingerprint: a success before the surface is secure
     // would unlock a lock that never took.
     if (!lockRequested || !sessionLock.secure) return
     if (!fido2Active || !fido2Configured || fido2Exhausted) return
     if (fido2Pam.active || fido2Authenticating) return
+    if (screenBlanked) return
     if (!fido2TokenPresent) {
       fido2Status = "No security key found"
       return
     }
 
-    runWake()
     // Anything typed before the key was found would be read-only in the field
     // from here on and end up in front of the PIN, costing a retry for nothing.
     enteredPassword = ""
@@ -2390,6 +2412,7 @@ echo "$out"
     fido2Cue = ""
     fido2Status = "Waiting for your key…"
     fido2Authenticating = true
+    fido2RoundStarted = Date.now()
     if (!fido2Pam.start()) {
       fido2Authenticating = false
       fido2Status = "Could not start the key"
@@ -2412,7 +2435,10 @@ echo "$out"
   // touch, so the cue it did send is kept and put back at that point.
   function handleFido2Message() {
     if (!fido2Authenticating) return
-    runWake()
+    // Only the PIN prompt is asking the user for something. Waking on the
+    // touch cue instead re-arms the blank timer once per round, so a lock with
+    // a key plugged in would never go dark.
+    if (fido2Pam.responseRequired) runWake()
 
     if (fido2Pam.responseRequired) {
       fido2NeedsPin = true
@@ -2449,14 +2475,39 @@ echo "$out"
     fido2NeedsPin = false
     enteredPassword = ""
 
+    var elapsed = fido2RoundStarted ? Date.now() - fido2RoundStarted : 0
+    fido2RoundStarted = 0
+
     if (!lockRequested) return
+    // A touch is unambiguous even in the dark, so a success still unlocks.
     if (result === PamResult.Success) {
       finishUnlock()
       return
     }
 
-    // No retry timer, unlike fingerprint and face: a failed key attempt can
-    // have cost one of its PIN retries, so the next one is the user's call.
+    // A result from a round the blanking cut short says nothing about who is
+    // in front of the screen now, and waking the panel to report it would
+    // light the lock up for no one.
+    if (screenBlanked) {
+      fido2Status = ""
+      logEvent("fido2-round dropped, screen dark")
+      return
+    }
+
+    // Nobody touched the key: the module waited its whole time and gave up.
+    // Nothing was spent and nobody tried, so it is not held against the user
+    // and the round simply starts again -- otherwise a lock left alone for
+    // longer than that wait looks like it is still on the key while nothing
+    // is listening, and Tab is the only way back.
+    if (!fido2PinSubmitted && elapsed >= fido2NoTouchMs) {
+      fido2Status = ""
+      logEvent("fido2-round again after " + elapsed + "ms")
+      fido2RetryTimer.restart()
+      return
+    }
+
+    // A PIN that went to the key is still the user's to spend again.
+    var pinWasSubmitted = fido2PinSubmitted
     failedAttempts += 1
     if (fido2PinSubmitted) fido2PinAttempts += 1
     fido2PinSubmitted = false
@@ -2471,6 +2522,17 @@ echo "$out"
       logEvent("fido2-exhausted")
     } else {
       failureMessage = "Security key failed (" + failedAttempts + ")"
+      if (!pinWasSubmitted && fido2Active && fido2TokenPresent) {
+        fido2TouchMisses += 1
+        if (fido2TouchMisses < fido2TouchRetryLimit) fido2RetryTimer.restart()
+        else {
+          setAuthMode("password")
+          // Short: the field elides, and the switch to the password is what
+          // says where to go next.
+          failureMessage = "Too many tries"
+          logEvent("fido2-paused after " + fido2TouchMisses + " misses")
+        }
+      }
     }
     runWake()
   }
@@ -2752,6 +2814,15 @@ echo "$out"
         root.fingerprintStatusIsError = false
       }
     }
+  }
+
+  // Longer than faceRetryTimer: a round that ends the instant it starts would
+  // otherwise spin, and nothing here is racing a camera frame.
+  Timer {
+    id: fido2RetryTimer
+    interval: 500
+    repeat: false
+    onTriggered: root.startFido2()
   }
 
   Timer {

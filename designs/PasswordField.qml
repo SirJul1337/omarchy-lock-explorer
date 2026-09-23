@@ -37,8 +37,19 @@ BorderSurface {
   // A password is typed blind, so a layout that is not a plain US keyboard is
   // said in the box. It goes with the lock glyph on the left, and is left out
   // of boot snapshots like the rest of the chrome.
-  readonly property bool showLayout: lock ? (lock.foreignLayout === true && !snapshotBox) : false
+  readonly property bool showLayout: lock ? (lock.foreignLayout === true && !snapshotBox && layoutFits) : false
   readonly property bool showCaps: lock ? (lock.capsLock === true && !snapshotBox) : false
+  // The badge is sized from the code and comes out of the text area, and a
+  // layout is not always a two-letter country code: a custom XKB layout is a
+  // free-form name, and Hyprland reports it verbatim. Unbounded, one of those
+  // pushes the placeholder out of the field.
+  //
+  // Not truncated either. Cutting `USMACFR-XPS` down to `USMA…` leaves a badge
+  // opening with US, which reads as the plain-US case this is here to warn
+  // about -- worse than saying nothing. A code that cannot fit is not a
+  // country code, so the badge stands down and leaves the field to the text.
+  readonly property real layoutBadgeMax: Math.round(fieldFontSize * 2.2)
+  readonly property bool layoutFits: layoutCode.implicitWidth <= layoutBadgeMax
   readonly property real glyphReserve: (showLockGlyph ? Math.round(lockGlyph.implicitWidth + 12) : 0)
     + (showLayout ? Math.round(layoutBadge.width + 8) : 0)
     + (showCaps ? Math.round(capsBadge.width + 8) : 0)

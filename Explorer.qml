@@ -76,6 +76,38 @@ Item {
   }
   property int selectedIndex: 0
   property bool fullPreview: false
+  // The ? sheet: every key the explorer takes, over whatever page is open.
+  property bool showingKeys: false
+  // Widest row of key caps, so every description starts on one line.
+  property real keyCapsWidth: 0
+  readonly property var keySections: [
+    { title: "Browse", rows: [
+      { keys: ["←", "→", "↑", "↓"], text: "Move between designs" },
+      { keys: ["H", "J", "K", "L"], text: "The same, Vim style" },
+      { keys: ["Home", "End"], text: "First and last design" },
+      { keys: ["PgUp", "PgDn"], text: "Scroll a page" },
+      { keys: ["Space", "P"], text: "Full-size preview" },
+      { keys: ["Enter"], text: "Use the selected design" }
+    ] },
+    { title: "Your designs", rows: [
+      { keys: ["D"], text: "Designer: new, or this one if made there" },
+      { keys: ["C"], text: "Copy to Custom and edit the code" },
+      { keys: ["E"], text: "Edit a design of your own" },
+      { keys: ["N"], text: "New design from the template" },
+      { keys: ["X", "Del"], text: "Delete your own design (press twice)" }
+    ] },
+    { title: "Pictures and video", rows: [
+      { keys: ["A", "Shift+A"], text: "Pick or clear the profile picture" },
+      { keys: ["V", "Shift+V"], text: "Pick or clear the Motion video" },
+      { keys: ["S", "Shift+S"], text: "Pick or clear the unlock clip" }
+    ] },
+    { title: "Pages", rows: [
+      { keys: ["U"], text: "Settings" },
+      { keys: ["B"], text: "Boot screen" },
+      { keys: ["?"], text: "This list" },
+      { keys: ["Esc"], text: "Back, or close the explorer" }
+    ] }
+  ]
   property bool editing: false
   property var editingDesign: null
   // The visual designer, which takes over the card the same way the code
@@ -138,6 +170,7 @@ Item {
   }
 
   function handleEscape() {
+    if (showingKeys) { showingKeys = false; return }
     if (confirmingDelete.length > 0) { confirmingDelete = ""; return }
     if (designing) { designerView.requestClose(); return }
     if (editing) { closeEditor(); return }
@@ -698,6 +731,7 @@ Item {
   function dismiss() {
     root.opened = false
     root.fullPreview = false
+    root.showingKeys = false
     if (root.designerPaused) {
       if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
       return
@@ -1104,6 +1138,14 @@ Item {
         if (root.editing) return
         if (root.bootEditing.length > 0) return
         if (root.customDelayEditing) return
+        // event.text as well, since ? sits on a different key per layout.
+        var question = event.key === Qt.Key_Question || event.text === "?"
+        if (root.showingKeys) {
+          if (question) root.showingKeys = false
+          event.accepted = true
+          return
+        }
+        if (question) { root.showingKeys = true; event.accepted = true; return }
         if (root.mainTab !== "styling" && root.mainTab !== "animation") {
           if (event.key === Qt.Key_U) { root.toggleSettings("settings"); event.accepted = true }
           else if (event.key === Qt.Key_B) { root.toggleSettings("boot"); event.accepted = true }
@@ -3577,9 +3619,9 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           text: {
             if (root.mainTab === "editor") return "Changes save automatically   ·   Esc: back"
-            if (root.mainTab === "boot") return "Click a card to pick it   ·   Apply writes it to the boot image   ·   B / Esc: back"
-            if (root.mainTab === "settings") return "U / Esc: back"
-            return "Arrows: browse   Space: preview   Enter: select   D: designer   C: customize   E: edit   N: new   X: delete   A: avatar   V: video   S: unlock clip   U: unlock effect   B: boot screen   Esc: close"
+            if (root.mainTab === "boot") return "Click a card to pick it   ·   Apply writes it to the boot image   ·   B / Esc: back   ·   ?: all keys"
+            if (root.mainTab === "settings") return "U / Esc: back   ·   ?: all keys"
+            return "Arrows: browse   Space: preview   Enter: select   D: designer   U: settings   B: boot screen   ?: all keys   Esc: close"
           }
           color: root.muted
           font.family: root.fontFamily
@@ -3793,6 +3835,137 @@ Item {
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
             anchors.verticalCenter: parent.verticalCenter
+          }
+        }
+      }
+    }
+
+    Item {
+      anchors.fill: parent
+      visible: root.showingKeys
+      z: 100
+
+      Rectangle { anchors.fill: parent; color: root.scrim }
+      MouseArea { anchors.fill: parent; onClicked: root.showingKeys = false }
+
+      BorderSurface {
+        id: keysSheet
+        anchors.centerIn: parent
+        width: keysBody.implicitWidth + contentLeftInset + contentRightInset
+        height: keysBody.implicitHeight + contentTopInset + contentBottomInset
+        radius: root.cornerRadius
+        color: root.background
+        borderSpec: root.borderSpec
+        padding: root.contentMargin
+
+        MouseArea { anchors.fill: parent; onClicked: {} }
+
+        Column {
+          id: keysBody
+          x: keysSheet.contentLeftInset
+          y: keysSheet.contentTopInset
+          spacing: Style.space(24)
+
+          Column {
+            spacing: 3
+            Row {
+              spacing: Style.space(8)
+              Text {
+                text: "::"
+                color: root.accent
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.display
+                font.weight: Font.Bold
+              }
+              Text {
+                text: "KEYBOARD SHORTCUTS"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.display
+                font.weight: Font.Bold
+                font.letterSpacing: 2
+              }
+            }
+            Text {
+              text: "On the design grid · ? or Esc closes this"
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+            }
+          }
+
+          Grid {
+            columns: 2
+            columnSpacing: Style.space(48)
+            rowSpacing: Style.space(24)
+
+            Repeater {
+              model: root.keySections
+              Column {
+                id: keySection
+                required property var modelData
+                spacing: Style.space(8)
+
+                Text {
+                  text: keySection.modelData.title.toUpperCase()
+                  color: root.accent
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.weight: Font.DemiBold
+                  font.letterSpacing: 1.5
+                }
+
+                Repeater {
+                  model: keySection.modelData.rows
+                  Row {
+                    id: keyRow
+                    required property var modelData
+                    spacing: Style.space(12)
+
+                    Item {
+                      width: root.keyCapsWidth
+                      height: Style.space(22)
+                      Row {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Style.space(4)
+                        onImplicitWidthChanged: root.keyCapsWidth = Math.max(root.keyCapsWidth, implicitWidth)
+                        Repeater {
+                          model: keyRow.modelData.keys
+                          Rectangle {
+                            id: keyCap
+                            required property var modelData
+                            width: Math.max(Style.space(22), capLabel.implicitWidth + Style.space(12))
+                            height: Style.space(22)
+                            radius: root.cornerRadius
+                            color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.08)
+                            border.width: 1
+                            border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.18)
+                            Text {
+                              id: capLabel
+                              anchors.centerIn: parent
+                              text: keyCap.modelData
+                              textFormat: Text.PlainText
+                              color: root.foreground
+                              font.family: root.fontFamily
+                              font.pixelSize: Style.font.caption
+                            }
+                          }
+                        }
+                      }
+                    }
+
+                    Text {
+                      anchors.verticalCenter: parent.verticalCenter
+                      text: keyRow.modelData.text
+                      textFormat: Text.PlainText
+                      color: root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

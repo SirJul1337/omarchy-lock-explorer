@@ -67,7 +67,7 @@ the plugin to get the stock lock screen back.
 omarchy-shell lock explore
 ```
 
-Arrows to browse, Tab to switch category (or click the chips), Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` cycles the unlock animation and `Shift+U` its length, the same as clicking the Unlock chip in the header.
+Arrows (or H J K L) to browse, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, where the unlock animation is, and `B` the boot screen. `?` lists every key the explorer takes.
 
 `A` picks a profile picture with the normal file dialog (the explorer steps aside while the
 dialog is up and comes back when you are done), `Shift+A` clears it again. The designs that show
@@ -183,9 +183,8 @@ omarchy-shell lock setBoot follow            # stock, follow, or a design id wit
 With more than one monitor you can pick which one shows the sign-in with `setInputMonitor`.
 The others get a clock only screen (typing still works there).
 
-The unlock is instant unless you ask for an animation. The Unlock chip in the explorer header
-turns one on -- click it to cycle, click the milliseconds next to it for the length, or use `U`
-and `Shift+U`. With one on, the lock screen animates away rather than blinking out: the design fades into the plain wallpaper and the desktop is behind it on the
+The unlock is instant unless you ask for an animation. Settings in the explorer (`U`) turns one
+on, and `setUnlockDuration` sets its length. With one on, the lock screen animates away rather than blinking out: the design fades into the plain wallpaper and the desktop is behind it on the
 same background. `fade` dissolves it, `zoom` fades with a slight push in and `rise` lifts it off
 the screen, `none` is the default instant one. `setUnlockDuration` takes milliseconds.
 `previewUnlock` plays the animation on the preview so you can see it without locking. The lock

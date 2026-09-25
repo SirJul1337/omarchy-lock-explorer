@@ -53,7 +53,7 @@ DesignBase {
         font.weight: Font.DemiBold
       }
       Text {
-        text: Qt.formatDate(lock.now, "dddd d MMMM yyyy")
+        text: lock.date("dddd d MMMM yyyy")
         color: lock.withAlpha(Color.lock.text, 0.65)
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
@@ -70,7 +70,7 @@ DesignBase {
       radius: 6
       outlineThickness: 1
       color: lock.withAlpha(Color.background, 0.5)
-      placeholder: "Password"
+      placeholder: lock.tr("Password")
     }
 
     Column {
@@ -87,7 +87,7 @@ DesignBase {
       }
       Text {
         anchors.right: parent.right
-        text: lock.errorState ? lock.failureMessage : (lock.authenticatingPassword ? "Checking…" : lock.hostName)
+        text: lock.errorState ? lock.failureMessage : (lock.authenticatingPassword ? lock.tr("Checking…") : lock.hostName)
         textFormat: Text.PlainText
         color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.65)
         font.family: Style.font.family

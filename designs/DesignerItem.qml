@@ -12,6 +12,7 @@ import qs.Commons
 // repaints.
 Item {
   id: piece
+  function tr(text) { return lock && typeof lock.tr === "function" ? lock.tr(text) : text }
 
   property var lock: null
   property string kind: "label"
@@ -121,7 +122,7 @@ Item {
     if (!lock) return ""
     switch (kind) {
     case "clock": return lock.clock(String(p("format", "HH:mm")))
-    case "date": return Qt.formatDate(lock.now, String(p("format", "dddd, d MMMM")))
+    case "date": return lock.date(String(p("format", "dddd, d MMMM")))
     case "greeting": return lock.greeting() + (p("withName", true) ? ", " + lock.userName : "")
     case "username": return lock.userName
     case "hostname": return lock.hostName
@@ -129,8 +130,8 @@ Item {
       if (lock.failureMessage.length > 0) return lock.failureMessage
       if (piece.fingerprintFailed) return lock.fingerprintStatus
       if (p("attempts", true) && lock.failedAttempts > 0)
-        return lock.failedAttempts + (lock.failedAttempts === 1 ? " failed attempt" : " failed attempts")
-      if (lock.authenticatingPassword) return "Checking…"
+        return tr(lock.failedAttempts === 1 ? "1 failed attempt" : "%1 failed attempts").arg(lock.failedAttempts)
+      if (lock.authenticatingPassword) return tr("Checking…")
       if ((lock.fingerprintStatus || "").length > 0) return lock.fingerprintStatus
       return String(p("text", ""))
     }
@@ -241,7 +242,7 @@ Item {
       id: passwordBox
       property Item field: passwordBox.input
       lock: piece.lock
-      placeholder: String(piece.p("placeholder", "Enter password"))
+      placeholder: String(piece.p("placeholder", tr("Enter password")))
       showLockGlyph: piece.p("glyph", true)
       fontScale: piece.p("fontScale", 1)
       textAlignment: piece.p("align", "center") === "left" ? TextInput.AlignLeft

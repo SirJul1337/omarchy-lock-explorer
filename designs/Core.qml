@@ -75,7 +75,7 @@ DesignBase {
       Text {
         anchors.centerIn: parent
         visible: lock.passwordText.length === 0
-        text: Ttfx.inputStatus(lock, "type to unlock")
+        text: Ttfx.inputStatus(lock, lock.tr("type to unlock"))
         color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, lock.authenticatingPassword ? 0.9 : 0.35)
         font.family: Style.font.family
         font.pixelSize: Style.font.title

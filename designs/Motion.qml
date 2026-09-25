@@ -56,7 +56,7 @@ DesignBase {
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: Qt.formatDate(lock.now, "dddd d MMMM").toUpperCase()
+      text: lock.date("dddd d MMMM").toUpperCase()
       color: lock.withAlpha(Color.lock.text, 0.75)
       font.family: Style.font.family
       font.pixelSize: Style.font.heading
@@ -78,14 +78,14 @@ DesignBase {
       height: 58
       radius: height / 2
       showLockGlyph: false
-      placeholder: "Password"
+      placeholder: lock.tr("Password")
       color: lock.withAlpha(Color.lock.background, 0.55)
     }
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.failedAttempts > 0
-        ? lock.failedAttempts + " failed " + (lock.failedAttempts === 1 ? "attempt" : "attempts")
+        ? lock.tr(lock.failedAttempts === 1 ? "1 failed attempt" : "%1 failed attempts").arg(lock.failedAttempts)
         : (lock.hasVideo ? "" : "No video yet  ·  omarchy-shell lock pickVideo")
       color: lock.failedAttempts > 0 ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
       font.family: Style.font.family

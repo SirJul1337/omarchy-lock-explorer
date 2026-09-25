@@ -1,4 +1,4 @@
-name: Display power policy
+name: Tests
 on: [push, pull_request]
 jobs:
   test:
@@ -8,4 +8,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/display-power.test.cjs
+      - run: node --test tests/*.test.cjs

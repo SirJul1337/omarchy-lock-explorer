@@ -18,7 +18,7 @@ DesignBase {
     anchors.top: parent.top
     anchors.topMargin: 48
     anchors.horizontalCenter: parent.horizontalCenter
-    text: lock.clock("HH:mm") + "   " + Qt.formatDate(lock.now, "ddd d MMM")
+    text: lock.clock("HH:mm") + "   " + lock.date("ddd d MMM")
     color: lock.withAlpha(Color.lock.text, 0.7)
     font.family: Style.font.family
     font.pixelSize: Style.font.title
@@ -61,7 +61,7 @@ DesignBase {
       }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: lock.errorState ? lock.failureMessage : (lock.authenticatingPassword ? "Checking…" : lock.hostName)
+        text: lock.errorState ? lock.failureMessage : (lock.authenticatingPassword ? lock.tr("Checking…") : lock.hostName)
         textFormat: Text.PlainText
         color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
         font.family: Style.font.family
@@ -77,7 +77,7 @@ DesignBase {
       height: 52
       radius: 26
       showLockGlyph: false
-      placeholder: "Password"
+      placeholder: lock.tr("Password")
       color: lock.withAlpha(Color.lock.background, 0.6)
     }
   }
@@ -87,7 +87,7 @@ DesignBase {
     anchors.bottomMargin: 36
     anchors.horizontalCenter: parent.horizontalCenter
     opacity: lock.snapshotMode ? 0 : 1
-    text: lock.fingerprintConfigured ? lock.fingerprintHint("󰆠  Touch sensor or press Enter") : "Press Enter to unlock"
+    text: lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("󰆠  Touch sensor or press Enter")) : lock.tr("Press Enter to unlock")
     textFormat: Text.PlainText
     color: lock.withAlpha(Color.lock.text, 0.45)
     font.family: Style.font.family

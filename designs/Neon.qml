@@ -71,7 +71,7 @@ DesignBase {
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: Qt.formatDate(lock.now, "dddd  ·  d MMMM").toUpperCase()
+      text: lock.date("dddd  ·  d MMMM").toUpperCase()
       color: Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Style.font.title
@@ -103,7 +103,7 @@ DesignBase {
     anchors.bottom: parent.bottom
     anchors.bottomMargin: 36
     anchors.horizontalCenter: parent.horizontalCenter
-    text: lock.fingerprintConfigured ? lock.fingerprintHint("TOUCH SENSOR OR TYPE PASSWORD").toUpperCase() : "TYPE PASSWORD  ·  ENTER TO UNLOCK"
+    text: lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("TOUCH SENSOR OR TYPE PASSWORD")).toUpperCase() : lock.tr("TYPE PASSWORD  ·  ENTER TO UNLOCK")
     textFormat: Text.PlainText
     color: lock.withAlpha(Color.lock.text, 0.45)
     font.family: Style.font.family

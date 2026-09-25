@@ -207,6 +207,15 @@ Item {
   readonly property string reduceMotion: service && service.reduceMotion !== undefined ? String(service.reduceMotion) : "off"
   readonly property bool motionReduced: !!service && service.motionReduced === true
   readonly property real uiScale: service && service.uiScale !== undefined ? service.uiScale : 1
+  readonly property string lockLanguage: service && service.language !== undefined ? String(service.language) : "en"
+  readonly property string languageSetting: service && service.languageSetting !== undefined ? String(service.languageSetting) : "auto"
+  readonly property var languageChoices: {
+    var list = service && service.languages ? service.languages : []
+    var system = service && service.systemLanguage ? String(service.systemLanguage) : "en"
+    var sysName = "English"
+    for (var i = 0; i < list.length; i++) if (list[i].id === system) sysName = list[i].name
+    return [{ id: "auto", name: "System (" + sysName + ")" }].concat(list.map(function(l) { return { id: l.id, name: l.name } }))
+  }
   readonly property var reduceMotionChoices: [
     { id: "off", name: "Off" }, { id: "on", name: "On" }, { id: "battery", name: "On battery" }
   ]
@@ -957,6 +966,11 @@ Item {
     root.service.setReduceMotion(id)
   }
 
+  function setLanguage(id) {
+    if (!root.service || typeof root.service.setLanguage !== "function") return
+    root.service.setLanguage(id)
+  }
+
   function setUiScale(id) {
     if (!root.service || typeof root.service.setUiScale !== "function") return
     root.service.setUiScale(id)
@@ -1203,6 +1217,7 @@ Item {
         wallpaperDim: root.wallpaperDimShift
         uiScale: root.uiScale
         holdStill: root.motionReduced
+        language: root.lockLanguage
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         avatarPath: root.service ? root.service.avatarPath : ""
@@ -2326,6 +2341,60 @@ Item {
                 text: root.wallpaperBlur === "design" && root.wallpaperDim === "design"
                       ? "Each design blurs and darkens the wallpaper its own way."
                       : "Designs drawn over a solid color or their own art are not affected."
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+
+              // The lock screen's own text and dates. System follows LANG
+              // when Strings.js has that language, English otherwise.
+              Flow {
+                width: Math.min(parent.width, Style.space(760))
+                spacing: Style.space(6)
+
+                Text {
+                  height: Style.space(26)
+                  verticalAlignment: Text.AlignVCenter
+                  text: "Language"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: root.languageChoices
+                  Rectangle {
+                    id: langChip
+                    required property var modelData
+                    readonly property bool current: modelData.id === root.languageSetting
+                    width: langLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, langArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: langLabel
+                      anchors.centerIn: parent
+                      text: langChip.modelData.name
+                      color: langChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: langChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: langArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setLanguage(langChip.modelData.id)
+                    }
+                  }
+                }
+              }
+
+              Text {
+                text: "The lock screen's prompts, messages and dates. The explorer itself stays in English."
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -3778,6 +3847,7 @@ Item {
               wallpaperDim: root.wallpaperDimShift
               uiScale: root.uiScale
               holdStill: root.motionReduced
+              language: root.lockLanguage
               backgroundPath: root.service ? root.service.backgroundPath : ""
               backgroundVersion: root.service ? root.service.backgroundVersion : 0
               avatarPath: root.service ? root.service.avatarPath : ""
@@ -3976,6 +4046,7 @@ Item {
                     wallpaperDim: root.wallpaperDimShift
                     uiScale: root.uiScale
                     holdStill: root.motionReduced
+                    language: root.lockLanguage
                     backgroundPath: root.service ? root.service.backgroundPath : ""
                     backgroundVersion: root.service ? root.service.backgroundVersion : 0
                     avatarPath: root.service ? root.service.avatarPath : ""
@@ -4397,6 +4468,7 @@ Item {
         wallpaperDim: root.wallpaperDimShift
         uiScale: root.uiScale
         holdStill: root.motionReduced
+        language: root.lockLanguage
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         fingerprintConfigured: root.service ? root.service.fingerprintConfigured : false

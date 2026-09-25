@@ -75,7 +75,7 @@ DesignBase {
     anchors.topMargin: 12
     anchors.horizontalCenter: parent.horizontalCenter
     text: lock.errorState ? lock.failureMessage
-      : (lock.authenticatingPassword ? "Checking…" : Qt.formatDate(lock.now, "dddd d MMMM"))
+      : (lock.authenticatingPassword ? lock.tr("Checking…") : lock.date("dddd d MMMM"))
     textFormat: Text.PlainText
     color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.75)
     font.family: Style.font.family
@@ -88,7 +88,7 @@ DesignBase {
     anchors.bottomMargin: 32
     anchors.horizontalCenter: parent.horizontalCenter
     opacity: lock.snapshotMode ? 0 : 1
-    text: lock.fingerprintConfigured ? lock.fingerprintHint("󰆠  Touch sensor or type password") : "󰌾  " + lock.hostName
+    text: lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("󰆠  Touch sensor or type password")) : "󰌾  " + lock.hostName
     textFormat: Text.PlainText
     color: lock.withAlpha(Color.lock.text, 0.5)
     font.family: Style.font.family

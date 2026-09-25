@@ -57,6 +57,8 @@ Item {
   // of it, taken once it has settled and again whenever something it says
   // changes -- a typed character, a failed attempt, the minute on the clock.
   property bool holdStill: false
+  // The design's language, see Strings.js.
+  property string language: "en"
   // Pixel size of that frame; the explorer's small previews ask for less.
   property size stillTextureSize: Qt.size(0, 0)
   property bool stillReady: false
@@ -130,6 +132,7 @@ Item {
     if (it.twelveHour !== undefined) it.twelveHour = Qt.binding(function() { return host.twelveHour })
     if (it.wallpaperBlur !== undefined) it.wallpaperBlur = Qt.binding(function() { return host.wallpaperBlur })
     if (it.wallpaperDim !== undefined) it.wallpaperDim = Qt.binding(function() { return host.wallpaperDim })
+    if (it.language !== undefined) it.language = Qt.binding(function() { return host.language })
   }
 
   Item {
@@ -227,6 +230,7 @@ Item {
     function onWallpaperDimChanged() { host.regrab() }
     function onBackgroundVersionChanged() { host.restill() }
     function onAvatarVersionChanged() { host.regrab() }
+    function onLanguageChanged() { host.regrab() }
   }
 
   FileView {

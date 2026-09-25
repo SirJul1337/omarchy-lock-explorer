@@ -50,7 +50,7 @@ DesignBase {
       }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: Qt.formatDate(lock.now, "dddd d MMMM").toUpperCase()
+        text: lock.date("dddd d MMMM").toUpperCase()
         color: lock.withAlpha(Color.lock.text, 0.65)
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
@@ -123,9 +123,9 @@ DesignBase {
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: lock.authenticatingPassword ? "Checking…"
+      text: lock.authenticatingPassword ? lock.tr("Checking…")
         : (lock.errorState ? lock.failureMessage
-        : (lock.fingerprintConfigured ? lock.fingerprintHint("Type your password or touch the sensor") : "Type your password"))
+        : (lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("Type your password or touch the sensor")) : lock.tr("Type your password")))
       textFormat: Text.PlainText
       color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
       font.family: Style.font.family

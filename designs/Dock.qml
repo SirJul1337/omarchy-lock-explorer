@@ -56,8 +56,8 @@ DesignBase {
         }
         Text {
           text: lock.errorState ? lock.failureMessage
-            : (lock.authenticatingPassword ? "Checking…"
-            : (lock.fingerprintConfigured ? lock.fingerprintHint("Locked, touch sensor or type password") : "Locked"))
+            : (lock.authenticatingPassword ? lock.tr("Checking…")
+            : (lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("Locked, touch sensor or type password")) : lock.tr("Locked")))
           textFormat: Text.PlainText
           color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
           font.family: Style.font.family
@@ -75,7 +75,7 @@ DesignBase {
       radius: Math.max(Style.cornerRadius, 8)
       outlineThickness: 1
       textAlignment: TextInput.AlignLeft
-      placeholder: "Password"
+      placeholder: lock.tr("Password")
       color: lock.withAlpha(Color.background, 0.6)
     }
 
@@ -86,7 +86,7 @@ DesignBase {
       spacing: 14
       Text {
         anchors.verticalCenter: parent.verticalCenter
-        text: Qt.formatDate(lock.now, "ddd d MMM")
+        text: lock.date("ddd d MMM")
         color: lock.withAlpha(Color.lock.text, 0.65)
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle

@@ -231,6 +231,20 @@ solid color or their own art (Aurora, Neon, the ttfx designs and so on) are not 
 `omarchy-shell lock setWallpaperBlur sharp` and `setWallpaperDim darker`, `design` for either to
 go back. They are saved on the plugin entry as `wallpaperBlur` and `wallpaperDim`.
 
+### Language
+
+The lock screen speaks your system's language when it has it: Danish, Dutch, English, French,
+German, Italian, Norwegian, Polish, Portuguese, Spanish and Swedish so far. Prompts, greetings,
+failure messages and the failed-attempt notification are translated, and dates use that
+language's day and month names. The Settings tab has a "Language" row to pick one instead of
+following `LANG`; by hand, `omarchy-shell lock setLanguage de` (`auto` to follow the system
+again). The explorer itself is still English, and designs that play on a terminal or a video
+recorder (Terminal, Login, Statusline, VHS, Rain's lines) keep their English on purpose.
+
+The text lives in `designs/Strings.js`, keyed by the English. Corrections and new languages are
+welcome as pull requests. In a design of your own, `lock.tr("Press Enter to unlock")` gives the
+translated text and `lock.date("dddd d MMMM")` a date in the lock screen's language.
+
 ### Reduce motion and size
 
 **Reduce motion** in Settings holds every design still: Off, On, or On battery (moving while on

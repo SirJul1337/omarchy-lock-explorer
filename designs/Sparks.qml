@@ -154,7 +154,7 @@ DesignBase {
     radius: 10
     showLockGlyph: false
     shakeOnFail: false
-    placeholder: "Password"
+    placeholder: lock.tr("Password")
     color: lock.withAlpha(Color.lock.background, 0.6)
   }
 }

@@ -7,6 +7,7 @@ import qs.Commons
 import "Designs.js" as Designs
 import "DisplayPower.js" as DisplayPower
 import "Bridge.js" as Bridge
+import "designs/Strings.js" as Strings
 
 Item {
   id: root
@@ -411,11 +412,12 @@ Item {
     var count = times.length
     var last = new Date(times[count - 1])
     var today = new Date()
-    var clock = Qt.formatTime(last, twelveHour ? "h:mm AP" : "HH:mm")
-    var when = last.toDateString() === today.toDateString() ? clock : Qt.formatDate(last, "ddd") + " " + clock
-    var summary = count === 1 ? "1 failed attempt to unlock" : count + " failed attempts to unlock"
-    Quickshell.execDetached(["notify-send", "-a", "Lock screen", summary,
-                             "While the screen was locked, the last at " + when])
+    var locale = Qt.locale(Strings.localeName(language))
+    var clock = last.toLocaleString(locale, twelveHour ? "h:mm AP" : "HH:mm")
+    var when = last.toDateString() === today.toDateString() ? clock : last.toLocaleString(locale, "ddd") + " " + clock
+    var summary = count === 1 ? t("1 failed attempt to unlock") : t("%1 failed attempts to unlock").arg(count)
+    Quickshell.execDetached(["notify-send", "-a", t("Lock screen"), summary,
+                             t("While the screen was locked, the last at %1").arg(when)])
     logEvent("away-report count=" + count)
   }
 
@@ -453,6 +455,41 @@ Item {
 
   function toggleFavorite(id) {
     return setFavorite(id, favorites.indexOf(String(id || "")) === -1)
+  }
+
+  // The lock screen's language: the system's (LANG, through Qt.locale()) when
+  // Strings.js has it, English otherwise, or one picked in Settings. Saved on
+  // the plugin entry as `language` only once it is picked.
+  readonly property var languages: Strings.LANGUAGES
+  readonly property string systemLanguage: Strings.fromLocale(Qt.locale().name)
+  property string languageOverride: ""
+  readonly property string configuredLanguage: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.language !== undefined && Strings.known(String(entry.language)))
+        return String(entry.language)
+    }
+    return "auto"
+  }
+  readonly property string languageSetting: languageOverride.length > 0 ? languageOverride : configuredLanguage
+  readonly property string language: languageSetting === "auto" ? systemLanguage : languageSetting
+  function t(text) { return Strings.tr(language, text) }
+
+  function setLanguage(value) {
+    var text = String(value === undefined ? "" : value).trim().toLowerCase()
+    if (text !== "auto") text = text === "no" || text === "nn" ? "nb" : text
+    if (text !== "auto" && !Strings.known(text)) return false
+    languageOverride = text
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (text === "auto") delete current.language
+      else current.language = text
+      writeEntry(current)
+    }
+    logEvent("language=" + text)
+    return true
   }
 
   // Reduce motion: off, on, or only while on battery. Size: how much larger
@@ -2516,7 +2553,7 @@ echo "$out"
     pendingPassword = ""
     failedAttempts += 1
     failureTimes = failureTimes.concat([Date.now()])
-    failureMessage = "Authentication failed (" + failedAttempts + ")"
+    failureMessage = t("Authentication failed (%1)").arg(failedAttempts)
     runWake()
   }
 
@@ -2630,13 +2667,13 @@ echo "$out"
   function requestFido2() {
     if (!lockRequested || !fido2Configured) return
     if (fido2Exhausted) {
-      failureMessage = "Use your password"
+      failureMessage = t("Use your password")
       return
     }
     if (!fido2Active) setAuthMode("fido2")
     if (!fido2Active || fido2Authenticating) return
     failureMessage = ""
-    fido2Status = "Looking for your key…"
+    fido2Status = t("Looking for your key…")
     refreshFido2Status()
   }
 
@@ -2651,7 +2688,7 @@ echo "$out"
     if (fido2Pam.active || fido2Authenticating) return
     if (screenBlanked) return
     if (!fido2TokenPresent) {
-      fido2Status = "No security key found"
+      fido2Status = t("No security key found")
       return
     }
 
@@ -2661,12 +2698,12 @@ echo "$out"
     fido2NeedsPin = false
     fido2PinSubmitted = false
     fido2Cue = ""
-    fido2Status = "Waiting for your key…"
+    fido2Status = t("Waiting for your key…")
     fido2Authenticating = true
     fido2RoundStarted = Date.now()
     if (!fido2Pam.start()) {
       fido2Authenticating = false
-      fido2Status = "Could not start the key"
+      fido2Status = t("Could not start the key")
     }
   }
 
@@ -2693,7 +2730,7 @@ echo "$out"
 
     if (fido2Pam.responseRequired) {
       fido2NeedsPin = true
-      fido2Status = "Enter the PIN for your key"
+      fido2Status = t("Enter the PIN for your key")
       return
     }
 
@@ -2770,10 +2807,10 @@ echo "$out"
       // its retries are not the lock screen's to spend. Back to the password;
       // setAuthMode clears failureMessage, so the message goes after it.
       setAuthMode("password")
-      failureMessage = "Use your password"
+      failureMessage = t("Use your password")
       logEvent("fido2-exhausted")
     } else {
-      failureMessage = "Security key failed (" + failedAttempts + ")"
+      failureMessage = t("Security key failed (%1)").arg(failedAttempts)
       if (!pinWasSubmitted && fido2Active && fido2TokenPresent) {
         fido2TouchMisses += 1
         if (fido2TouchMisses < fido2TouchRetryLimit) fido2RetryTimer.restart()
@@ -2781,7 +2818,7 @@ echo "$out"
           setAuthMode("password")
           // Short: the field elides, and the switch to the password is what
           // says where to go next.
-          failureMessage = "Too many tries"
+          failureMessage = t("Too many tries")
           logEvent("fido2-paused after " + fido2TouchMisses + " misses")
         }
       }
@@ -2877,6 +2914,7 @@ echo "$out"
           wallpaperDim: root.wallpaperDimShift
           uiScale: root.uiScale
           holdStill: root.motionReduced
+          language: root.language
           onUnlockFinished: root.releaseLock()
           onPasswordTextEdited: function(password) { root.enteredPassword = password }
           onSubmitPassword: function(password) { root.submitPassword(password) }
@@ -2933,6 +2971,7 @@ echo "$out"
         wallpaperDim: root.wallpaperDimShift
         uiScale: root.uiScale
         holdStill: root.motionReduced
+        language: root.language
         // Hold the clip's last frame in the preview instead of snapping back
         // to the start; Esc (hidePreview) resets it.
         onUnlockFinished: {}
@@ -3479,6 +3518,10 @@ echo "$out"
       readonly property string reduceMotion: root.reduceMotion
       readonly property bool motionReduced: root.motionReduced
       readonly property real uiScale: root.uiScale
+      readonly property var languages: root.languages
+      readonly property string language: root.language
+      readonly property string languageSetting: root.languageSetting
+      readonly property string systemLanguage: root.systemLanguage
       readonly property bool keepDisplayOn: root.keepDisplayOn
       readonly property bool displayBlankingSuppressed: root.displayBlankingSuppressed
       readonly property bool fingerprintConfigured: root.fingerprintConfigured
@@ -3557,6 +3600,7 @@ echo "$out"
       function setWallpaperDim(value) { return root.setWallpaperDim(value) }
       function setReduceMotion(value) { return root.setReduceMotion(value) }
       function setUiScale(value) { return root.setUiScale(value) }
+      function setLanguage(value) { return root.setLanguage(value) }
       function runPowerAction(action) { return root.runPowerAction(action) }
       function setKeepDisplayOn(on) { return root.setKeepDisplayOn(on) }
       function refreshBackground() { return root.refreshBackground() }
@@ -3682,6 +3726,8 @@ echo "$out"
         motionReduced: root.motionReduced,
         onBattery: root.onBattery,
         uiScale: root.uiScale,
+        language: root.language,
+        languageSetting: root.languageSetting,
         keepDisplayOn: root.keepDisplayOn,
         displayBlankingSuppressed: root.displayBlankingSuppressed,
         unlocking: root.unlocking,
@@ -3773,6 +3819,14 @@ echo "$out"
 
     function setReduceMotion(value: string): string {
       return root.setReduceMotion(value) ? "ok" : "invalid-value"
+    }
+
+    function language(): string {
+      return root.languageSetting === "auto" ? "auto (" + root.language + ")" : root.language
+    }
+
+    function setLanguage(value: string): string {
+      return root.setLanguage(value) ? "ok" : "invalid-value"
     }
 
     function size(): string {

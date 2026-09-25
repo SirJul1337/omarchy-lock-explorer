@@ -36,7 +36,7 @@ DesignBase {
       layer.effect: MultiEffect { shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.6); shadowBlur: 1.0; shadowVerticalOffset: 2 }
     }
     Text {
-      text: Qt.formatDate(lock.now, "dddd, d MMMM")
+      text: lock.date("dddd, d MMMM")
       color: lock.withAlpha(Color.lock.text, 0.85)
       font.family: Style.font.family
       font.pixelSize: Style.font.display
@@ -102,14 +102,14 @@ DesignBase {
         width: lock.fieldWidth
         height: 58
         textAlignment: TextInput.AlignLeft
-        placeholder: "Password"
+        placeholder: lock.tr("Password")
       }
 
       Text {
         opacity: lock.snapshotMode ? 0 : 1
         text: lock.failedAttempts > 0
-          ? lock.failedAttempts + " failed " + (lock.failedAttempts === 1 ? "attempt" : "attempts")
-          : (lock.fingerprintConfigured ? lock.fingerprintHint("󰆠  Touch the sensor or press Enter") : "Press Enter to unlock")
+          ? lock.tr(lock.failedAttempts === 1 ? "1 failed attempt" : "%1 failed attempts").arg(lock.failedAttempts)
+          : (lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("󰆠  Touch the sensor or press Enter")) : lock.tr("Press Enter to unlock"))
         textFormat: Text.PlainText
         color: lock.failedAttempts > 0 ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
         font.family: Style.font.family

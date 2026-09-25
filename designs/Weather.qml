@@ -15,7 +15,7 @@ DesignBase {
   readonly property var current: report && report.current_condition && report.current_condition.length ? report.current_condition[0] : null
   readonly property string temp: current ? current.temp_C + "°" : "--"
   readonly property string feels: current ? current.FeelsLikeC + "°" : ""
-  readonly property string desc: current && current.weatherDesc && current.weatherDesc.length ? current.weatherDesc[0].value : (loading ? "Loading weather" : (error || "No weather"))
+  readonly property string desc: current && current.weatherDesc && current.weatherDesc.length ? current.weatherDesc[0].value : (loading ? lock.tr("Loading weather") : (error || lock.tr("No weather")))
   readonly property string area: report && report.nearest_area && report.nearest_area.length && report.nearest_area[0].areaName ? report.nearest_area[0].areaName[0].value : ""
   readonly property var days: report && report.weather ? report.weather.slice(0, 3) : []
 
@@ -88,7 +88,7 @@ DesignBase {
       if (ok) {
         lock.error = ""
       } else {
-        lock.error = "Weather unavailable"
+        lock.error = lock.tr("Weather unavailable")
         if (!lock.retried) { lock.retried = true; retryTimer.start() }
       }
       lock.loading = false
@@ -172,7 +172,7 @@ DesignBase {
               spacing: 2
               Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: parent.parent.index === 0 ? "Today" : Qt.formatDate(new Date(parent.parent.modelData.date), "ddd")
+                text: parent.parent.index === 0 ? lock.tr("Today") : lock.date("ddd", new Date(parent.parent.modelData.date))
                 color: lock.withAlpha(Color.lock.text, 0.6)
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
@@ -212,7 +212,7 @@ DesignBase {
         font.letterSpacing: -2
       }
       Text {
-        text: Qt.formatDate(lock.now, "dddd, d MMMM")
+        text: lock.date("dddd, d MMMM")
         color: lock.withAlpha(Color.lock.text, 0.75)
         font.family: Style.font.family
         font.pixelSize: Style.font.display

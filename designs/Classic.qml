@@ -24,7 +24,7 @@ DesignBase {
     outlineThickness: 3
     showLockGlyph: false
     shakeOnFail: false
-    placeholder: "Enter Password"
+    placeholder: lock.tr("Enter Password")
     fontScale: 1.125
   }
 }

@@ -38,7 +38,7 @@ DesignBase {
     anchors.top: parent.top
     anchors.margins: lock.margin
     opacity: lock.snapshotMode ? 0 : 1
-    text: lock.fingerprintConfigured ? lock.fingerprintHint("󰆠  FINGERPRINT READY").toUpperCase() : "󰌾  LOCKED"
+    text: lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("󰆠  FINGERPRINT READY")).toUpperCase() : lock.tr("󰌾  LOCKED")
     textFormat: Text.PlainText
     color: lock.withAlpha(Color.lock.text, 0.75)
     font.family: Style.font.family
@@ -78,14 +78,14 @@ DesignBase {
         id: dateCol
         spacing: 2
         Text {
-          text: Qt.formatDate(lock.now, "dddd")
+          text: lock.date("dddd")
           color: Color.lock.text
           font.family: Style.font.family
           font.pixelSize: Style.font.displayLarge
           font.weight: Font.DemiBold
         }
         Text {
-          text: Qt.formatDate(lock.now, "d MMMM yyyy")
+          text: lock.date("d MMMM yyyy")
           color: lock.withAlpha(Color.lock.text, 0.75)
           font.family: Style.font.family
           font.pixelSize: Style.font.heading
@@ -102,15 +102,15 @@ DesignBase {
       width: lock.fieldWidth
       height: 56
       textAlignment: TextInput.AlignLeft
-      placeholder: "Password"
+      placeholder: lock.tr("Password")
       color: lock.withAlpha(Color.lock.background, 0.75)
     }
 
     Text {
       opacity: lock.snapshotMode ? 0 : 1
       text: lock.failedAttempts > 0
-        ? lock.failedAttempts + " failed " + (lock.failedAttempts === 1 ? "attempt" : "attempts")
-        : "Enter to unlock  ·  Esc to clear"
+        ? lock.tr(lock.failedAttempts === 1 ? "1 failed attempt" : "%1 failed attempts").arg(lock.failedAttempts)
+        : lock.tr("Enter to unlock  ·  Esc to clear")
       color: lock.failedAttempts > 0 ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall

@@ -74,7 +74,7 @@ DesignBase {
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: Qt.formatDate(lock.now, "dddd, d MMMM yyyy").toUpperCase()
+      text: lock.date("dddd, d MMMM yyyy").toUpperCase()
       color: lock.withAlpha(Color.lock.text, 0.7)
       font.family: Style.font.family
       font.pixelSize: Style.font.subtitle
@@ -88,7 +88,7 @@ DesignBase {
       width: lock.tileW * 4 + 10 * 3 + 12 + 20
       height: 54
       radius: 14
-      placeholder: "Password"
+      placeholder: lock.tr("Password")
     }
   }
 }

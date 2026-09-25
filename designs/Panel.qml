@@ -8,6 +8,7 @@ import "Ttfx.js" as Ttfx
 // apart.
 DesignBase {
   id: lock
+  function tr(text) { return lock && typeof lock.tr === "function" ? lock.tr(text) : text }
   inputItem: field
   flashOnFail: false
 
@@ -79,7 +80,7 @@ DesignBase {
         Text {
           anchors.verticalCenter: parent.verticalCenter
           readonly property string status: Ttfx.inputStatus(lock, "")
-          text: (status.length > 0 ? status : "locked · " + lock.clock("HH:mm · ddd d MMM")).toLowerCase()
+          text: (status.length > 0 ? status : tr("locked · ") + lock.clock("HH:mm · ddd d MMM")).toLowerCase()
           color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
           font.family: Style.font.family
           font.pixelSize: Style.font.title
@@ -158,7 +159,7 @@ DesignBase {
           anchors.leftMargin: lock.block * 2.6
           anchors.verticalCenter: parent.verticalCenter
           visible: lock.passwordText.length === 0 && !lock.authenticatingPassword
-          text: lock.fido2Active ? "touch your key" : "password"
+          text: lock.fido2Active ? tr("touch your key") : tr("password")
           color: lock.withAlpha(Color.lock.text, 0.3)
           font.family: Style.font.family
           font.pixelSize: Math.round(lock.block * 1.1)
@@ -182,9 +183,9 @@ DesignBase {
       }
 
       Text {
-        text: lock.fingerprintHint("enter to unlock"
-          + (lock.fingerprintConfigured ? " · or touch the reader" : "")
-          + (lock.fido2Configured ? " · tab for your key" : "")).toLowerCase()
+        text: lock.fingerprintHint(tr("enter to unlock")
+          + (lock.fingerprintConfigured ? tr(" · or touch the reader") : "")
+          + (lock.fido2Configured ? tr(" · tab for your key") : "")).toLowerCase()
         textFormat: Text.PlainText
         color: lock.withAlpha(Color.lock.text, 0.28)
         font.family: Style.font.family

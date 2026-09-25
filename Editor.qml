@@ -214,6 +214,7 @@ Item {
               wallpaperDim: editor.service && editor.service.wallpaperDimShift !== undefined ? editor.service.wallpaperDimShift : 0
               uiScale: editor.service && editor.service.uiScale !== undefined ? editor.service.uiScale : 1
               holdStill: editor.service ? editor.service.motionReduced === true : false
+              language: editor.service && editor.service.language !== undefined ? editor.service.language : "en"
               fingerprintConfigured: editor.service ? editor.service.fingerprintConfigured : false
               inputEnabled: false
               loadBackground: true

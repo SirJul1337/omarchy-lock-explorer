@@ -108,7 +108,7 @@ DesignBase {
       outlineThickness: 1
       showLockGlyph: false
       color: Color.lock.background
-      placeholder: lock.placeholder
+      placeholder: lock.tr(lock.placeholder)
     }
   }
 

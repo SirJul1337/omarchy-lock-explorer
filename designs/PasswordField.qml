@@ -4,6 +4,7 @@ import qs.Ui
 
 BorderSurface {
   id: field
+  function tr(text) { return lock && typeof lock.tr === "function" ? lock.tr(text) : text }
 
   property var lock: null
   // In boot-screen snapshots the box itself stays -- the boot theme puts its
@@ -189,9 +190,9 @@ BorderSurface {
 
   Text {
     anchors.fill: input
-    text: field.authenticating ? "Checking…"
+    text: field.authenticating ? tr("Checking…")
       : (field.errorState ? field.lock.failureMessage
-      : (field.fido2Active ? (field.lock.fido2Status.length > 0 ? field.lock.fido2Status : "Waiting for your key…") : field.placeholder))
+      : (field.fido2Active ? (field.lock.fido2Status.length > 0 ? field.lock.fido2Status : tr("Waiting for your key…")) : tr(field.placeholder)))
     textFormat: Text.PlainText
     visible: input.text.length === 0 && !field.snapshotBox
     color: field.authenticating ? Color.lock.text : (field.errorState ? Color.lock.textError : Color.lock.placeholder)

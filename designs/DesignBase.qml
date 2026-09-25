@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "Strings.js" as Strings
 
 Item {
   id: base
@@ -211,9 +212,9 @@ Item {
       }
     }
 
-    PowerButton { action: "suspend"; glyph: "󰤄"; label: "Sleep" }
-    PowerButton { action: "reboot"; glyph: "󰜉"; label: "Restart" }
-    PowerButton { action: "shutdown"; glyph: "󰐥"; label: "Shut down" }
+    PowerButton { action: "suspend"; glyph: "󰤄"; label: base.tr("Sleep") }
+    PowerButton { action: "reboot"; glyph: "󰜉"; label: base.tr("Restart") }
+    PowerButton { action: "shutdown"; glyph: "󰐥"; label: base.tr("Shut down") }
   }
 
   transform: Translate { id: shakeTranslate }
@@ -262,13 +263,20 @@ Item {
   // design asks for, and the dim shift is added to the design's own.
   property real wallpaperBlur: -1
   property real wallpaperDim: 0
+  // The lock screen's language (see Strings.js), set by the service from the
+  // system locale or the Language setting. tr() gives a design's own text in
+  // it, date() and clock() write month and day names in it.
+  property string language: "en"
+  readonly property var dateLocale: Qt.locale(Strings.localeName(language))
+  function tr(text) { return Strings.tr(language, text) }
+  function date(spec, when) { return (when || now).toLocaleString(dateLocale, String(spec)) }
 
   // Designs pass their ordinary 24-hour Qt format string here. With the
   // 12-hour setting off it is used as written, so a design that never calls
   // this still behaves exactly as before.
   function clock(spec) {
     var s = String(spec)
-    if (!twelveHour || s.indexOf("H") === -1) return Qt.formatDateTime(now, s)
+    if (!twelveHour || s.indexOf("H") === -1) return now.toLocaleString(dateLocale, s)
     // An hour standing on its own -- a flip tile, a poster numeral -- has
     // nowhere to put AM/PM, so it just counts 1 to 12. Qt only reads h/hh as
     // 12-hour when the format carries AP, which is why this one is counted by
@@ -279,18 +287,18 @@ Item {
     }
     var out = s.replace(/H{1,2}/, "h")
     if (!/AP|ap/.test(out)) out = out.replace(/h{1,2}(:mm)?(:ss)?/, "$& AP")
-    return Qt.formatDateTime(now, out)
+    return now.toLocaleString(dateLocale, out)
   }
 
   // For designs that lay the meridiem out themselves next to a bare hour.
-  readonly property string meridiem: twelveHour ? Qt.formatDateTime(now, "AP") : ""
+  readonly property string meridiem: twelveHour ? now.toLocaleString(dateLocale, "AP") : ""
 
   function greeting() {
     var h = now.getHours()
-    if (h < 5) return "Good night"
-    if (h < 12) return "Good morning"
-    if (h < 18) return "Good afternoon"
-    return "Good evening"
+    if (h < 5) return tr("Good night")
+    if (h < 12) return tr("Good morning")
+    if (h < 18) return tr("Good afternoon")
+    return tr("Good evening")
   }
 
   function fileUrl(path) {

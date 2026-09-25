@@ -204,6 +204,15 @@ Item {
   readonly property string wallpaperDim: service && service.wallpaperDim !== undefined ? String(service.wallpaperDim) : "design"
   readonly property real wallpaperBlurValue: service && service.wallpaperBlurValue !== undefined ? service.wallpaperBlurValue : -1
   readonly property real wallpaperDimShift: service && service.wallpaperDimShift !== undefined ? service.wallpaperDimShift : 0
+  readonly property string reduceMotion: service && service.reduceMotion !== undefined ? String(service.reduceMotion) : "off"
+  readonly property bool motionReduced: !!service && service.motionReduced === true
+  readonly property real uiScale: service && service.uiScale !== undefined ? service.uiScale : 1
+  readonly property var reduceMotionChoices: [
+    { id: "off", name: "Off" }, { id: "on", name: "On" }, { id: "battery", name: "On battery" }
+  ]
+  readonly property var uiScaleChoices: [
+    { id: 1, name: "100%" }, { id: 1.25, name: "125%" }, { id: 1.5, name: "150%" }
+  ]
   readonly property var wallpaperBlurChoices: [
     { id: "design", name: "As designed" }, { id: "sharp", name: "Sharp" },
     { id: "soft", name: "Soft" }, { id: "heavy", name: "Heavy" }
@@ -943,6 +952,16 @@ Item {
     root.service.setWallpaperBlur(id)
   }
 
+  function setReduceMotion(id) {
+    if (!root.service || typeof root.service.setReduceMotion !== "function") return
+    root.service.setReduceMotion(id)
+  }
+
+  function setUiScale(id) {
+    if (!root.service || typeof root.service.setUiScale !== "function") return
+    root.service.setUiScale(id)
+  }
+
   function setWallpaperDim(id) {
     if (!root.service || typeof root.service.setWallpaperDim !== "function") return
     root.service.setWallpaperDim(id)
@@ -1182,6 +1201,8 @@ Item {
         twelveHour: root.twelveHour
         wallpaperBlur: root.wallpaperBlurValue
         wallpaperDim: root.wallpaperDimShift
+        uiScale: root.uiScale
+        holdStill: root.motionReduced
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         avatarPath: root.service ? root.service.avatarPath : ""
@@ -2308,6 +2329,106 @@ Item {
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
+              }
+
+              // Reduce motion holds every design still; Size draws the whole
+              // lock screen larger. Both apply to every design, previews too.
+              Row {
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Reduce motion"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: root.reduceMotionChoices
+                  Rectangle {
+                    id: motionChip
+                    required property var modelData
+                    readonly property bool current: modelData.id === root.reduceMotion
+                    width: motionLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, motionArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: motionLabel
+                      anchors.centerIn: parent
+                      text: motionChip.modelData.name
+                      color: motionChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: motionChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: motionArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setReduceMotion(motionChip.modelData.id)
+                    }
+                  }
+                }
+              }
+
+              Text {
+                width: Math.min(parent.width, Style.space(720))
+                wrapMode: Text.WordWrap
+                text: root.reduceMotion === "off"
+                      ? "Animated designs move as they were made to."
+                      : "Designs hold still, changing only for what you type, a wrong password or the minute."
+                      + (root.reduceMotion === "battery" ? (root.motionReduced ? " On battery now." : " Moving now: on mains power.") : "")
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+
+              Row {
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Size"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: root.uiScaleChoices
+                  Rectangle {
+                    id: scaleChip
+                    required property var modelData
+                    readonly property bool current: modelData.id === root.uiScale
+                    width: scaleLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, scaleArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: scaleLabel
+                      anchors.centerIn: parent
+                      text: scaleChip.modelData.name
+                      color: scaleChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: scaleChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: scaleArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setUiScale(scaleChip.modelData.id)
+                    }
+                  }
+                }
               }
 
               // An entry in the app launcher and under Style in the Omarchy
@@ -3655,6 +3776,8 @@ Item {
               twelveHour: root.twelveHour
               wallpaperBlur: root.wallpaperBlurValue
               wallpaperDim: root.wallpaperDimShift
+              uiScale: root.uiScale
+              holdStill: root.motionReduced
               backgroundPath: root.service ? root.service.backgroundPath : ""
               backgroundVersion: root.service ? root.service.backgroundVersion : 0
               avatarPath: root.service ? root.service.avatarPath : ""
@@ -3845,11 +3968,14 @@ Item {
                   anchors.fill: parent
                   asynchronous: true
                   sourceComponent: LockHost {
+                    stillTextureSize: Qt.size(root.thumbWidth, root.thumbHeight)
                     designId: cell.modelData.id
                     revision: root.service ? root.service.designsRevision : 0
                     twelveHour: root.twelveHour
                     wallpaperBlur: root.wallpaperBlurValue
                     wallpaperDim: root.wallpaperDimShift
+                    uiScale: root.uiScale
+                    holdStill: root.motionReduced
                     backgroundPath: root.service ? root.service.backgroundPath : ""
                     backgroundVersion: root.service ? root.service.backgroundVersion : 0
                     avatarPath: root.service ? root.service.avatarPath : ""
@@ -4269,6 +4395,8 @@ Item {
         twelveHour: root.twelveHour
         wallpaperBlur: root.wallpaperBlurValue
         wallpaperDim: root.wallpaperDimShift
+        uiScale: root.uiScale
+        holdStill: root.motionReduced
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         fingerprintConfigured: root.service ? root.service.fingerprintConfigured : false

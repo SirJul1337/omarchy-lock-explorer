@@ -231,6 +231,22 @@ solid color or their own art (Aurora, Neon, the ttfx designs and so on) are not 
 `omarchy-shell lock setWallpaperBlur sharp` and `setWallpaperDim darker`, `design` for either to
 go back. They are saved on the plugin entry as `wallpaperBlur` and `wallpaperDim`.
 
+### Reduce motion and size
+
+**Reduce motion** in Settings holds every design still: Off, On, or On battery (moving while on
+mains power, still on the battery). The design keeps running underneath -- the password field
+works as always -- but what is on screen is a still frame of it, taken once it has settled and
+again whenever something on it changes: what you type, a wrong password, the fingerprint or key
+status, the minute on the clock. It applies to the explorer's previews too. The unlock animation
+and the clip designs' unlock video are separate choices and still play; set the unlock animation
+to Off for an instant unlock. By hand: `omarchy-shell lock setReduceMotion on` (`off`, `battery`).
+
+**Size** draws the whole lock screen larger, 100%, 125% or 150%: the design is laid out as if the
+screen were that much smaller and then drawn to fill it, so the clock, the password field, the
+messages and the avatar all grow together and nothing falls off the edge. Handy on a 4K panel at
+scale 1, or when the text is simply too small to read. By hand: `omarchy-shell lock setSize 125`.
+Both are saved on the plugin entry, as `reduceMotion` and `uiScale`.
+
 ### Blank the display after
 
 By default the lock screen DPMS-offs the display five seconds after locking. The Settings tab has

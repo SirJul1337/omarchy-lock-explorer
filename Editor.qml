@@ -212,6 +212,8 @@ Item {
               backgroundVersion: editor.service ? editor.service.backgroundVersion : 0
               wallpaperBlur: editor.service && editor.service.wallpaperBlurValue !== undefined ? editor.service.wallpaperBlurValue : -1
               wallpaperDim: editor.service && editor.service.wallpaperDimShift !== undefined ? editor.service.wallpaperDimShift : 0
+              uiScale: editor.service && editor.service.uiScale !== undefined ? editor.service.uiScale : 1
+              holdStill: editor.service ? editor.service.motionReduced === true : false
               fingerprintConfigured: editor.service ? editor.service.fingerprintConfigured : false
               inputEnabled: false
               loadBackground: true

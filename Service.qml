@@ -455,6 +455,77 @@ Item {
     return setFavorite(id, favorites.indexOf(String(id || "")) === -1)
   }
 
+  // Reduce motion: off, on, or only while on battery. Size: how much larger
+  // than the design drew itself the lock screen is shown. Both are applied by
+  // LockHost to every design, and saved on the plugin entry as `reduceMotion`
+  // and `uiScale` only once they are changed.
+  readonly property var reduceMotionOptions: ["off", "on", "battery"]
+  readonly property var uiScaleOptions: [1, 1.25, 1.5]
+  property string reduceMotionOverride: ""
+  property real uiScaleOverride: 0
+  readonly property string configuredReduceMotion: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && reduceMotionOptions.indexOf(String(entry.reduceMotion)) !== -1)
+        return String(entry.reduceMotion)
+    }
+    return "off"
+  }
+  readonly property real configuredUiScale: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && uiScaleOptions.indexOf(Number(entry.uiScale)) !== -1)
+        return Number(entry.uiScale)
+    }
+    return 1
+  }
+  readonly property string reduceMotion: reduceMotionOverride.length > 0 ? reduceMotionOverride : configuredReduceMotion
+  readonly property real uiScale: uiScaleOverride > 0 ? uiScaleOverride : configuredUiScale
+  readonly property bool onBattery: powerState.item ? powerState.item.onBattery === true : false
+  readonly property bool motionReduced: reduceMotion === "on" || (reduceMotion === "battery" && onBattery)
+
+  Loader {
+    id: powerState
+    active: root.reduceMotion === "battery"
+    source: "PowerState.qml"
+  }
+
+  function setReduceMotion(value) {
+    var text = String(value === undefined ? "" : value).trim().toLowerCase()
+    if (text === "true" || text === "1") text = "on"
+    if (text === "false" || text === "0") text = "off"
+    if (reduceMotionOptions.indexOf(text) === -1) return false
+    reduceMotionOverride = text
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (text === "off") delete current.reduceMotion
+      else current.reduceMotion = text
+      writeEntry(current)
+    }
+    logEvent("reduce-motion=" + text)
+    return true
+  }
+
+  function setUiScale(value) {
+    var text = String(value === undefined ? "" : value).trim().replace(/%$/, "")
+    var n = Number(text)
+    if (n >= 50) n = n / 100
+    if (uiScaleOptions.indexOf(n) === -1) return false
+    uiScaleOverride = n
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (n === 1) delete current.uiScale
+      else current.uiScale = n
+      writeEntry(current)
+    }
+    logEvent("ui-scale=" + n)
+    return true
+  }
+
   // How the wallpaper behind a design looks. Blur replaces the design's own
   // (sharp, soft or heavy); dim moves the design's own up or down, since some
   // designs darken the picture a lot to keep their text readable and one
@@ -2804,6 +2875,8 @@ echo "$out"
           twelveHour: root.twelveHour
           wallpaperBlur: root.wallpaperBlurValue
           wallpaperDim: root.wallpaperDimShift
+          uiScale: root.uiScale
+          holdStill: root.motionReduced
           onUnlockFinished: root.releaseLock()
           onPasswordTextEdited: function(password) { root.enteredPassword = password }
           onSubmitPassword: function(password) { root.submitPassword(password) }
@@ -2858,6 +2931,8 @@ echo "$out"
         twelveHour: root.twelveHour
         wallpaperBlur: root.wallpaperBlurValue
         wallpaperDim: root.wallpaperDimShift
+        uiScale: root.uiScale
+        holdStill: root.motionReduced
         // Hold the clip's last frame in the preview instead of snapping back
         // to the start; Esc (hidePreview) resets it.
         onUnlockFinished: {}
@@ -3401,6 +3476,9 @@ echo "$out"
       readonly property string wallpaperDim: root.wallpaperDim
       readonly property real wallpaperBlurValue: root.wallpaperBlurValue
       readonly property real wallpaperDimShift: root.wallpaperDimShift
+      readonly property string reduceMotion: root.reduceMotion
+      readonly property bool motionReduced: root.motionReduced
+      readonly property real uiScale: root.uiScale
       readonly property bool keepDisplayOn: root.keepDisplayOn
       readonly property bool displayBlankingSuppressed: root.displayBlankingSuppressed
       readonly property bool fingerprintConfigured: root.fingerprintConfigured
@@ -3477,6 +3555,8 @@ echo "$out"
       function runDoctor() { return root.runDoctor() }
       function setWallpaperBlur(value) { return root.setWallpaperBlur(value) }
       function setWallpaperDim(value) { return root.setWallpaperDim(value) }
+      function setReduceMotion(value) { return root.setReduceMotion(value) }
+      function setUiScale(value) { return root.setUiScale(value) }
       function runPowerAction(action) { return root.runPowerAction(action) }
       function setKeepDisplayOn(on) { return root.setKeepDisplayOn(on) }
       function refreshBackground() { return root.refreshBackground() }
@@ -3598,6 +3678,10 @@ echo "$out"
         awayReport: root.awayReport,
         wallpaperBlur: root.wallpaperBlur,
         wallpaperDim: root.wallpaperDim,
+        reduceMotion: root.reduceMotion,
+        motionReduced: root.motionReduced,
+        onBattery: root.onBattery,
+        uiScale: root.uiScale,
         keepDisplayOn: root.keepDisplayOn,
         displayBlankingSuppressed: root.displayBlankingSuppressed,
         unlocking: root.unlocking,
@@ -3681,6 +3765,22 @@ echo "$out"
 
     function setWallpaperBlur(value: string): string {
       return root.setWallpaperBlur(value) ? "ok" : "invalid-value"
+    }
+
+    function reduceMotion(): string {
+      return root.reduceMotion
+    }
+
+    function setReduceMotion(value: string): string {
+      return root.setReduceMotion(value) ? "ok" : "invalid-value"
+    }
+
+    function size(): string {
+      return Math.round(root.uiScale * 100) + "%"
+    }
+
+    function setSize(value: string): string {
+      return root.setUiScale(value) ? "ok" : "invalid-value"
     }
 
     function wallpaperDim(): string {

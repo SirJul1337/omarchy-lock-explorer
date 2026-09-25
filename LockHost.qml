@@ -48,6 +48,18 @@ Item {
   // and a shift on the design's own dim. Wallpaper reads both off the design.
   property real wallpaperBlur: -1
   property real wallpaperDim: 0
+  // Size (see `omarchy-shell lock setSize`): the design is laid out on a
+  // screen this many times smaller and drawn back up to fill this one, so
+  // every text, field and picture in it grows and it still fits.
+  property real uiScale: 1
+  // Reduce motion (see `omarchy-shell lock setReduceMotion`): the design runs
+  // as always underneath, keyboard and all, but what is shown is a still frame
+  // of it, taken once it has settled and again whenever something it says
+  // changes -- a typed character, a failed attempt, the minute on the clock.
+  property bool holdStill: false
+  // Pixel size of that frame; the explorer's small previews ask for less.
+  property size stillTextureSize: Qt.size(0, 0)
+  property bool stillReady: false
 
   signal submitPassword(string password)
   signal passwordTextEdited(string password)
@@ -120,6 +132,13 @@ Item {
     if (it.wallpaperDim !== undefined) it.wallpaperDim = Qt.binding(function() { return host.wallpaperDim })
   }
 
+  Item {
+    id: stage
+    width: host.width / host.uiScale
+    height: host.height / host.uiScale
+    scale: host.uiScale
+    transformOrigin: Item.TopLeft
+
   // Built-in designs come through the Loader; it also carries the Classic
   // fallback when the selected design (user or built-in) failed to load.
   Loader {
@@ -149,6 +168,65 @@ Item {
   Item {
     id: userContainer
     anchors.fill: parent
+  }
+  }
+
+  ShaderEffectSource {
+    id: stillFrame
+    anchors.fill: parent
+    sourceItem: stage
+    live: false
+    hideSource: host.holdStill && host.stillReady
+    visible: host.holdStill && host.stillReady
+    textureSize: host.stillTextureSize.width > 0 ? host.stillTextureSize
+                 : Qt.size(Math.ceil(host.width * Screen.devicePixelRatio), Math.ceil(host.height * Screen.devicePixelRatio))
+  }
+
+  // A design animates in, and many animate what changed (dots popping in, a
+  // shake on a wrong password): the first frame waits for that, and each
+  // change is taken twice, once straight after and once when it has settled.
+  function restill() {
+    stillReady = false
+    if (holdStill) settleTimer.restart()
+  }
+  function regrab() {
+    if (!holdStill || !stillReady) return
+    quickGrab.restart()
+    lateGrab.restart()
+  }
+  onHoldStillChanged: restill()
+  onItemChanged: restill()
+  onUiScaleChanged: regrab()
+  Timer { id: settleTimer; interval: 2500; onTriggered: { stillFrame.scheduleUpdate(); host.stillReady = true } }
+  Timer { id: quickGrab; interval: 120; onTriggered: stillFrame.scheduleUpdate() }
+  Timer { id: lateGrab; interval: 700; onTriggered: stillFrame.scheduleUpdate() }
+  Timer {
+    property int minute: -1
+    running: host.holdStill
+    repeat: true
+    interval: 1000
+    onTriggered: {
+      var m = new Date().getMinutes()
+      if (m !== minute) { minute = m; host.regrab() }
+    }
+  }
+  Connections {
+    target: host
+    function onPasswordTextChanged() { host.regrab() }
+    function onFailureMessageChanged() { host.regrab() }
+    function onFailedAttemptsChanged() { host.regrab() }
+    function onAuthenticatingPasswordChanged() { host.regrab() }
+    function onFingerprintStatusChanged() { host.regrab() }
+    function onFido2StatusChanged() { host.regrab() }
+    function onFido2ActiveChanged() { host.regrab() }
+    function onCapsLockChanged() { host.regrab() }
+    function onKeyboardLayoutChanged() { host.regrab() }
+    function onInputBlockedChanged() { host.regrab() }
+    function onTwelveHourChanged() { host.regrab() }
+    function onWallpaperBlurChanged() { host.regrab() }
+    function onWallpaperDimChanged() { host.regrab() }
+    function onBackgroundVersionChanged() { host.restill() }
+    function onAvatarVersionChanged() { host.regrab() }
   }
 
   FileView {

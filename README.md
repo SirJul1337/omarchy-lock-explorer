@@ -12,6 +12,8 @@ Colors and fonts follow your Omarchy theme.
 - **Unlock animations** that fade, zoom or rise the lock screen away
 - **A matching boot screen** for the disk decryption prompt
 - **Multi-monitor aware**, with a clock-only screen on the others, and a 12-hour clock option
+- **In your language**, with reduce motion, a larger size and wallpaper blur and dim for every design
+- **Search and favorites** in the explorer, and a built-in check for anything missing from an install
 
 ## Install
 

@@ -431,10 +431,10 @@ If it persists, check that the plugin is enabled and that the stock one got disa
 
 ```sh
 omarchy plugin list
-jq '.plugins, .disabled' ~/.config/omarchy/shell.json
+jq '.plugins, .disabledPlugins' ~/.config/omarchy/shell.json
 ```
 
-`io.github.sirjul1337.lock-explorer` should be enabled and `omarchy.lock` should be in `disabled`.
+`io.github.sirjul1337.lock-explorer` should be enabled and `omarchy.lock` should be in `disabledPlugins`.
 
 `Target not found` instead means neither service is loaded, usually because this one failed to
 load. `omarchy plugin validate ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer`

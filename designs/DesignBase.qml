@@ -78,6 +78,9 @@ Item {
   signal unlockFinished()
 
   signal submitPassword(string password)
+  // Something drawn over time has come to rest (a ttfx effect, say): under
+  // reduce motion LockHost takes its still frame again.
+  signal stillRequested()
   signal passwordTextEdited(string password)
   signal clearFailureRequested()
   signal wakeRequested()

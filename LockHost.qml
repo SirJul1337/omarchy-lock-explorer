@@ -188,9 +188,11 @@ Item {
   // A design animates in, and many animate what changed (dots popping in, a
   // shake on a wrong password): the first frame waits for that, and each
   // change is taken twice, once straight after and once when it has settled.
+  // The ttfx designs draw their logo for a few seconds more, so the first
+  // frame is taken again once that is done.
   function restill() {
     stillReady = false
-    if (holdStill) settleTimer.restart()
+    if (holdStill) { settleTimer.restart(); finishedTimer.restart() }
   }
   function regrab() {
     if (!holdStill || !stillReady) return
@@ -201,6 +203,7 @@ Item {
   onItemChanged: restill()
   onUiScaleChanged: regrab()
   Timer { id: settleTimer; interval: 2500; onTriggered: { stillFrame.scheduleUpdate(); host.stillReady = true } }
+  Timer { id: finishedTimer; interval: 7000; onTriggered: if (host.holdStill) stillFrame.scheduleUpdate() }
   Timer { id: quickGrab; interval: 120; onTriggered: stillFrame.scheduleUpdate() }
   Timer { id: lateGrab; interval: 700; onTriggered: stillFrame.scheduleUpdate() }
   Timer {
@@ -281,6 +284,7 @@ Item {
     function onSubmitFido2Pin(pin) { host.submitFido2Pin(pin) }
     function onPowerActionRequested(action) { host.powerActionRequested(action) }
     function onCapsProbeRequested() { host.capsProbeRequested() }
+    function onStillRequested() { if (host.holdStill) { stillFrame.scheduleUpdate(); host.stillReady = true } }
   }
 
   // Last line of defense: if nothing rendered at all — the design AND the

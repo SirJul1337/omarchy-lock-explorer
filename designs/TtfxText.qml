@@ -82,6 +82,15 @@ Item {
   readonly property real cellHeight: Math.ceil(probe.contentHeight)
 
   signal finished()
+  // Reduce motion shows a still frame of the design; the moment an effect is
+  // done is the frame worth holding, so the design is told (DesignBase).
+  onFinished: {
+    var p = parent
+    while (p) {
+      if (typeof p.stillRequested === "function") { p.stillRequested(); return }
+      p = p.parent
+    }
+  }
 
   implicitWidth: Math.ceil(canvasColumns * cellWidth)
   implicitHeight: canvasRows * cellHeight

@@ -58,8 +58,8 @@ moves over once the stock one is gone, within a few seconds. If `omarchy-shell l
 still answers `Function not found` after that, run `omarchy restart shell`.
 
 This replaces the built-in `omarchy.lock` service (the manifest has `clonedFrom: omarchy.lock`
-so the shell swaps them and everything that locks the screen keeps working). Disable or remove
-the plugin to get the stock lock screen back.
+so the shell swaps them and everything that locks the screen keeps working). To go back to the
+stock lock screen, see [Remove](#remove): Omarchy does not always switch its own one back on.
 
 ## Usage
 
@@ -436,11 +436,18 @@ values are on the base as `hasAvatar` and `avatarUrl` if you want to draw it you
 ## Remove
 
 ```sh
-omarchy plugin remove io.github.sirjul1337.lock-explorer
-omarchy restart shell
+omarchy plugin remove --yes io.github.sirjul1337.lock-explorer
+omarchy plugin enable omarchy.lock
 ```
 
-That restores the built-in Omarchy lock screen. Your own designs in
+The second line matters. Omarchy switches its own lock screen off while this plugin is enabled,
+and after disabling or removing the plugin it can leave it off -- it says "Restored omarchy.lock"
+and still nothing answers `omarchy-shell lock`, so nothing locks the screen. `omarchy plugin
+enable omarchy.lock` brings the built-in one back; the same goes for `omarchy plugin disable`.
+
+`omarchy plugin remove` keeps a backup of the plugin as `.io.github.sirjul1337.lock-explorer.bak.*`
+inside `~/.config/omarchy/plugins/`. Delete it or move it elsewhere before installing the plugin
+again, or the shell may load the old copy instead of the new one. Your own designs in
 `~/.config/omarchy/lock-designs/` are left alone, delete that folder if you want them gone.
 The optional launcher entry from `extras/install.sh` can be removed with
 `rm ~/.local/share/applications/lock-screen-explorer.desktop ~/.local/share/icons/hicolor/scalable/apps/lock-screen-explorer.svg`

@@ -37,14 +37,23 @@ Item {
     if (customItem) { customItem.destroy(); customItem = null }
     customError = ""
     if (kind !== "custom" || customQml.length === 0) return
-    var src = 'import QtQuick\n'
+    // QtMultimedia is offered to the snippet when it is installed. The import
+    // line stays in both versions (commented out in the second), so the error
+    // line numbers below hold either way.
+    var imports = 'import QtQuick\n'
       + 'import QtQuick.Effects\n'
-      + 'import QtMultimedia\n'
-      + 'import qs.Commons\n'
+    var body = 'import qs.Commons\n'
       + 'import "' + Qt.resolvedUrl(".") + '"\n'
       + 'Item {\n  anchors.fill: parent\n' + customQml + '\n}'
     try {
-      customItem = Qt.createQmlObject(src, piece)
+      try {
+        customItem = Qt.createQmlObject(imports + 'import QtMultimedia\n' + body, piece)
+      } catch (withMultimedia) {
+        var reason = String(withMultimedia) + (withMultimedia.qmlErrors || [])
+          .map(function(err) { return err.message }).join("\n")
+        if (reason.indexOf('"QtMultimedia" is not installed') === -1) throw withMultimedia
+        customItem = Qt.createQmlObject(imports + '// QtMultimedia is not installed\n' + body, piece)
+      }
     } catch (e) {
       var msg = String(e)
       if (e.qmlErrors && e.qmlErrors.length)
@@ -168,13 +177,23 @@ Item {
     }
   }
 
+  // VideoWallpaper imports QtMultimedia, so it is loaded by URL: naming the
+  // type here would stop this file — and the explorer, which draws its
+  // thumbnails and canvas through it — from loading without qt6-multimedia.
+  // There the piece falls back to the still wallpaper.
   Component {
     id: videoC
-    VideoWallpaper {
-      lock: piece.lock
-      dim: piece.p("dim", 0.25)
-      vignette: piece.p("vignette", true)
-      playing: piece.lock ? piece.lock.videoPlaying : true
+    Loader {
+      source: Qt.resolvedUrl("VideoWallpaper.qml")
+      onLoaded: {
+        // The fallback arrives here too, and brings its own bindings.
+        if (sourceComponent === wallpaperC) return
+        item.lock = Qt.binding(function() { return piece.lock })
+        item.dim = Qt.binding(function() { return piece.p("dim", 0.25) })
+        item.vignette = Qt.binding(function() { return piece.p("vignette", true) })
+        item.playing = Qt.binding(function() { return piece.lock ? piece.lock.videoPlaying : true })
+      }
+      onStatusChanged: if (status === Loader.Error) sourceComponent = wallpaperC
     }
   }
 

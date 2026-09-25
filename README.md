@@ -497,6 +497,11 @@ next to anything wrong, and it works even when the explorer will not open:
 bash ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer/extras/doctor.sh
 ```
 
+`--fix` also does the two fixes that are safe to do unasked: it moves a second copy of the plugin
+out of the plugins folder (to `~/.local/share/omarchy/lock-explorer-backups`, nothing is deleted)
+and switches Omarchy's own lock back on when neither lock screen is. The "Move it out" button next
+to that warning in Settings runs the same.
+
 "Check this install" at the top of Settings runs the same thing in a terminal, and Settings also
 lists what it can see is missing, such as `qt6-multimedia`, with an Install button that runs
 `omarchy pkg add` in a terminal and restarts the shell. If you open an issue, paste the doctor's

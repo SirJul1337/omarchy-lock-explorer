@@ -1,12 +1,25 @@
 #!/bin/bash
 # Check an install of this plugin and say what to do about anything wrong.
 #   doctor.sh           the checks, one line each, with the fix under a failure
+#   doctor.sh --fix     the same, then the fixes that are safe to do unasked:
+#                       a second copy of the plugin is moved out of the plugins
+#                       folder (to ~/.local/share/omarchy/lock-explorer-backups,
+#                       never deleted), and Omarchy's own lock is switched back
+#                       on when neither lock screen is
 #
 # Runs on its own, not through the shell: the problem it is most often needed
 # for is Omarchy's own lock still answering `omarchy-shell lock`, and then
-# nothing this plugin registers can be reached that way. Reads only; nothing
-# here writes a file, needs root or changes a setting.
+# nothing this plugin registers can be reached that way. Without --fix it only
+# reads; nothing here needs root.
 set -uo pipefail
+
+FIX=0
+case "${1:-}" in
+  --fix) FIX=1 ;;
+  "") ;;
+  *) echo "usage: doctor.sh [--fix]" >&2; exit 2 ;;
+esac
+restore_stock=0
 
 ID="io.github.sirjul1337.lock-explorer"
 PLUGINS="$HOME/.config/omarchy/plugins"
@@ -57,7 +70,8 @@ fi
 if [[ $plugin_state != enabled && ( $stock_disabled == 1 || $stock_state == disabled ) ]]; then
   # Omarchy switches its own lock off for this plugin and does not always
   # switch it back on when the plugin is disabled or removed.
-  fail "nothing locks the screen: this plugin is not enabled and Omarchy's own lock is switched off"        "Either enable this plugin: omarchy plugin enable $ID"        "or go back to Omarchy's lock: omarchy plugin enable omarchy.lock"
+  restore_stock=1
+  fail "nothing locks the screen: this plugin is not enabled and Omarchy's own lock is switched off"        "Either enable this plugin: omarchy plugin enable $ID"        "or go back to Omarchy's lock: omarchy plugin enable omarchy.lock (--fix does this)"
 elif [[ $stock_disabled == 1 || $stock_state == disabled ]]; then
   ok "Omarchy's own lock screen is switched off"
 else
@@ -93,7 +107,7 @@ if (( ${#others[@]} == 0 )); then
   ok "no second copy of the plugin under $PLUGINS"
 else
   fail "another copy with the same id may load instead of this one:" "${others[@]}" \
-       "Move it out of $PLUGINS (a backup belongs anywhere else), then: omarchy restart shell"
+       "Move it out of $PLUGINS (a backup belongs anywhere else), then: omarchy restart shell"        "--fix moves it to ${XDG_DATA_HOME:-$HOME/.local/share}/omarchy/lock-explorer-backups"
 fi
 
 # --- Packages ----------------------------------------------------------------
@@ -136,6 +150,44 @@ fi
 
 if command -v fprintd-list >/dev/null 2>&1; then
   ok "fingerprint reader software is installed"
+fi
+
+if (( FIX )); then
+  echo
+  echo "Fixing"
+  fixed=0
+  if (( restore_stock )); then
+    if omarchy plugin enable omarchy.lock >/dev/null 2>&1; then
+      ok "switched Omarchy's own lock screen back on"
+      fixed=$((fixed + 1))
+    else
+      warn "could not switch Omarchy's own lock screen on; run: omarchy plugin enable omarchy.lock"
+    fi
+  fi
+  if (( ${#others[@]} > 0 )); then
+    dest="${XDG_DATA_HOME:-$HOME/.local/share}/omarchy/lock-explorer-backups"
+    mkdir -p -- "$dest"
+    moved=0
+    for dir in "${others[@]}"; do
+      # Only what the check found: a directory right under the plugins folder.
+      [[ $(dirname "$dir") == "$PLUGINS" && -d $dir && ! -L $dir ]] || continue
+      name="$(basename "$dir")"
+      if [[ -e $dest/$name ]]; then
+        warn "left $dir where it is: $dest/$name already exists"
+        continue
+      fi
+      if mv -- "$dir" "$dest/$name"; then
+        ok "moved $dir to $dest/"
+        moved=$((moved + 1))
+      fi
+    done
+    if (( moved > 0 )); then
+      fixed=$((fixed + 1))
+      echo "          omarchy restart shell  loads the copy that is left"
+    fi
+  fi
+  problems=$((problems - fixed))
+  (( problems < 0 )) && problems=0
 fi
 
 echo

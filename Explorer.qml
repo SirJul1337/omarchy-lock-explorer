@@ -150,7 +150,8 @@ Item {
     var dirs = service && service.shadowingDirs ? service.shadowingDirs : []
     if (dirs.length > 0)
       list.push({ text: "Another copy of this plugin may load instead of this one: " + dirs.join(", ")
-                        + ". Move it out of ~/.config/omarchy/plugins/ and restart the shell.", packages: [] })
+                        + ". Move it out of ~/.config/omarchy/plugins/ (to ~/.local/share/omarchy/lock-explorer-backups) and restart the shell.",
+                  packages: [], fix: "copies" })
     return list
   }
 
@@ -158,6 +159,12 @@ Item {
     if (!root.service || typeof root.service.installPackages !== "function") return
     root.dismiss()
     root.service.installPackages(names)
+  }
+
+  readonly property bool movingCopies: !!service && service.movingCopies === true
+  function moveCopies() {
+    if (!root.service || typeof root.service.moveCopies !== "function" || root.movingCopies) return
+    root.service.moveCopies()
   }
 
   function runDoctor() {
@@ -1687,7 +1694,7 @@ Item {
 
                     Rectangle {
                       id: installButton
-                      visible: issueRow.modelData.packages.length > 0
+                      visible: issueRow.modelData.packages.length > 0 || !!issueRow.modelData.fix
                       anchors.right: parent.right
                       anchors.rightMargin: Style.space(8)
                       anchors.verticalCenter: parent.verticalCenter
@@ -1698,7 +1705,7 @@ Item {
                       Text {
                         id: installLabel
                         anchors.centerIn: parent
-                        text: "Install"
+                        text: issueRow.modelData.fix === "copies" ? (root.movingCopies ? "Moving…" : "Move it out") : "Install"
                         color: Color.background
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -1708,7 +1715,10 @@ Item {
                         id: installArea
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: root.installPackages(issueRow.modelData.packages)
+                        onClicked: {
+                          if (issueRow.modelData.fix === "copies") root.moveCopies()
+                          else root.installPackages(issueRow.modelData.packages)
+                        }
                       }
                     }
                   }

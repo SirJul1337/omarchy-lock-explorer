@@ -947,6 +947,26 @@ Item {
     return true
   }
 
+  // A second copy of the plugin found at startup (shadowingDirs), moved out of
+  // the plugins folder by the doctor's --fix, which only ever moves what its
+  // own check found. The check runs again after, so the warning goes.
+  property bool movingCopies: false
+  Process {
+    id: moveCopiesProc
+    command: ["bash", root.doctorPath, "--fix"]
+    onExited: {
+      root.movingCopies = false
+      root.logEvent("doctor-fix exit=" + exitCode)
+      duplicatePluginProc.running = true
+    }
+  }
+  function moveCopies() {
+    if (moveCopiesProc.running || shadowingDirs.length === 0) return false
+    movingCopies = true
+    moveCopiesProc.running = true
+    return true
+  }
+
   function runDoctor() {
     Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation", "bash " + shellQuote(doctorPath)])
     logEvent("doctor")
@@ -3658,6 +3678,8 @@ echo "$out"
       function toggleFavorite(id) { return root.toggleFavorite(id) }
       function installPackages(names) { return root.installPackages(names) }
       function runDoctor() { return root.runDoctor() }
+      function moveCopies() { return root.moveCopies() }
+      readonly property bool movingCopies: root.movingCopies
       function setWallpaperBlur(value) { return root.setWallpaperBlur(value) }
       function setWallpaperDim(value) { return root.setWallpaperDim(value) }
       function setReduceMotion(value) { return root.setReduceMotion(value) }

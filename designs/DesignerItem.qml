@@ -186,6 +186,8 @@ Item {
     Loader {
       source: Qt.resolvedUrl("VideoWallpaper.qml")
       onLoaded: {
+        // The fallback arrives here too, and brings its own bindings.
+        if (sourceComponent === wallpaperC) return
         item.lock = Qt.binding(function() { return piece.lock })
         item.dim = Qt.binding(function() { return piece.p("dim", 0.25) })
         item.vignette = Qt.binding(function() { return piece.p("vignette", true) })

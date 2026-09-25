@@ -38,7 +38,7 @@ BorderSurface {
   // A password is typed blind, so a layout that is not a plain US keyboard is
   // said in the box. It goes with the lock glyph on the left, and is left out
   // of boot snapshots like the rest of the chrome.
-  readonly property bool showLayout: lock ? (lock.foreignLayout === true && !snapshotBox && layoutFits) : false
+  readonly property bool showLayout: lock ? ((lock.foreignLayout === true || lock.layoutSwitchable === true) && !snapshotBox && layoutFits) : false
   readonly property bool showCaps: lock ? (lock.capsLock === true && !snapshotBox) : false
   // The badge is sized from the code and comes out of the text area, and a
   // layout is not always a two-letter country code: a custom XKB layout is a
@@ -128,6 +128,15 @@ BorderSurface {
       font.family: Style.font.family
       font.pixelSize: Math.round(field.fieldFontSize * 0.62)
       font.letterSpacing: 1
+    }
+
+    // The next layout, when there is one to go to. The field keeps focus.
+    MouseArea {
+      anchors.fill: parent
+      anchors.margins: -4
+      enabled: field.lock ? field.lock.layoutSwitchable === true : false
+      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+      onClicked: field.lock.layoutSwitchRequested()
     }
   }
 

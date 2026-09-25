@@ -28,6 +28,10 @@ Item {
   property bool inputEnabled: true
   property bool inputBlocked: false
   property string keyboardLayout: ""
+  property int keyboardLayoutCount: 1
+  property bool batteryLow: false
+  property int batteryPercent: -1
+  signal layoutSwitchRequested()
   property bool capsLock: false
   signal capsProbeRequested()
   property bool powerActions: false
@@ -120,6 +124,9 @@ Item {
     it.inputEnabled = Qt.binding(function() { return host.inputEnabled })
     if (it.inputBlocked !== undefined) it.inputBlocked = Qt.binding(function() { return host.inputBlocked })
     if (it.keyboardLayout !== undefined) it.keyboardLayout = Qt.binding(function() { return host.keyboardLayout })
+    if (it.keyboardLayoutCount !== undefined) it.keyboardLayoutCount = Qt.binding(function() { return host.keyboardLayoutCount })
+    if (it.batteryLow !== undefined) it.batteryLow = Qt.binding(function() { return host.batteryLow })
+    if (it.batteryPercent !== undefined) it.batteryPercent = Qt.binding(function() { return host.batteryPercent })
     if (it.capsLock !== undefined) it.capsLock = Qt.binding(function() { return host.capsLock })
     if (it.powerActions !== undefined) it.powerActions = Qt.binding(function() { return host.powerActions })
     it.loadBackground = Qt.binding(function() { return host.loadBackground })
@@ -221,6 +228,8 @@ Item {
     function onPasswordTextChanged() { host.regrab() }
     function onFailureMessageChanged() { host.regrab() }
     function onFailedAttemptsChanged() { host.regrab() }
+    function onBatteryLowChanged() { host.regrab() }
+    function onBatteryPercentChanged() { host.regrab() }
     function onAuthenticatingPasswordChanged() { host.regrab() }
     function onFingerprintStatusChanged() { host.regrab() }
     function onFido2StatusChanged() { host.regrab() }
@@ -284,6 +293,7 @@ Item {
     function onSubmitFido2Pin(pin) { host.submitFido2Pin(pin) }
     function onPowerActionRequested(action) { host.powerActionRequested(action) }
     function onCapsProbeRequested() { host.capsProbeRequested() }
+    function onLayoutSwitchRequested() { host.layoutSwitchRequested() }
     function onStillRequested() { if (host.holdStill) { stillFrame.scheduleUpdate(); host.stillReady = true } }
   }
 

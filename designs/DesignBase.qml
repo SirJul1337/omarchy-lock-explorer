@@ -48,6 +48,15 @@ Item {
   property bool capsLock: false
   signal capsProbeRequested()
   readonly property bool foreignLayout: keyboardLayout.length > 0 && keyboardLayout !== "US"
+  // More than one layout configured: the badge is shown for US too, and a
+  // click on it asks for the next layout.
+  property int keyboardLayoutCount: 1
+  readonly property bool layoutSwitchable: keyboardLayout.length > 0 && keyboardLayoutCount > 1
+  signal layoutSwitchRequested()
+  // Set by the service while on battery at 15% or less. The warning in the
+  // top right corner is the base's, so every design has it.
+  property bool batteryLow: false
+  property int batteryPercent: -1
 
   // Sleep, restart and shut down, off unless the owner turned them on. Every
   // design gets them from here, in the corner, and each asks a second time
@@ -218,6 +227,43 @@ Item {
     PowerButton { action: "suspend"; glyph: "󰤄"; label: base.tr("Sleep") }
     PowerButton { action: "reboot"; glyph: "󰜉"; label: base.tr("Restart") }
     PowerButton { action: "shutdown"; glyph: "󰐥"; label: base.tr("Shut down") }
+  }
+
+  Rectangle {
+    id: batteryWarning
+    z: 900
+    visible: base.batteryLow && !base.snapshotMode
+    anchors.right: parent.right
+    anchors.top: parent.top
+    anchors.rightMargin: 28
+    anchors.topMargin: 24
+    width: batteryRow.implicitWidth + 24
+    height: 30
+    radius: 15
+    color: withAlpha(Color.background, 0.72)
+    border.width: 1
+    border.color: withAlpha(Color.lock.textError, 0.7)
+
+    Row {
+      id: batteryRow
+      anchors.centerIn: parent
+      spacing: 8
+      Text {
+        text: "󰂃"
+        color: Color.lock.textError
+        font.family: Style.font.family
+        font.pixelSize: 15
+        anchors.verticalCenter: parent.verticalCenter
+      }
+      Text {
+        text: base.tr("Battery low (%1%)").arg(base.batteryPercent)
+        textFormat: Text.PlainText
+        color: Color.lock.text
+        font.family: Style.font.family
+        font.pixelSize: 13
+        anchors.verticalCenter: parent.verticalCenter
+      }
+    }
   }
 
   transform: Translate { id: shakeTranslate }

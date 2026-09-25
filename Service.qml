@@ -523,11 +523,16 @@ Item {
   readonly property string reduceMotion: reduceMotionOverride.length > 0 ? reduceMotionOverride : configuredReduceMotion
   readonly property real uiScale: uiScaleOverride > 0 ? uiScaleOverride : configuredUiScale
   readonly property bool onBattery: powerState.item ? powerState.item.onBattery === true : false
+  // A battery running down while the screen is locked is easy to miss: the
+  // lock screen says so at this level or below, on every design, while the
+  // machine is not charging.
+  readonly property int batteryLowAt: 15
+  readonly property int batteryPercent: powerState.item ? powerState.item.percent : -1
+  readonly property bool batteryLow: onBattery && batteryPercent >= 0 && batteryPercent <= batteryLowAt
   readonly property bool motionReduced: reduceMotion === "on" || (reduceMotion === "battery" && onBattery)
 
   Loader {
     id: powerState
-    active: root.reduceMotion === "battery"
     source: "PowerState.qml"
   }
 
@@ -2332,6 +2337,23 @@ echo "$out"
     refreshKeyboardLayout()
   }
   readonly property bool foreignLayout: keyboardLayout.length > 0 && keyboardLayout !== "US"
+  // With more than one layout configured the badge in the field switches to
+  // the next one when clicked, the same as Hyprland's own layout toggle.
+  property int keyboardLayoutCount: 1
+  property string keyboardDevice: ""
+
+  Process {
+    id: switchLayoutProc
+    command: ["hyprctl", "switchxkblayout", root.keyboardDevice.length > 0 ? root.keyboardDevice : "all", "next"]
+    onExited: root.refreshKeyboardLayout()
+  }
+
+  function switchKeyboardLayout() {
+    if (keyboardLayoutCount < 2 || switchLayoutProc.running) return false
+    switchLayoutProc.running = true
+    logEvent("layout-switch")
+    return true
+  }
 
   function refreshKeyboardLayout() {
     if (!keyboardLayoutProc.running) keyboardLayoutProc.running = true
@@ -2967,6 +2989,10 @@ echo "$out"
           avatarVersion: root.avatarVersion
           fingerprintConfigured: root.fingerprintConfigured
           keyboardLayout: root.keyboardLayout
+          keyboardLayoutCount: root.keyboardLayoutCount
+          batteryLow: root.batteryLow
+          batteryPercent: root.batteryPercent
+          onLayoutSwitchRequested: root.switchKeyboardLayout()
           capsLock: root.capsLock
           onCapsProbeRequested: root.probeCapsLock()
           powerActions: root.powerActions
@@ -3054,6 +3080,8 @@ echo "$out"
         uiScale: root.uiScale
         holdStill: root.motionReduced
         language: root.language
+        batteryLow: root.batteryLow
+        batteryPercent: root.batteryPercent
         // Hold the clip's last frame in the preview instead of snapping back
         // to the start; Esc (hidePreview) resets it.
         onUnlockFinished: {}
@@ -3331,6 +3359,8 @@ echo "$out"
       // layout is a free-form name. The badge bounds what it draws; this
       // bounds what is kept.
       root.keyboardLayout = String(code || "").trim().toUpperCase().substring(0, 24)
+      root.keyboardLayoutCount = codes.filter(function(c) { return String(c).trim().length > 0 }).length
+      root.keyboardDevice = String(kb.name || "")
       // Older Hyprland does not report it; then it stays off rather than lying.
       root.capsLock = kb.capsLock === true
     }
@@ -3810,6 +3840,8 @@ echo "$out"
         reduceMotion: root.reduceMotion,
         motionReduced: root.motionReduced,
         onBattery: root.onBattery,
+        batteryPercent: root.batteryPercent,
+        batteryLow: root.batteryLow,
         uiScale: root.uiScale,
         language: root.language,
         languageSetting: root.languageSetting,

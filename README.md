@@ -103,6 +103,11 @@ blanking cut short is ignored. Enter and the face button work in every mode.
 The field also shows the keyboard layout when it is not a US one — `DK`, `DE`, and so on,
 read from Hyprland and updated while the screen is locked, so a layout switched since you
 last typed is visible rather than something you discover four wrong passwords later.
+With more than one layout configured (`kb_layout = "us,dk"`) the code is always shown, US too,
+and clicking it switches to the next layout, the same as Hyprland's own layout toggle.
+
+On battery at 15% or less, every design shows a low-battery warning in the top right corner,
+so a laptop left locked does not run flat unnoticed.
 
 A security key works too, once you have enrolled one with the Omarchy menu (Setup > Security >
 Fido2) and run `bash extras/setup-fido2.sh`. That script writes `/etc/pam.d/omarchy-lock-fido2`,

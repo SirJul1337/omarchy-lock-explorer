@@ -419,6 +419,42 @@ Item {
     logEvent("away-report count=" + count)
   }
 
+  // Designs starred with F in the explorer, listed under Favorites. Saved on
+  // the plugin entry as `favorites`, a list of design ids, only once there is
+  // one; ids of designs that no longer exist are kept and simply not shown.
+  property var favoritesOverride: null
+  readonly property var configuredFavorites: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && Array.isArray(entry.favorites))
+        return entry.favorites.map(function(id) { return String(id) })
+    }
+    return []
+  }
+  readonly property var favorites: favoritesOverride !== null ? favoritesOverride : configuredFavorites
+
+  function setFavorite(id, on) {
+    var key = String(id || "")
+    if (key.length === 0 || !Designs.byId(key)) return false
+    var next = favorites.filter(function(f) { return f !== key })
+    if (on) next.push(key)
+    favoritesOverride = next
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (next.length > 0) current.favorites = next
+      else delete current.favorites
+      writeEntry(current)
+    }
+    logEvent("favorite " + key + "=" + (on ? "on" : "off"))
+    return true
+  }
+
+  function toggleFavorite(id) {
+    return setFavorite(id, favorites.indexOf(String(id || "")) === -1)
+  }
+
   // How the wallpaper behind a design looks. Blur replaces the design's own
   // (sharp, soft or heavy); dim moves the design's own up or down, since some
   // designs darken the picture a lot to keep their text readable and one
@@ -3334,6 +3370,7 @@ echo "$out"
       readonly property int defaultWakeGrace: root.defaultWakeGrace
       readonly property bool powerActions: root.powerActions
       readonly property bool awayReport: root.awayReport
+      readonly property var favorites: root.favorites
       readonly property string wallpaperBlur: root.wallpaperBlur
       readonly property string wallpaperDim: root.wallpaperDim
       readonly property real wallpaperBlurValue: root.wallpaperBlurValue
@@ -3409,6 +3446,7 @@ echo "$out"
       function setFaceStart(value) { return root.setFaceStart(value) }
       function setPowerActions(value) { return root.setPowerActions(value) }
       function setAwayReport(value) { return root.setAwayReport(value) }
+      function toggleFavorite(id) { return root.toggleFavorite(id) }
       function setWallpaperBlur(value) { return root.setWallpaperBlur(value) }
       function setWallpaperDim(value) { return root.setWallpaperDim(value) }
       function runPowerAction(action) { return root.runPowerAction(action) }
@@ -3599,6 +3637,14 @@ echo "$out"
 
     function setAwayReport(value: string): string {
       return root.setAwayReport(value) ? "ok" : "invalid-value"
+    }
+
+    function favorites(): string {
+      return root.favorites.join("\n")
+    }
+
+    function toggleFavorite(id: string): string {
+      return root.toggleFavorite(id) ? (root.favorites.indexOf(id) !== -1 ? "on" : "off") : "unknown-design"
     }
 
     function wallpaperBlur(): string {

@@ -67,7 +67,14 @@ the plugin to get the stock lock screen back.
 omarchy-shell lock explore
 ```
 
-Arrows (or H J K L) to browse, Tab to switch between Styling and Animation, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, where the unlock animation is, and `B` the boot screen. `?` lists every key the explorer takes.
+Arrows (or H J K L) to browse, Tab to go through Styling, Animation and Favorites, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, where the unlock animation is, and `B` the boot screen. `?` lists every key the explorer takes.
+
+`/` (or Ctrl+F, or a click on the field in the header) searches every design by name, description
+and tag, across Styling and Animation at once; Enter or Down goes back to the grid with the matches
+kept, Esc clears them. `F` stars the selected design, or click the star on its card, and starred
+designs are listed under Favorites in the sidebar. They are saved on the plugin entry as
+`favorites`; `omarchy-shell lock toggleFavorite zen` and `omarchy-shell lock favorites` do the same
+from the command line.
 
 `A` picks a profile picture with the normal file dialog (the explorer steps aside while the
 dialog is up and comes back when you are done), `Shift+A` clears it again. The designs that show

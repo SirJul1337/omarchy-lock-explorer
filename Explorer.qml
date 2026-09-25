@@ -87,7 +87,9 @@ Item {
       { keys: ["Home", "End"], text: "First and last design" },
       { keys: ["PgUp", "PgDn"], text: "Scroll a page" },
       { keys: ["Space", "P"], text: "Full-size preview" },
-      { keys: ["Enter"], text: "Use the selected design" }
+      { keys: ["Enter"], text: "Use the selected design" },
+      { keys: ["/", "Ctrl+F"], text: "Search every design" },
+      { keys: ["F"], text: "Star it, or unstar it, for Favorites" }
     ] },
     { title: "Your designs", rows: [
       { keys: ["D"], text: "Designer: new, or this one if made there" },
@@ -102,7 +104,7 @@ Item {
       { keys: ["S", "Shift+S"], text: "Pick or clear the unlock clip" }
     ] },
     { title: "Pages", rows: [
-      { keys: ["Tab"], text: "Switch between Styling and Animation" },
+      { keys: ["Tab", "Shift+Tab"], text: "Styling, Animation, Favorites" },
       { keys: ["U"], text: "Settings" },
       { keys: ["B"], text: "Boot screen" },
       { keys: ["?"], text: "This list" },
@@ -118,11 +120,31 @@ Item {
   property var designingDesign: null
   property bool designerPaused: false
   property string category: "all"
+  // Type-to-filter over every design, from the field in the header (/ or
+  // Ctrl+F). While it is non-empty the grid shows matches from all of them,
+  // whichever sidebar entry is picked.
+  property string searchText: ""
+  property bool searching: false
+  onSearchTextChanged: { selectedIndex = 0; reveal(GridView.Beginning) }
+  readonly property var favoriteIds: service && service.favorites ? service.favorites : []
+  function isFavorite(id) { return root.favoriteIds.indexOf(id) !== -1 }
+  function favoriteDesigns() {
+    return Designs.all().filter(function(d) { return root.favoriteIds.indexOf(d.id) !== -1 })
+  }
+  function matchesSearch(d, words) {
+    var hay = [d.name, d.id, d.description || ""].concat(d.tags || []).join(" ").toLowerCase()
+    for (var i = 0; i < words.length; i++) if (hay.indexOf(words[i]) === -1) return false
+    return true
+  }
+  readonly property bool gridTab: mainTab === "styling" || mainTab === "animation" || mainTab === "favorites"
 
   readonly property var categories: Designs.categories()
   readonly property var designs: {
     var r = service ? service.designsRevision : 0
+    var words = searchText.trim().toLowerCase().split(/\s+/).filter(function(w) { return w.length > 0 })
+    if (words.length > 0) return Designs.all().filter(function(d) { return root.matchesSearch(d, words) })
     if (mainTab === "animation") return Designs.animations()
+    if (mainTab === "favorites") return favoriteDesigns()
     return Designs.stylings()
   }
   readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "io.github.sirjul1337.lock-explorer"
@@ -184,6 +206,7 @@ Item {
 
   function handleEscape() {
     if (showingKeys) { showingKeys = false; return }
+    if (searchText.length > 0 && gridTab) { searchText = ""; return }
     if (confirmingDelete.length > 0) { confirmingDelete = ""; return }
     if (designing) { designerView.requestClose(); return }
     if (editing) { closeEditor(); return }
@@ -216,6 +239,16 @@ Item {
   }
 
   function refocus() { Qt.callLater(function() { keyCatcher.forceActiveFocus() }) }
+
+  function focusSearch() {
+    root.searching = true
+    Qt.callLater(function() { searchInput.forceActiveFocus(); searchInput.selectAll() })
+  }
+
+  function leaveSearch() {
+    root.searching = false
+    refocus()
+  }
 
   // Quick setting for the boot (LUKS decrypt) screen, applied through
   // `omarchy-shell lock setBoot`. Only designs with a Plymouth twin under
@@ -745,6 +778,8 @@ Item {
     root.opened = false
     root.fullPreview = false
     root.showingKeys = false
+    root.searchText = ""
+    root.searching = false
     if (root.designerPaused) {
       if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
       return
@@ -1037,7 +1072,7 @@ Item {
         root.bootEditBusy = false
     }
     function onExploreTabRequested(tab) {
-      if (tab !== "styling" && tab !== "animation" && tab !== "boot" && tab !== "settings") return
+      if (tab !== "styling" && tab !== "animation" && tab !== "favorites" && tab !== "boot" && tab !== "settings") return
       // summon() re-runs open() even when already open, and open() resets the
       // tab — stash the request so it survives either path.
       root.requestedTab = tab
@@ -1152,7 +1187,7 @@ Item {
       // it drifts, except while a real editor field wants it.
       onActiveFocusChanged: {
         if (!activeFocus && root.opened && root.bootEditing.length === 0 && !root.editing
-            && !root.designing && !root.customDelayEditing)
+            && !root.designing && !root.customDelayEditing && !root.searching)
           Qt.callLater(function() { keyCatcher.forceActiveFocus() })
       }
       Keys.onPressed: function(event) {
@@ -1169,7 +1204,13 @@ Item {
           return
         }
         if (question) { root.showingKeys = true; event.accepted = true; return }
-        if (root.mainTab !== "styling" && root.mainTab !== "animation") {
+        if (root.gridTab && (event.text === "/" || (event.key === Qt.Key_F && (event.modifiers & Qt.ControlModifier)))) {
+          root.fullPreview = false
+          root.focusSearch()
+          event.accepted = true
+          return
+        }
+        if (!root.gridTab) {
           if (event.key === Qt.Key_U) { root.toggleSettings("settings"); event.accepted = true }
           else if (event.key === Qt.Key_B) { root.toggleSettings("boot"); event.accepted = true }
           return
@@ -1210,9 +1251,15 @@ Item {
         } else if (event.key === Qt.Key_B) {
           root.toggleSettings("boot")
           event.accepted = true
+        } else if (event.key === Qt.Key_F) {
+          if (root.selectedDesign && root.service && typeof root.service.toggleFavorite === "function")
+            root.service.toggleFavorite(root.selectedDesign.id)
+          event.accepted = true
         } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
-          // The same as clicking the other of the two sidebar entries.
-          root.mainTab = root.mainTab === "styling" ? "animation" : "styling"
+          // Through the grid entries in the sidebar, as if clicking the next.
+          var tabs = ["styling", "animation", "favorites"]
+          var step = event.key === Qt.Key_Backtab ? tabs.length - 1 : 1
+          root.mainTab = tabs[(Math.max(0, tabs.indexOf(root.mainTab)) + step) % tabs.length]
           event.accepted = true
         } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
           root.move(-1); event.accepted = true
@@ -1287,6 +1334,9 @@ Item {
               if (root.wallpaperBroken) return "Wallpaper failed to load" + (root.wallpaperIsWebp ? " — WebP needs:  sudo pacman -S qt6-imageformats  (then omarchy restart shell)" : "")
               if (root.mainTab === "settings") return "Unlock transition, avatar and sign-in monitor"
               if (root.mainTab === "boot") return "The disk-passphrase screen at first boot · a broken theme falls back to a plain text prompt"
+              if (root.gridTab && root.searchText.trim().length > 0)
+                return root.designs.length + (root.designs.length === 1 ? " design matches" : " designs match") + " \u201c" + root.searchText.trim() + "\u201d · Esc clears"
+              if (root.mainTab === "favorites") return root.designs.length + " starred with F"
               if (root.mainTab === "animation") return Designs.animations().length + " animated lock screens"
               if (root.mainTab === "editor") return root.bootEditing.length > 0 ? "Editing " + root.bootEditing : "Make a matching lock screen and boot screen"
               return (root.mainTab === "styling" ? Designs.stylings().length + " lock screen stylings · " : "") + root.currentThemeName + " · follows your theme"
@@ -1303,6 +1353,82 @@ Item {
           anchors.right: parent.right
           anchors.top: parent.top
           spacing: Style.space(8)
+
+          // Search over every design. The grid keys stay the grid's: the
+          // field only takes the keyboard while it has focus (/ or a click),
+          // and Enter, Down or Esc hands it back.
+          Rectangle {
+            id: searchBox
+            visible: root.gridTab
+            height: Style.space(28)
+            width: Style.space(220)
+            radius: root.cornerRadius
+            color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, root.searching ? 0.12 : 0.07)
+            border.width: 1
+            border.color: root.searching ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.15)
+
+            TextInput {
+              id: searchInput
+              anchors.left: parent.left
+              anchors.right: searchHint.left
+              anchors.leftMargin: Style.space(10)
+              anchors.rightMargin: Style.space(6)
+              anchors.verticalCenter: parent.verticalCenter
+              clip: true
+              text: root.searchText
+              color: root.foreground
+              selectionColor: root.accent
+              selectedTextColor: Color.background
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              onTextEdited: root.searchText = text
+              onActiveFocusChanged: if (!activeFocus && root.searching) root.searching = false
+              Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Escape) {
+                  if (root.searchText.length > 0) root.searchText = ""
+                  else root.leaveSearch()
+                  event.accepted = true
+                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                           || event.key === Qt.Key_Down || event.key === Qt.Key_Tab) {
+                  root.leaveSearch()
+                  event.accepted = true
+                }
+              }
+
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.searchText.length === 0
+                text: "Search designs"
+                color: root.muted
+                font: searchInput.font
+              }
+            }
+
+            Text {
+              id: searchHint
+              anchors.right: parent.right
+              anchors.rightMargin: Style.space(10)
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.searchText.length > 0 ? "✕" : "/"
+              color: searchClear.containsMouse ? root.foreground : root.muted
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              MouseArea {
+                id: searchClear
+                anchors.fill: parent
+                anchors.margins: -Style.space(4)
+                hoverEnabled: true
+                onClicked: { if (root.searchText.length > 0) root.searchText = ""; else root.focusSearch() }
+              }
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              anchors.rightMargin: searchHint.width + Style.space(14)
+              z: -1
+              onClicked: root.focusSearch()
+            }
+          }
 
           // Avatar button: click to pick a picture with the normal file
           // dialog, the x clears it back to the user's initial.
@@ -1429,7 +1555,7 @@ Item {
         // The two settings pages live where the grid otherwise is.
         Item {
           id: settingsPane
-          visible: root.mainTab !== "styling" && root.mainTab !== "animation"
+          visible: !root.gridTab
           anchors.top: parent.bottom
           anchors.topMargin: Style.space(6)
           anchors.left: parent.left
@@ -3184,6 +3310,7 @@ Item {
             return [
               { id: "styling", name: "Styling", count: Designs.stylings().length },
               { id: "animation", name: "Animation", count: Designs.animations().length },
+              { id: "favorites", name: "Favorites", count: root.favoriteDesigns().length },
               { id: "boot", name: "Boot screen", count: 0 },
               { id: "settings", name: "Settings", count: 0 }
             ]
@@ -3518,9 +3645,25 @@ Item {
         }
       }
 
+      // What an empty grid means: nothing starred yet, or no match.
+      Text {
+        visible: root.gridTab && root.designs.length === 0
+        anchors.centerIn: grid
+        width: Math.min(grid.width, Style.space(420))
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.WordWrap
+        textFormat: Text.PlainText
+        text: root.searchText.trim().length > 0
+              ? "No design matches “" + root.searchText.trim() + "”. Esc clears the search."
+              : "Nothing starred yet. Press F on a design, or click the star on its card, to keep it here."
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+
       GridView {
         id: grid
-        visible: root.mainTab === "styling" || root.mainTab === "animation"
+        visible: root.gridTab
         anchors.top: header.bottom
         anchors.bottom: footer.top
         anchors.left: parent.left
@@ -3608,6 +3751,32 @@ Item {
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
                 font.bold: true
+              }
+            }
+
+            // Favorite: shown when starred, and on the selected card as the
+            // way to star it with the mouse.
+            Rectangle {
+              readonly property bool starred: root.isFavorite(cell.modelData.id)
+              visible: starred || cell.selected
+              anchors.left: parent.left; anchors.top: parent.top
+              anchors.leftMargin: Style.space(40); anchors.topMargin: Style.space(10)
+              width: Style.space(24); height: Style.space(24); radius: 5
+              color: root.shade(0.55)
+              Text {
+                anchors.centerIn: parent
+                text: parent.starred ? "★" : "☆"
+                color: parent.starred ? root.accent : root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+              MouseArea {
+                anchors.fill: parent
+                z: 1
+                onClicked: {
+                  root.selectedIndex = cell.index
+                  if (root.service && typeof root.service.toggleFavorite === "function") root.service.toggleFavorite(cell.modelData.id)
+                }
               }
             }
 
@@ -3798,7 +3967,7 @@ Item {
             if (root.mainTab === "editor") return "Changes save automatically   ·   Esc: back"
             if (root.mainTab === "boot") return "Click a card to pick it   ·   Apply writes it to the boot image   ·   B / Esc: back   ·   ?: all keys"
             if (root.mainTab === "settings") return "U / Esc: back   ·   ?: all keys"
-            return "Arrows: browse   Space: preview   Enter: select   D: designer   U: settings   B: boot screen   ?: all keys   Esc: close"
+            return "Arrows: browse   Space: preview   Enter: select   /: search   F: favorite   D: designer   U: settings   ?: all keys   Esc: close"
           }
           color: root.muted
           font.family: root.fontFamily

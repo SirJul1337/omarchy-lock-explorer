@@ -210,6 +210,8 @@ Item {
               revision: editor.service ? editor.service.designsRevision : 0
               backgroundPath: editor.service ? editor.service.backgroundPath : ""
               backgroundVersion: editor.service ? editor.service.backgroundVersion : 0
+              wallpaperBlur: editor.service && editor.service.wallpaperBlurValue !== undefined ? editor.service.wallpaperBlurValue : -1
+              wallpaperDim: editor.service && editor.service.wallpaperDimShift !== undefined ? editor.service.wallpaperDimShift : 0
               fingerprintConfigured: editor.service ? editor.service.fingerprintConfigured : false
               inputEnabled: false
               loadBackground: true

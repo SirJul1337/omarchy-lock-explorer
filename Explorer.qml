@@ -148,6 +148,17 @@ Item {
   readonly property int wakeGrace: service && service.wakeGrace !== undefined ? service.wakeGrace : 1000
   readonly property bool powerActions: service && service.powerActions === true
   readonly property bool awayReport: !service || service.awayReport !== false
+  readonly property string wallpaperBlur: service && service.wallpaperBlur !== undefined ? String(service.wallpaperBlur) : "design"
+  readonly property string wallpaperDim: service && service.wallpaperDim !== undefined ? String(service.wallpaperDim) : "design"
+  readonly property real wallpaperBlurValue: service && service.wallpaperBlurValue !== undefined ? service.wallpaperBlurValue : -1
+  readonly property real wallpaperDimShift: service && service.wallpaperDimShift !== undefined ? service.wallpaperDimShift : 0
+  readonly property var wallpaperBlurChoices: [
+    { id: "design", name: "As designed" }, { id: "sharp", name: "Sharp" },
+    { id: "soft", name: "Soft" }, { id: "heavy", name: "Heavy" }
+  ]
+  readonly property var wallpaperDimChoices: [
+    { id: "lighter", name: "Lighter" }, { id: "design", name: "As designed" }, { id: "darker", name: "Darker" }
+  ]
   readonly property bool faceConfigured: service && service.faceConfigured === true
   readonly property string faceStart: service && service.faceStart !== undefined ? String(service.faceStart) : "wake"
   readonly property var onOffOptions: [{ id: "on", name: "On" }, { id: "off", name: "Off" }]
@@ -862,6 +873,16 @@ Item {
     root.service.setPowerActions(on)
   }
 
+  function setWallpaperBlur(id) {
+    if (!root.service || typeof root.service.setWallpaperBlur !== "function") return
+    root.service.setWallpaperBlur(id)
+  }
+
+  function setWallpaperDim(id) {
+    if (!root.service || typeof root.service.setWallpaperDim !== "function") return
+    root.service.setWallpaperDim(id)
+  }
+
   function setAwayReport(on) {
     if (!root.service || typeof root.service.setAwayReport !== "function") return
     root.service.setAwayReport(on)
@@ -1094,6 +1115,8 @@ Item {
         designId: root.activeDesignId
         revision: root.service ? root.service.designsRevision : 0
         twelveHour: root.twelveHour
+        wallpaperBlur: root.wallpaperBlurValue
+        wallpaperDim: root.wallpaperDimShift
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         avatarPath: root.service ? root.service.avatarPath : ""
@@ -1937,6 +1960,102 @@ Item {
                     }
                   }
                 }
+              }
+
+              // The wallpaper behind every design that shows one: blur in
+              // place of the design's own, dim moved up or down from it.
+              Row {
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Wallpaper blur"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: root.wallpaperBlurChoices
+                  Rectangle {
+                    id: wallBlurChip
+                    required property var modelData
+                    readonly property bool current: modelData.id === root.wallpaperBlur
+                    width: wallBlurLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, wallBlurArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: wallBlurLabel
+                      anchors.centerIn: parent
+                      text: wallBlurChip.modelData.name
+                      color: wallBlurChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: wallBlurChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: wallBlurArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setWallpaperBlur(wallBlurChip.modelData.id)
+                    }
+                  }
+                }
+              }
+              Row {
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Wallpaper dim"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: root.wallpaperDimChoices
+                  Rectangle {
+                    id: wallDimChip
+                    required property var modelData
+                    readonly property bool current: modelData.id === root.wallpaperDim
+                    width: wallDimLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, wallDimArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: wallDimLabel
+                      anchors.centerIn: parent
+                      text: wallDimChip.modelData.name
+                      color: wallDimChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: wallDimChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: wallDimArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setWallpaperDim(wallDimChip.modelData.id)
+                    }
+                  }
+                }
+              }
+
+              Text {
+                text: root.wallpaperBlur === "design" && root.wallpaperDim === "design"
+                      ? "Each design blurs and darkens the wallpaper its own way."
+                      : "Designs drawn over a solid color or their own art are not affected."
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
               }
 
               // An entry in the app launcher and under Style in the Omarchy
@@ -3281,6 +3400,8 @@ Item {
               designId: root.selectedDesign ? root.selectedDesign.id : root.activeDesignId
               revision: root.service ? root.service.designsRevision : 0
               twelveHour: root.twelveHour
+              wallpaperBlur: root.wallpaperBlurValue
+              wallpaperDim: root.wallpaperDimShift
               backgroundPath: root.service ? root.service.backgroundPath : ""
               backgroundVersion: root.service ? root.service.backgroundVersion : 0
               avatarPath: root.service ? root.service.avatarPath : ""
@@ -3458,6 +3579,8 @@ Item {
                     designId: cell.modelData.id
                     revision: root.service ? root.service.designsRevision : 0
                     twelveHour: root.twelveHour
+                    wallpaperBlur: root.wallpaperBlurValue
+                    wallpaperDim: root.wallpaperDimShift
                     backgroundPath: root.service ? root.service.backgroundPath : ""
                     backgroundVersion: root.service ? root.service.backgroundVersion : 0
                     avatarPath: root.service ? root.service.avatarPath : ""
@@ -3849,6 +3972,8 @@ Item {
         designId: root.selectedDesign ? root.selectedDesign.id : Designs.DEFAULT_ID
         revision: root.service ? root.service.designsRevision : 0
         twelveHour: root.twelveHour
+        wallpaperBlur: root.wallpaperBlurValue
+        wallpaperDim: root.wallpaperDimShift
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         fingerprintConfigured: root.service ? root.service.fingerprintConfigured : false

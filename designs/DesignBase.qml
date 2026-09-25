@@ -258,6 +258,10 @@ Item {
   // down through LockHost; designs never read the setting themselves, they
   // render their clock through clock() below.
   property bool twelveHour: false
+  // Set from the wallpaper setting, read by Wallpaper: -1 keeps the blur a
+  // design asks for, and the dim shift is added to the design's own.
+  property real wallpaperBlur: -1
+  property real wallpaperDim: 0
 
   // Designs pass their ordinary 24-hour Qt format string here. With the
   // 12-hour setting off it is used as written, so a design that never calls

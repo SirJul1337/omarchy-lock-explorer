@@ -213,6 +213,17 @@ with AM/PM after the time when the setting is on. A design that shows a bare
 hour on its own — Flip's tiles, Poster's numerals — counts 1 to 12 and puts the
 meridiem in `lock.meridiem`, which those two draw beside the digits.
 
+### Wallpaper blur and dim
+
+Each design blurs and darkens your wallpaper its own way. The Settings tab has two rows to change
+that for all of them. **Wallpaper blur** is As designed, Sharp (no blur), Soft or Heavy, and
+replaces the design's own. **Wallpaper dim** is Lighter, As designed or Darker, and moves each
+design's own dim up or down rather than replacing it: some designs darken the picture a lot so
+their text stays readable, and one value for all of them would undo that. Designs drawn over a
+solid color or their own art (Aurora, Neon, the ttfx designs and so on) are not affected. By hand:
+`omarchy-shell lock setWallpaperBlur sharp` and `setWallpaperDim darker`, `design` for either to
+go back. They are saved on the plugin entry as `wallpaperBlur` and `wallpaperDim`.
+
 ### Blank the display after
 
 By default the lock screen DPMS-offs the display five seconds after locking. The Settings tab has

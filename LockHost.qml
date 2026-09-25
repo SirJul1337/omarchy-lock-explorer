@@ -44,6 +44,10 @@ Item {
   property real clipSpeed: 1
   // 12-hour clocks with AM/PM, see `omarchy-shell lock setClockFormat`.
   property bool twelveHour: false
+  // The wallpaper setting: a blur that replaces the design's (-1 keeps it)
+  // and a shift on the design's own dim. Wallpaper reads both off the design.
+  property real wallpaperBlur: -1
+  property real wallpaperDim: 0
 
   signal submitPassword(string password)
   signal passwordTextEdited(string password)
@@ -112,6 +116,8 @@ Item {
     if (it.unlockPlayback !== undefined) it.unlockPlayback = Qt.binding(function() { return host.unlockPlayback })
     if (it.clipSpeed !== undefined) it.clipSpeed = Qt.binding(function() { return host.clipSpeed })
     if (it.twelveHour !== undefined) it.twelveHour = Qt.binding(function() { return host.twelveHour })
+    if (it.wallpaperBlur !== undefined) it.wallpaperBlur = Qt.binding(function() { return host.wallpaperBlur })
+    if (it.wallpaperDim !== undefined) it.wallpaperDim = Qt.binding(function() { return host.wallpaperDim })
   }
 
   // Built-in designs come through the Loader; it also carries the Classic

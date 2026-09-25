@@ -419,6 +419,50 @@ Item {
     logEvent("away-report count=" + count)
   }
 
+  // How the wallpaper behind a design looks. Blur replaces the design's own
+  // (sharp, soft or heavy); dim moves the design's own up or down, since some
+  // designs darken the picture a lot to keep their text readable and one
+  // value for all of them would undo that. "design" leaves both alone and is
+  // not written, so the entry only gets `wallpaperBlur` / `wallpaperDim` once
+  // they are changed.
+  readonly property var wallpaperBlurOptions: ({ design: -1, sharp: 0, soft: 0.45, heavy: 1 })
+  readonly property var wallpaperDimOptions: ({ design: 0, lighter: -0.15, darker: 0.2 })
+  property string wallpaperBlurOverride: ""
+  property string wallpaperDimOverride: ""
+  function configuredWallpaperOption(key, options) {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && options[String(entry[key])] !== undefined)
+        return String(entry[key])
+    }
+    return "design"
+  }
+  readonly property string wallpaperBlur: wallpaperBlurOverride.length > 0 ? wallpaperBlurOverride
+                                                                           : configuredWallpaperOption("wallpaperBlur", wallpaperBlurOptions)
+  readonly property string wallpaperDim: wallpaperDimOverride.length > 0 ? wallpaperDimOverride
+                                                                         : configuredWallpaperOption("wallpaperDim", wallpaperDimOptions)
+  readonly property real wallpaperBlurValue: wallpaperBlurOptions[wallpaperBlur]
+  readonly property real wallpaperDimShift: wallpaperDimOptions[wallpaperDim]
+
+  function setWallpaperOption(key, value, options) {
+    var text = String(value === undefined ? "" : value).trim().toLowerCase()
+    if (options[text] === undefined) return false
+    if (key === "wallpaperBlur") wallpaperBlurOverride = text
+    else wallpaperDimOverride = text
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (text === "design") delete current[key]
+      else current[key] = text
+      writeEntry(current)
+    }
+    logEvent(key + "=" + text)
+    return true
+  }
+  function setWallpaperBlur(value) { return setWallpaperOption("wallpaperBlur", value, wallpaperBlurOptions) }
+  function setWallpaperDim(value) { return setWallpaperOption("wallpaperDim", value, wallpaperDimOptions) }
+
   // Security-key unlock, on whenever a key is set up. Saved on the plugin
   // entry as `fido2Off` only when it is turned off, so a setup that never
   // touches this keeps the entry it always had.
@@ -2698,6 +2742,8 @@ echo "$out"
           unlockPlayback: root.unlockPlayback && root.showsInput(lockSurface.screen)
           clipSpeed: root.clipSpeed
           twelveHour: root.twelveHour
+          wallpaperBlur: root.wallpaperBlurValue
+          wallpaperDim: root.wallpaperDimShift
           onUnlockFinished: root.releaseLock()
           onPasswordTextEdited: function(password) { root.enteredPassword = password }
           onSubmitPassword: function(password) { root.submitPassword(password) }
@@ -2750,6 +2796,8 @@ echo "$out"
         unlockPlayback: root.previewClipPlaying
         clipSpeed: root.clipSpeed
         twelveHour: root.twelveHour
+        wallpaperBlur: root.wallpaperBlurValue
+        wallpaperDim: root.wallpaperDimShift
         // Hold the clip's last frame in the preview instead of snapping back
         // to the start; Esc (hidePreview) resets it.
         onUnlockFinished: {}
@@ -3286,6 +3334,10 @@ echo "$out"
       readonly property int defaultWakeGrace: root.defaultWakeGrace
       readonly property bool powerActions: root.powerActions
       readonly property bool awayReport: root.awayReport
+      readonly property string wallpaperBlur: root.wallpaperBlur
+      readonly property string wallpaperDim: root.wallpaperDim
+      readonly property real wallpaperBlurValue: root.wallpaperBlurValue
+      readonly property real wallpaperDimShift: root.wallpaperDimShift
       readonly property bool keepDisplayOn: root.keepDisplayOn
       readonly property bool displayBlankingSuppressed: root.displayBlankingSuppressed
       readonly property bool fingerprintConfigured: root.fingerprintConfigured
@@ -3357,6 +3409,8 @@ echo "$out"
       function setFaceStart(value) { return root.setFaceStart(value) }
       function setPowerActions(value) { return root.setPowerActions(value) }
       function setAwayReport(value) { return root.setAwayReport(value) }
+      function setWallpaperBlur(value) { return root.setWallpaperBlur(value) }
+      function setWallpaperDim(value) { return root.setWallpaperDim(value) }
       function runPowerAction(action) { return root.runPowerAction(action) }
       function setKeepDisplayOn(on) { return root.setKeepDisplayOn(on) }
       function refreshBackground() { return root.refreshBackground() }
@@ -3476,6 +3530,8 @@ echo "$out"
         faceStart: root.faceStart,
         powerActions: root.powerActions,
         awayReport: root.awayReport,
+        wallpaperBlur: root.wallpaperBlur,
+        wallpaperDim: root.wallpaperDim,
         keepDisplayOn: root.keepDisplayOn,
         displayBlankingSuppressed: root.displayBlankingSuppressed,
         unlocking: root.unlocking,
@@ -3543,6 +3599,22 @@ echo "$out"
 
     function setAwayReport(value: string): string {
       return root.setAwayReport(value) ? "ok" : "invalid-value"
+    }
+
+    function wallpaperBlur(): string {
+      return root.wallpaperBlur
+    }
+
+    function setWallpaperBlur(value: string): string {
+      return root.setWallpaperBlur(value) ? "ok" : "invalid-value"
+    }
+
+    function wallpaperDim(): string {
+      return root.wallpaperDim
+    }
+
+    function setWallpaperDim(value: string): string {
+      return root.setWallpaperDim(value) ? "ok" : "invalid-value"
     }
 
     function wakeGrace(): string {

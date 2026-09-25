@@ -448,6 +448,18 @@ and by deleting the `style.lockscreen` line from `~/.config/omarchy/extensions/o
 
 ## Troubleshooting
 
+Start with the check that ships with the plugin. It looks at everything below and prints the fix
+next to anything wrong, and it works even when the explorer will not open:
+
+```sh
+bash ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer/extras/doctor.sh
+```
+
+"Check this install" at the top of Settings runs the same thing in a terminal, and Settings also
+lists what it can see is missing, such as `qt6-multimedia`, with an Install button that runs
+`omarchy pkg add` in a terminal and restarts the shell. If you open an issue, paste the doctor's
+output into it.
+
 `omarchy-shell lock explore` says `Function not found`: the stock lock service is still the one
 answering, so this plugin never took over the `lock` IPC target. Run `omarchy restart shell`.
 If it persists, check that the plugin is enabled and that the stock one got disabled:

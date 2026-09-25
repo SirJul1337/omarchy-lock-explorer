@@ -759,6 +759,30 @@ Item {
     }
   }
 
+  // What the explorer's Settings offers when something is missing. Both run
+  // in a terminal the user can see: pacman asks for the password there, and
+  // the doctor's report stays on screen until a key is pressed. Only the
+  // packages the plugin itself uses can be asked for.
+  readonly property var installablePackages: ["qt6-multimedia", "qt6-imageformats"]
+  readonly property string doctorPath: pluginDir + "/extras/doctor.sh"
+
+  function shellQuote(text) { return "'" + String(text).replace(/'/g, "'\\''") + "'" }
+
+  function installPackages(names) {
+    var list = (names || []).map(String).filter(function(n) { return installablePackages.indexOf(n) !== -1 })
+    if (list.length === 0) return false
+    Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation",
+                             "omarchy-pkg-add " + list.join(" ") + " && omarchy restart shell"])
+    logEvent("install " + list.join(" "))
+    return true
+  }
+
+  function runDoctor() {
+    Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation", "bash " + shellQuote(doctorPath)])
+    logEvent("doctor")
+    return true
+  }
+
   readonly property string checkFaceAuthPath: pluginDir + "/check-face-auth.sh"
   readonly property string checkFido2AuthPath: pluginDir + "/check-fido2-auth.sh"
 
@@ -3371,6 +3395,8 @@ echo "$out"
       readonly property bool powerActions: root.powerActions
       readonly property bool awayReport: root.awayReport
       readonly property var favorites: root.favorites
+      readonly property var shadowingDirs: root.shadowingDirs
+      readonly property string doctorPath: root.doctorPath
       readonly property string wallpaperBlur: root.wallpaperBlur
       readonly property string wallpaperDim: root.wallpaperDim
       readonly property real wallpaperBlurValue: root.wallpaperBlurValue
@@ -3447,6 +3473,8 @@ echo "$out"
       function setPowerActions(value) { return root.setPowerActions(value) }
       function setAwayReport(value) { return root.setAwayReport(value) }
       function toggleFavorite(id) { return root.toggleFavorite(id) }
+      function installPackages(names) { return root.installPackages(names) }
+      function runDoctor() { return root.runDoctor() }
       function setWallpaperBlur(value) { return root.setWallpaperBlur(value) }
       function setWallpaperDim(value) { return root.setWallpaperDim(value) }
       function runPowerAction(action) { return root.runPowerAction(action) }

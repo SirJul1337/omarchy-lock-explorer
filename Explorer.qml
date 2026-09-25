@@ -136,6 +136,36 @@ Item {
     for (var i = 0; i < words.length; i++) if (hay.indexOf(words[i]) === -1) return false
     return true
   }
+  // Things that stop part of the plugin working here, each with the way out.
+  // Shown at the top of Settings, and only when there is something to say.
+  readonly property bool multimediaMissing: !!service && service.multimediaAvailable === false
+  readonly property var healthIssues: {
+    var list = []
+    if (root.multimediaMissing)
+      list.push({ text: "Video designs, clip designs and the unlock clip need qt6-multimedia, which Omarchy does not install.",
+                  packages: ["qt6-multimedia"] })
+    if (root.wallpaperBroken && root.wallpaperIsWebp)
+      list.push({ text: "Your wallpaper is WebP, which the shell can only read with qt6-imageformats.",
+                  packages: ["qt6-imageformats"] })
+    var dirs = service && service.shadowingDirs ? service.shadowingDirs : []
+    if (dirs.length > 0)
+      list.push({ text: "Another copy of this plugin may load instead of this one: " + dirs.join(", ")
+                        + ". Move it out of ~/.config/omarchy/plugins/ and restart the shell.", packages: [] })
+    return list
+  }
+
+  function installPackages(names) {
+    if (!root.service || typeof root.service.installPackages !== "function") return
+    root.dismiss()
+    root.service.installPackages(names)
+  }
+
+  function runDoctor() {
+    if (!root.service || typeof root.service.runDoctor !== "function") return
+    root.dismiss()
+    root.service.runDoctor()
+  }
+
   readonly property bool gridTab: mainTab === "styling" || mainTab === "animation" || mainTab === "favorites"
 
   readonly property var categories: Designs.categories()
@@ -1334,6 +1364,8 @@ Item {
               if (root.wallpaperBroken) return "Wallpaper failed to load" + (root.wallpaperIsWebp ? " — WebP needs:  sudo pacman -S qt6-imageformats  (then omarchy restart shell)" : "")
               if (root.mainTab === "settings") return "Unlock transition, avatar and sign-in monitor"
               if (root.mainTab === "boot") return "The disk-passphrase screen at first boot · a broken theme falls back to a plain text prompt"
+              if (root.mainTab === "animation" && root.multimediaMissing)
+                return "Video designs need qt6-multimedia · Settings (U) installs it"
               if (root.gridTab && root.searchText.trim().length > 0)
                 return root.designs.length + (root.designs.length === 1 ? " design matches" : " designs match") + " \u201c" + root.searchText.trim() + "\u201d · Esc clears"
               if (root.mainTab === "favorites") return root.designs.length + " starred with F"
@@ -1583,6 +1615,100 @@ Item {
               width: parent.width
               visible: root.mainTab === "settings"
               spacing: Style.space(10)
+
+              // Health: what is missing, with the fix a click away. The full
+              // check is extras/doctor.sh, which also runs without the shell.
+              Column {
+                width: parent.width
+                spacing: Style.space(6)
+
+                Repeater {
+                  model: root.healthIssues
+                  Rectangle {
+                    id: issueRow
+                    required property var modelData
+                    width: Math.min(parent.width, Style.space(720))
+                    height: issueLine.implicitHeight + Style.space(16)
+                    radius: root.cornerRadius
+                    color: Qt.rgba(root.danger.r, root.danger.g, root.danger.b, 0.12)
+                    border.width: 1
+                    border.color: Qt.rgba(root.danger.r, root.danger.g, root.danger.b, 0.45)
+
+                    Text {
+                      id: issueLine
+                      anchors.left: parent.left
+                      anchors.right: installButton.visible ? installButton.left : parent.right
+                      anchors.leftMargin: Style.space(12)
+                      anchors.rightMargin: Style.space(12)
+                      anchors.verticalCenter: parent.verticalCenter
+                      text: issueRow.modelData.text
+                      textFormat: Text.PlainText
+                      wrapMode: Text.WordWrap
+                      color: root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                    }
+
+                    Rectangle {
+                      id: installButton
+                      visible: issueRow.modelData.packages.length > 0
+                      anchors.right: parent.right
+                      anchors.rightMargin: Style.space(8)
+                      anchors.verticalCenter: parent.verticalCenter
+                      width: installLabel.implicitWidth + Style.space(18)
+                      height: Style.space(26)
+                      radius: root.cornerRadius
+                      color: installArea.containsMouse ? Qt.lighter(root.accent, 1.15) : root.accent
+                      Text {
+                        id: installLabel
+                        anchors.centerIn: parent
+                        text: "Install"
+                        color: Color.background
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.caption
+                        font.weight: Font.DemiBold
+                      }
+                      MouseArea {
+                        id: installArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: root.installPackages(issueRow.modelData.packages)
+                      }
+                    }
+                  }
+                }
+
+                Row {
+                  spacing: Style.space(8)
+                  Rectangle {
+                    width: doctorLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, doctorArea.containsMouse ? 0.12 : 0.06)
+                    Text {
+                      id: doctorLabel
+                      anchors.centerIn: parent
+                      text: "Check this install"
+                      color: root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                    }
+                    MouseArea {
+                      id: doctorArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.runDoctor()
+                    }
+                  }
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.healthIssues.length === 0 ? "Nothing missing that the explorer can see." : "Opens a terminal with every check and its fix."
+                    color: root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                  }
+                }
+              }
 
               Column {
                 spacing: Style.space(2)

@@ -235,6 +235,12 @@ happens — handy on a machine that otherwise can only be powered off by holding
 and worth leaving off anywhere a locked screen should do nothing but take a password.
 By hand: `omarchy-shell lock setPowerActions on`.
 
+"Report failed attempts", on by default, sends a notification after you unlock when somebody got
+the password or the security key wrong while you were away: how many times, and when the last one
+was. Wrong attempts that run straight into your own unlock, each within 30 seconds of the next,
+are you getting it wrong on the way in and are left out. By hand:
+`omarchy-shell lock setAwayReport off`.
+
 **Never** keeps the lock screen lit for the whole lock: video designs keep playing, and slow
 monitors are never re-blanked mid-wake on resume — the display was never off to begin with.
 

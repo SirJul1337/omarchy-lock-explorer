@@ -147,6 +147,7 @@ Item {
   readonly property var blankPresets: [5000, 15000, 30000, 60000, 300000]
   readonly property int wakeGrace: service && service.wakeGrace !== undefined ? service.wakeGrace : 1000
   readonly property bool powerActions: service && service.powerActions === true
+  readonly property bool awayReport: !service || service.awayReport !== false
   readonly property bool faceConfigured: service && service.faceConfigured === true
   readonly property string faceStart: service && service.faceStart !== undefined ? String(service.faceStart) : "wake"
   readonly property var onOffOptions: [{ id: "on", name: "On" }, { id: "off", name: "Off" }]
@@ -859,6 +860,11 @@ Item {
   function setPowerActions(on) {
     if (!root.service || typeof root.service.setPowerActions !== "function") return
     root.service.setPowerActions(on)
+  }
+
+  function setAwayReport(on) {
+    if (!root.service || typeof root.service.setAwayReport !== "function") return
+    root.service.setAwayReport(on)
   }
 
   function setWakeGrace(ms) {
@@ -2028,6 +2034,60 @@ Item {
                 text: root.powerActions
                       ? "Sleep, restart and shut down sit in the corner. Each asks once more before it happens."
                       : "The lock screen takes a password and nothing else."
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+
+              // A notification after the unlock when somebody got it wrong
+              // while you were away. Mistakes on your own way in are left out.
+              Row {
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Report failed attempts"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                Repeater {
+                  model: root.onOffOptions
+                  Rectangle {
+                    id: awayChip
+                    required property var modelData
+                    readonly property bool current: (modelData.id === "on") === root.awayReport
+                    width: awayChipLabel.implicitWidth + Style.space(18)
+                    height: Style.space(26)
+                    radius: root.cornerRadius
+                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, awayChipArea.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Text {
+                      id: awayChipLabel
+                      anchors.centerIn: parent
+                      text: awayChip.modelData.name
+                      color: awayChip.current ? Color.background : root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: awayChip.current ? Font.DemiBold : Font.Normal
+                    }
+
+                    MouseArea {
+                      id: awayChipArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      onClicked: root.setAwayReport(awayChip.modelData.id === "on")
+                    }
+                  }
+                }
+              }
+
+              Text {
+                text: root.awayReport
+                      ? "After you unlock, a notification says if somebody got it wrong while you were away."
+                      : "Failed attempts are not reported."
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption

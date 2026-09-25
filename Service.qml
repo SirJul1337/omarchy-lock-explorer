@@ -360,6 +360,65 @@ Item {
     return true
   }
 
+  // After an unlock, a notification for the failed attempts made while you
+  // were away. On by default: it says nothing unless somebody tried. Saved on
+  // the plugin entry as `awayReportOff` only when it is turned off.
+  property int awayReportOverride: -1
+  readonly property bool configuredAwayReport: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.awayReportOff !== undefined)
+        return !(entry.awayReportOff === true || String(entry.awayReportOff) === "true")
+    }
+    return true
+  }
+  readonly property bool awayReport: awayReportOverride >= 0 ? awayReportOverride === 1 : configuredAwayReport
+
+  function setAwayReport(value) {
+    var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
+    var off = value === false || value === "false" || value === 0 || value === "0" || value === "off"
+    if (!on && !off) return false
+
+    awayReportOverride = on ? 1 : 0
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (on) delete current.awayReportOff
+      else current.awayReportOff = true
+      writeEntry(current)
+    }
+    logEvent("away-report=" + (on ? "on" : "off"))
+    return true
+  }
+
+  // When each failed attempt of this lock happened. The ones that run into
+  // the unlock, each within awayGapMs of the next, are the person unlocking
+  // getting it wrong on the way in; anything before that is reported.
+  readonly property int awayGapMs: 30000
+  property var failureTimes: []
+  property var pendingAwayReport: null
+
+  function awayFailures(unlockAt) {
+    var times = failureTimes.slice()
+    var edge = unlockAt
+    while (times.length > 0 && edge - times[times.length - 1] <= awayGapMs)
+      edge = times.pop()
+    return times
+  }
+
+  function sendAwayReport(times) {
+    var count = times.length
+    var last = new Date(times[count - 1])
+    var today = new Date()
+    var clock = Qt.formatTime(last, twelveHour ? "h:mm AP" : "HH:mm")
+    var when = last.toDateString() === today.toDateString() ? clock : Qt.formatDate(last, "ddd") + " " + clock
+    var summary = count === 1 ? "1 failed attempt to unlock" : count + " failed attempts to unlock"
+    Quickshell.execDetached(["notify-send", "-a", "Lock screen", summary,
+                             "While the screen was locked, the last at " + when])
+    logEvent("away-report count=" + count)
+  }
+
   // Security-key unlock, on whenever a key is set up. Saved on the plugin
   // entry as `fido2Off` only when it is turned off, so a setup that never
   // touches this keeps the entry it always had.
@@ -2090,6 +2149,7 @@ echo "$out"
     pendingPassword = ""
     failureMessage = ""
     failedAttempts = 0
+    failureTimes = []
     authenticatingPassword = false
     fingerprintAuthenticating = false
     fingerprintRetryTimer.stop()
@@ -2144,6 +2204,8 @@ echo "$out"
     if (!root.locked && !lockRequested) return
     if (unlocking || clipUnlocking) return
 
+    var away = awayReport ? awayFailures(Date.now()) : []
+    pendingAwayReport = away.length > 0 ? away : null
     lockRequested = false
     pendingSessionLock = false
     sessionLockStabilizeTimer.stop()
@@ -2188,6 +2250,8 @@ echo "$out"
     unlocking = false
     sessionLock.locked = false
     logEvent("unlocked")
+    if (pendingAwayReport) sendAwayReport(pendingAwayReport)
+    pendingAwayReport = null
     // The clip was the whole show, no second video on top of it.
     if (hadClip) commitClipWallpaper()
     else playSting()
@@ -2276,6 +2340,7 @@ echo "$out"
     enteredPassword = ""
     pendingPassword = ""
     failedAttempts += 1
+    failureTimes = failureTimes.concat([Date.now()])
     failureMessage = "Authentication failed (" + failedAttempts + ")"
     runWake()
   }
@@ -2520,6 +2585,7 @@ echo "$out"
     // A PIN that went to the key is still the user's to spend again.
     var pinWasSubmitted = fido2PinSubmitted
     failedAttempts += 1
+    failureTimes = failureTimes.concat([Date.now()])
     if (fido2PinSubmitted) fido2PinAttempts += 1
     fido2PinSubmitted = false
     fido2Status = ""
@@ -3219,6 +3285,7 @@ echo "$out"
       readonly property int wakeGrace: root.wakeInputGrace
       readonly property int defaultWakeGrace: root.defaultWakeGrace
       readonly property bool powerActions: root.powerActions
+      readonly property bool awayReport: root.awayReport
       readonly property bool keepDisplayOn: root.keepDisplayOn
       readonly property bool displayBlankingSuppressed: root.displayBlankingSuppressed
       readonly property bool fingerprintConfigured: root.fingerprintConfigured
@@ -3289,6 +3356,7 @@ echo "$out"
       function setWakeGrace(ms) { return root.setWakeGrace(ms) }
       function setFaceStart(value) { return root.setFaceStart(value) }
       function setPowerActions(value) { return root.setPowerActions(value) }
+      function setAwayReport(value) { return root.setAwayReport(value) }
       function runPowerAction(action) { return root.runPowerAction(action) }
       function setKeepDisplayOn(on) { return root.setKeepDisplayOn(on) }
       function refreshBackground() { return root.refreshBackground() }
@@ -3407,6 +3475,7 @@ echo "$out"
         wakeGraceMs: root.wakeInputGrace,
         faceStart: root.faceStart,
         powerActions: root.powerActions,
+        awayReport: root.awayReport,
         keepDisplayOn: root.keepDisplayOn,
         displayBlankingSuppressed: root.displayBlankingSuppressed,
         unlocking: root.unlocking,
@@ -3466,6 +3535,14 @@ echo "$out"
 
     function setPowerActions(value: string): string {
       return root.setPowerActions(value) ? "ok" : "invalid-value"
+    }
+
+    function awayReport(): string {
+      return root.awayReport ? "on" : "off"
+    }
+
+    function setAwayReport(value: string): string {
+      return root.setAwayReport(value) ? "ok" : "invalid-value"
     }
 
     function wakeGrace(): string {

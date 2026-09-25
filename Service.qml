@@ -667,7 +667,69 @@ Item {
   // each other while the file watcher catches up.
   function writeEntry(entry) {
     localSettings.remember(entry)
+    saveSettingsBackup(entry)
     return shell.updateEntryInline(pluginId, entry)
+  }
+
+  // A copy of these settings outside ~/.config/omarchy/plugins/. Omarchy drops
+  // a plugin's entry from shell.json when the plugin is removed, so removing
+  // and adding it again -- the usual way out of a broken install -- started
+  // over from every default. Every write is mirrored here, and at startup an
+  // entry with no settings left takes them back from the copy. The copy always
+  // matches the last write, so settings put back to their defaults stay that
+  // way; deleting the file is how to really start over.
+  readonly property string settingsBackupPath: home + "/.config/omarchy/lock-explorer.json"
+  // Keys Omarchy keeps on the entry for itself.
+  readonly property var hostEntryKeys: ["id", "enabled"]
+  property bool settingsRestoreChecked: false
+
+  FileView {
+    id: settingsBackup
+    path: root.settingsBackupPath
+    blockLoading: true
+    atomicWrites: true
+    printErrors: false
+  }
+
+  function settingKeys(entry) {
+    return Object.keys(entry || {}).filter(function(k) { return hostEntryKeys.indexOf(k) === -1 })
+  }
+
+  function saveSettingsBackup(entry) {
+    var copy = {}
+    settingKeys(entry).forEach(function(k) { copy[k] = entry[k] })
+    settingsBackup.setText(JSON.stringify(copy, null, 2) + "\n")
+  }
+
+  function savedSettings() {
+    var saved = null
+    try { saved = JSON.parse(String(settingsBackup.text() || "")) } catch (e) { saved = null }
+    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : null
+  }
+
+  function restoreSettings() {
+    if (settingsRestoreChecked) return
+    settingsRestoreChecked = true
+    if (!shell || typeof shell.updateEntryInline !== "function") return
+    var current = pluginEntry()
+    var saved = savedSettings()
+    if (settingKeys(current).length > 0) {
+      // An install from before the copy existed gets one now.
+      if (!saved) saveSettingsBackup(current)
+      return
+    }
+    if (!saved || settingKeys(saved).length === 0) return
+    var keys = settingKeys(saved)
+    keys.forEach(function(k) { current[k] = saved[k] })
+    writeEntry(current)
+    logEvent("settings-restored " + keys.join(","))
+  }
+
+  // Once the entry has been read and the host has settled after a reload.
+  Timer {
+    id: settingsRestoreTimer
+    interval: 2000
+    onTriggered: root.restoreSettings()
   }
 
   function setInputMonitor(name) {
@@ -3662,6 +3724,7 @@ echo "$out"
     blankCrashCheckProc.running = true
     duplicatePluginProc.running = true
     checkStrandedLock()
+    settingsRestoreTimer.start()
   }
 
   Component.onDestruction: retireExplorerApi()

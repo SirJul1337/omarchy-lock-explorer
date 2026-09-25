@@ -205,7 +205,10 @@ fade: the desktop comes back on the same background instead of through a dark fl
 instead, and the fade goes straight into it.
 
 The selected design, the avatar, the unlock animation and the boot screen setting are saved on
-the plugin entry in `~/.config/omarchy/shell.json`.
+the plugin entry in `~/.config/omarchy/shell.json`, with a copy in
+`~/.config/omarchy/lock-explorer.json`. Omarchy drops a plugin's entry when the plugin is
+removed, so the copy is what brings every setting back after removing and adding the plugin
+again. Delete that file too if you want to start over from the defaults.
 
 ### 12-hour clock
 

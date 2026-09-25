@@ -102,6 +102,7 @@ Item {
       { keys: ["S", "Shift+S"], text: "Pick or clear the unlock clip" }
     ] },
     { title: "Pages", rows: [
+      { keys: ["Tab"], text: "Switch between Styling and Animation" },
       { keys: ["U"], text: "Settings" },
       { keys: ["B"], text: "Boot screen" },
       { keys: ["?"], text: "This list" },
@@ -773,13 +774,6 @@ Item {
     reveal(GridView.Contain)
   }
 
-  function cycleCategory(delta) {
-    var n = categories.length
-    var cur = 0
-    for (var i = 0; i < n; i++) if (categories[i].id === root.category) cur = i
-    setCategory(categories[(cur + delta + n) % n].id)
-  }
-
   function move(delta) {
     var n = designs.length
     if (n === 0) return
@@ -1187,10 +1181,10 @@ Item {
         } else if (event.key === Qt.Key_B) {
           root.toggleSettings("boot")
           event.accepted = true
-        } else if (event.key === Qt.Key_Tab) {
-          root.cycleCategory(1); event.accepted = true
-        } else if (event.key === Qt.Key_Backtab) {
-          root.cycleCategory(-1); event.accepted = true
+        } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+          // The same as clicking the other of the two sidebar entries.
+          root.mainTab = root.mainTab === "styling" ? "animation" : "styling"
+          event.accepted = true
         } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
           root.move(-1); event.accepted = true
         } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {

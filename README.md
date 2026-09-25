@@ -67,7 +67,7 @@ the plugin to get the stock lock screen back.
 omarchy-shell lock explore
 ```
 
-Arrows (or H J K L) to browse, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, where the unlock animation is, and `B` the boot screen. `?` lists every key the explorer takes.
+Arrows (or H J K L) to browse, Tab to switch between Styling and Animation, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, where the unlock animation is, and `B` the boot screen. `?` lists every key the explorer takes.
 
 `A` picks a profile picture with the normal file dialog (the explorer steps aside while the
 dialog is up and comes back when you are done), `Shift+A` clears it again. The designs that show

@@ -108,6 +108,8 @@ BorderSurface {
 
   Rectangle {
     id: layoutBadge
+    // Above the input, so a click on it reaches the layout switch.
+    z: 2
     visible: field.showLayout
     anchors.left: field.showLockGlyph ? lockGlyph.right : parent.left
     anchors.leftMargin: field.showLockGlyph ? 8 : field.borderLeft + field.sidePadding

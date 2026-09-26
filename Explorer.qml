@@ -1261,7 +1261,11 @@ Item {
       onActiveFocusChanged: {
         if (!activeFocus && root.opened && root.bootEditing.length === 0 && !root.editing
             && !root.designing && !root.customDelayEditing && !root.searching)
-          Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+          Qt.callLater(function() {
+            // Asked again: a click into the search field moves focus there
+            // before the field has said it is searching.
+            if (!root.searching && !keyCatcher.activeFocus) keyCatcher.forceActiveFocus()
+          })
       }
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape) { root.handleEscape(); event.accepted = true; return }
@@ -1457,7 +1461,7 @@ Item {
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
               onTextEdited: root.searchText = text
-              onActiveFocusChanged: if (!activeFocus && root.searching) root.searching = false
+              onActiveFocusChanged: root.searching = activeFocus
               Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Escape) {
                   if (root.searchText.length > 0) root.searchText = ""
@@ -4088,8 +4092,10 @@ Item {
             }
 
             // Favorite: shown when starred, and on the selected card as the
-            // way to star it with the mouse.
+            // way to star it with the mouse. Above the card's own click area,
+            // which is declared after it.
             Rectangle {
+              z: 2
               readonly property bool starred: root.isFavorite(cell.modelData.id)
               visible: starred || cell.selected
               anchors.left: parent.left; anchors.top: parent.top

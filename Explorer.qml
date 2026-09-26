@@ -3590,7 +3590,7 @@ Item {
           Timer { id: grabTimer; interval: 1200; onTriggered: { cell.grabThumb(false); regrabTimer.restart() } }
           Timer { id: regrabTimer; interval: 3500; onTriggered: cell.grabThumb(true) }
           function grabThumb(again) {
-            if (!cell.inView || !thumbLoader.item || (!again && cell.cachedThumb.length > 0)) return
+            if (!root.opened || !cell.inView || !thumbLoader.item || (!again && cell.cachedThumb.length > 0)) return
             var id = cell.modelData.id
             var key = root.thumbStateKey
             var dpr = Screen.devicePixelRatio || 1

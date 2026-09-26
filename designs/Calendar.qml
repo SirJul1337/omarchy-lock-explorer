@@ -47,7 +47,7 @@ DesignBase {
         spacing: 10
 
         Text {
-          text: Qt.formatDate(lock.now, "MMMM yyyy")
+          text: lock.date("MMMM yyyy")
           color: Color.lock.text
           font.family: Style.font.family
           font.pixelSize: Style.font.heading
@@ -109,7 +109,7 @@ DesignBase {
         font.letterSpacing: -2
       }
       Text {
-        text: Qt.formatDate(lock.now, "dddd")
+        text: lock.date("dddd")
         color: lock.withAlpha(Color.lock.text, 0.75)
         font.family: Style.font.family
         font.pixelSize: Style.font.display
@@ -121,11 +121,11 @@ DesignBase {
         width: 360
         height: 54
         textAlignment: TextInput.AlignLeft
-        placeholder: lock.greeting() + ", " + lock.userName
+        placeholder: lock.greeting() + ", " + lock.displayName
       }
       Text {
         opacity: lock.snapshotMode ? 0 : 1
-        text: lock.fingerprintConfigured ? lock.fingerprintHint("󰆠  Touch sensor or press Enter") : "Press Enter to unlock"
+        text: lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("󰆠  Touch sensor or press Enter")) : lock.tr("Press Enter to unlock")
         textFormat: Text.PlainText
         color: lock.withAlpha(Color.lock.text, 0.5)
         font.family: Style.font.family

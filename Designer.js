@@ -324,6 +324,85 @@ var KINDS = {
     ]
   },
 
+  weather: {
+    name: "Weather", group: "Live", glyph: "󰖐",
+    hint: "The weather now, from wttr.in for the place in Omarchy's weather settings",
+    spec: { unit: "c", icon: true, condition: true, place: false, size: 22, weight: 400, color: "text", alpha: 0.9, spacing: 0, align: "center", caps: false, shadow: true },
+    fields: textFields([
+      { key: "unit", type: "choice", label: "Unit", options: [
+        { id: "c", name: "Celsius" },
+        { id: "f", name: "Fahrenheit" }
+      ] },
+      { key: "icon", type: "bool", label: "Icon" },
+      { key: "condition", type: "bool", label: "Condition" },
+      { key: "place", type: "bool", label: "Place" }
+    ])
+  },
+  media: {
+    name: "Now playing", group: "Live", glyph: "󰝚",
+    hint: "The track that is playing, from any player on the desktop",
+    spec: { show: "both", icon: true, idle: "Nothing playing", size: 20, weight: 400, color: "text", alpha: 0.85, spacing: 0, align: "center", caps: false, shadow: true },
+    fields: textFields([
+      { key: "show", type: "choice", label: "Show", options: [
+        { id: "both", name: "Title and artist" },
+        { id: "title", name: "Title" },
+        { id: "artist", name: "Artist" }
+      ] },
+      { key: "icon", type: "bool", label: "Icon" },
+      { key: "idle", type: "text", label: "When nothing plays" }
+    ])
+  },
+  art: {
+    name: "Album art", group: "Live", glyph: "󰀥",
+    hint: "The cover of the track that is playing",
+    sized: true, square: true,
+    w: 200, h: 200,
+    spec: { radius: 16, alpha: 1, shadow: true, hideIdle: false },
+    fields: [
+      { key: "radius", type: "number", label: "Corner radius", min: 0, max: 200, step: 2 },
+      { key: "alpha", type: "slider", label: "Opacity", min: 0.05, max: 1, step: 0.05 },
+      { key: "shadow", type: "bool", label: "Drop shadow" },
+      { key: "hideIdle", type: "bool", label: "Hide when nothing plays" }
+    ]
+  },
+  battery: {
+    name: "Battery", group: "Live", glyph: "󰁹",
+    hint: "How full the battery is, and whether it is charging",
+    spec: { icon: true, state: true, hideWithout: false, size: 18, weight: 400, color: "text", alpha: 0.8, spacing: 0, align: "center", caps: false, shadow: false },
+    fields: textFields([
+      { key: "icon", type: "bool", label: "Icon" },
+      { key: "state", type: "bool", label: "Say when charging" },
+      { key: "hideWithout", type: "bool", label: "Hide without a battery" }
+    ])
+  },
+  system: {
+    name: "System info", group: "Live", glyph: "󰍛",
+    hint: "Uptime, memory in use, load or the kernel",
+    spec: { stat: "uptime", label: true, size: 16, weight: 400, color: "text", alpha: 0.7, spacing: 0, align: "center", caps: false, shadow: false },
+    fields: textFields([
+      { key: "stat", type: "choice", label: "Show", options: [
+        { id: "uptime", name: "Uptime" },
+        { id: "memory", name: "Memory" },
+        { id: "load", name: "Load" },
+        { id: "kernel", name: "Kernel" }
+      ] },
+      { key: "label", type: "bool", label: "Label" }
+    ])
+  },
+  month: {
+    name: "Month", group: "Live", glyph: "󰸗",
+    hint: "This month's calendar, with today marked",
+    spec: { size: 36, color: "text", alpha: 0.9, accent: "accent", title: true, weekdays: true },
+    fields: [
+      { key: "size", type: "number", label: "Cell size", min: 12, max: 120, step: 2 },
+      { key: "color", type: "color", label: "Color" },
+      { key: "alpha", type: "slider", label: "Opacity", min: 0.05, max: 1, step: 0.05 },
+      { key: "accent", type: "color", label: "Today" },
+      { key: "title", type: "bool", label: "Month name" },
+      { key: "weekdays", type: "bool", label: "Weekdays" }
+    ]
+  },
+
   panel: {
     name: "Panel", group: "Shapes", glyph: "󰝦",
     hint: "A rounded surface to sit things on",
@@ -382,7 +461,7 @@ var KINDS = {
   }
 }
 
-var GROUPS = ["Background", "Text", "Input", "Media", "Shapes", "Effects", "Yours"]
+var GROUPS = ["Background", "Text", "Input", "Media", "Live", "Shapes", "Effects", "Yours"]
 
 function kind(id) { return KINDS[id] || null }
 

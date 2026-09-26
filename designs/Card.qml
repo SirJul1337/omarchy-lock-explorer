@@ -36,7 +36,7 @@ DesignBase {
     }
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: Qt.formatDate(lock.now, "dddd, d MMMM")
+      text: lock.date("dddd, d MMMM")
       color: lock.withAlpha(Color.lock.text, 0.85)
       font.family: Style.font.family
       font.pixelSize: Style.font.display
@@ -81,7 +81,7 @@ DesignBase {
         spacing: 2
         Text {
           anchors.horizontalCenter: parent.horizontalCenter
-          text: lock.greeting() + ", " + lock.userName
+          text: lock.greeting() + ", " + lock.displayName
           color: Color.lock.text
           font.family: Style.font.family
           font.pixelSize: Style.font.display
@@ -90,8 +90,8 @@ DesignBase {
         Text {
           anchors.horizontalCenter: parent.horizontalCenter
           text: lock.failedAttempts > 0
-            ? (lock.failedAttempts + (lock.failedAttempts === 1 ? " failed attempt" : " failed attempts"))
-            : "Enter your password to unlock"
+            ? (lock.tr(lock.failedAttempts === 1 ? "1 failed attempt" : "%1 failed attempts").arg(lock.failedAttempts))
+            : lock.tr("Enter your password to unlock")
           color: lock.failedAttempts > 0 ? Color.lock.textError : Color.lock.placeholder
           font.family: Style.font.family
           font.pixelSize: Style.font.subtitle
@@ -112,10 +112,10 @@ DesignBase {
     anchors.bottom: parent.bottom
     anchors.bottomMargin: 36
     text: lock.fido2Configured
-      ? "  Touch your key or Tab for password  ·  Esc clears"
+      ? lock.tr("  Touch your key or Tab for password  ·  Esc clears")
       : (lock.faceConfigured
-      ? "󰱻  Look at sensor or type password  ·  Esc clears"
-      : (lock.fingerprintConfigured ? lock.fingerprintHint("󰆠  Touch sensor or type password  ·  Esc clears") : "󰌾  Locked  ·  Esc clears input"))
+      ? lock.tr("󰱻  Look at sensor or type password  ·  Esc clears")
+      : (lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("󰆠  Touch sensor or type password  ·  Esc clears")) : lock.tr("󰌾  Locked  ·  Esc clears input")))
     textFormat: Text.PlainText
     color: lock.withAlpha(Color.lock.text, 0.55)
     font.family: Style.font.family

@@ -64,7 +64,7 @@ DesignBase {
     Item { width: 1; height: Math.round(lock.bigSize * 0.12) }
     Text {
       anchors.right: parent.right
-      text: Qt.formatDate(lock.now, "dddd").toUpperCase()
+      text: lock.date("dddd").toUpperCase()
       color: Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Style.font.heading
@@ -72,7 +72,7 @@ DesignBase {
     }
     Text {
       anchors.right: parent.right
-      text: Qt.formatDate(lock.now, "d MMMM yyyy").toUpperCase()
+      text: lock.date("d MMMM yyyy").toUpperCase()
       color: lock.withAlpha(Color.lock.text, 0.7)
       font.family: Style.font.family
       font.pixelSize: Style.font.body
@@ -98,14 +98,14 @@ DesignBase {
       Column {
         anchors.verticalCenter: parent.verticalCenter
         Text {
-          text: lock.userName
+          text: lock.displayName
           color: Color.lock.text
           font.family: Style.font.family
           font.pixelSize: Style.font.title
           font.weight: Font.DemiBold
         }
         Text {
-          text: lock.errorState ? lock.failureMessage : (lock.authenticatingPassword ? "Checking…" : lock.hostName)
+          text: lock.errorState ? lock.failureMessage : (lock.authenticatingPassword ? lock.tr("Checking…") : lock.hostName)
           textFormat: Text.PlainText
           color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.6)
           font.family: Style.font.family
@@ -120,7 +120,7 @@ DesignBase {
       width: 360
       height: 52
       textAlignment: TextInput.AlignLeft
-      placeholder: "Password"
+      placeholder: lock.tr("Password")
       color: lock.withAlpha(Color.lock.background, 0.7)
     }
   }

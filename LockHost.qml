@@ -28,6 +28,10 @@ Item {
   property bool inputEnabled: true
   property bool inputBlocked: false
   property string keyboardLayout: ""
+  property int keyboardLayoutCount: 1
+  property bool batteryLow: false
+  property int batteryPercent: -1
+  signal layoutSwitchRequested()
   property bool capsLock: false
   signal capsProbeRequested()
   property bool powerActions: false
@@ -44,6 +48,31 @@ Item {
   property real clipSpeed: 1
   // 12-hour clocks with AM/PM, see `omarchy-shell lock setClockFormat`.
   property bool twelveHour: false
+  // The wallpaper setting: a blur that replaces the design's (-1 keeps it)
+  // and a shift on the design's own dim. Wallpaper reads both off the design.
+  property real wallpaperBlur: -1
+  property real wallpaperDim: 0
+  // Size (see `omarchy-shell lock setSize`): the design is laid out on a
+  // screen this many times smaller and drawn back up to fill this one, so
+  // every text, field and picture in it grows and it still fits.
+  property real uiScale: 1
+  // Reduce motion (see `omarchy-shell lock setReduceMotion`): the design runs
+  // as always underneath, keyboard and all, but what is shown is a still frame
+  // of it, taken once it has settled and again whenever something it says
+  // changes -- a typed character, a failed attempt, the minute on the clock.
+  property bool holdStill: false
+  // The design's language, see Strings.js.
+  property string language: "en"
+  // The account's full name, see DesignBase.displayName.
+  property string fullName: ""
+  // What the password field shows beside the text.
+  property bool showLayoutBadge: true
+  property bool showCapsBadge: true
+  property bool allowPasswordToggle: true
+  property bool showAuthIcons: true
+  // Pixel size of that frame; the explorer's small previews ask for less.
+  property size stillTextureSize: Qt.size(0, 0)
+  property bool stillReady: false
 
   signal submitPassword(string password)
   signal passwordTextEdited(string password)
@@ -102,6 +131,9 @@ Item {
     it.inputEnabled = Qt.binding(function() { return host.inputEnabled })
     if (it.inputBlocked !== undefined) it.inputBlocked = Qt.binding(function() { return host.inputBlocked })
     if (it.keyboardLayout !== undefined) it.keyboardLayout = Qt.binding(function() { return host.keyboardLayout })
+    if (it.keyboardLayoutCount !== undefined) it.keyboardLayoutCount = Qt.binding(function() { return host.keyboardLayoutCount })
+    if (it.batteryLow !== undefined) it.batteryLow = Qt.binding(function() { return host.batteryLow })
+    if (it.batteryPercent !== undefined) it.batteryPercent = Qt.binding(function() { return host.batteryPercent })
     if (it.capsLock !== undefined) it.capsLock = Qt.binding(function() { return host.capsLock })
     if (it.powerActions !== undefined) it.powerActions = Qt.binding(function() { return host.powerActions })
     it.loadBackground = Qt.binding(function() { return host.loadBackground })
@@ -112,7 +144,22 @@ Item {
     if (it.unlockPlayback !== undefined) it.unlockPlayback = Qt.binding(function() { return host.unlockPlayback })
     if (it.clipSpeed !== undefined) it.clipSpeed = Qt.binding(function() { return host.clipSpeed })
     if (it.twelveHour !== undefined) it.twelveHour = Qt.binding(function() { return host.twelveHour })
+    if (it.wallpaperBlur !== undefined) it.wallpaperBlur = Qt.binding(function() { return host.wallpaperBlur })
+    if (it.wallpaperDim !== undefined) it.wallpaperDim = Qt.binding(function() { return host.wallpaperDim })
+    if (it.language !== undefined) it.language = Qt.binding(function() { return host.language })
+    if (it.fullName !== undefined) it.fullName = Qt.binding(function() { return host.fullName })
+    if (it.showLayoutBadge !== undefined) it.showLayoutBadge = Qt.binding(function() { return host.showLayoutBadge })
+    if (it.showCapsBadge !== undefined) it.showCapsBadge = Qt.binding(function() { return host.showCapsBadge })
+    if (it.allowPasswordToggle !== undefined) it.allowPasswordToggle = Qt.binding(function() { return host.allowPasswordToggle })
+    if (it.showAuthIcons !== undefined) it.showAuthIcons = Qt.binding(function() { return host.showAuthIcons })
   }
+
+  Item {
+    id: stage
+    width: host.width / host.uiScale
+    height: host.height / host.uiScale
+    scale: host.uiScale
+    transformOrigin: Item.TopLeft
 
   // Built-in designs come through the Loader; it also carries the Classic
   // fallback when the selected design (user or built-in) failed to load.
@@ -143,6 +190,75 @@ Item {
   Item {
     id: userContainer
     anchors.fill: parent
+  }
+  }
+
+  ShaderEffectSource {
+    id: stillFrame
+    anchors.fill: parent
+    sourceItem: stage
+    live: false
+    hideSource: host.holdStill && host.stillReady
+    visible: host.holdStill && host.stillReady
+    textureSize: host.stillTextureSize.width > 0 ? host.stillTextureSize
+                 : Qt.size(Math.ceil(host.width * Screen.devicePixelRatio), Math.ceil(host.height * Screen.devicePixelRatio))
+  }
+
+  // A design animates in, and many animate what changed (dots popping in, a
+  // shake on a wrong password): the first frame waits for that, and each
+  // change is taken twice, once straight after and once when it has settled.
+  // The ttfx designs draw their logo for a few seconds more, so the first
+  // frame is taken again once that is done.
+  function restill() {
+    stillReady = false
+    if (holdStill) { settleTimer.restart(); finishedTimer.restart() }
+  }
+  function regrab() {
+    if (!holdStill || !stillReady) return
+    quickGrab.restart()
+    lateGrab.restart()
+  }
+  onHoldStillChanged: restill()
+  onItemChanged: restill()
+  onUiScaleChanged: regrab()
+  Timer { id: settleTimer; interval: 2500; onTriggered: { stillFrame.scheduleUpdate(); host.stillReady = true } }
+  Timer { id: finishedTimer; interval: 7000; onTriggered: if (host.holdStill) stillFrame.scheduleUpdate() }
+  Timer { id: quickGrab; interval: 120; onTriggered: stillFrame.scheduleUpdate() }
+  Timer { id: lateGrab; interval: 700; onTriggered: stillFrame.scheduleUpdate() }
+  Timer {
+    property int minute: -1
+    running: host.holdStill
+    repeat: true
+    interval: 1000
+    onTriggered: {
+      var m = new Date().getMinutes()
+      if (m !== minute) { minute = m; host.regrab() }
+    }
+  }
+  Connections {
+    target: host
+    function onPasswordTextChanged() { host.regrab() }
+    function onFailureMessageChanged() { host.regrab() }
+    function onFailedAttemptsChanged() { host.regrab() }
+    function onBatteryLowChanged() { host.regrab() }
+    function onBatteryPercentChanged() { host.regrab() }
+    function onAuthenticatingPasswordChanged() { host.regrab() }
+    function onFingerprintStatusChanged() { host.regrab() }
+    function onFido2StatusChanged() { host.regrab() }
+    function onFido2ActiveChanged() { host.regrab() }
+    function onCapsLockChanged() { host.regrab() }
+    function onKeyboardLayoutChanged() { host.regrab() }
+    function onInputBlockedChanged() { host.regrab() }
+    function onTwelveHourChanged() { host.regrab() }
+    function onWallpaperBlurChanged() { host.regrab() }
+    function onWallpaperDimChanged() { host.regrab() }
+    function onBackgroundVersionChanged() { host.restill() }
+    function onAvatarVersionChanged() { host.regrab() }
+    function onLanguageChanged() { host.regrab() }
+    function onShowLayoutBadgeChanged() { host.regrab() }
+    function onShowCapsBadgeChanged() { host.regrab() }
+    function onAllowPasswordToggleChanged() { host.regrab() }
+    function onShowAuthIconsChanged() { host.regrab() }
   }
 
   FileView {
@@ -193,6 +309,8 @@ Item {
     function onSubmitFido2Pin(pin) { host.submitFido2Pin(pin) }
     function onPowerActionRequested(action) { host.powerActionRequested(action) }
     function onCapsProbeRequested() { host.capsProbeRequested() }
+    function onLayoutSwitchRequested() { host.layoutSwitchRequested() }
+    function onStillRequested() { if (host.holdStill) { stillFrame.scheduleUpdate(); host.stillReady = true } }
   }
 
   // Last line of defense: if nothing rendered at all — the design AND the

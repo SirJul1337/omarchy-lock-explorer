@@ -131,7 +131,7 @@ DesignBase {
       }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: Qt.formatDate(lock.now, "dddd, d MMMM") + "  ·  " + lock.userName + "@" + lock.hostName
+        text: lock.date("dddd, d MMMM") + "  ·  " + lock.userName + "@" + lock.hostName
         color: lock.withAlpha(Color.lock.text, 0.7)
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
@@ -141,14 +141,14 @@ DesignBase {
     Row {
       anchors.horizontalCenter: parent.horizontalCenter
       spacing: 14
-      Tile { icon: "󰅐"; label: "Uptime"; value: lock.fmtUptime(lock.uptimeSeconds); sub: lock.kernel }
-      Tile { icon: "󰍛"; label: "Memory"; value: Math.round(lock.memUsedPct * 100) + "%"; sub: lock.memUsed; fill: lock.memUsedPct }
-      Tile { icon: "󰓅"; label: "Load"; value: lock.load.split("  ")[0] || "-"; sub: lock.load }
+      Tile { icon: "󰅐"; label: lock.tr("Uptime"); value: lock.fmtUptime(lock.uptimeSeconds); sub: lock.kernel }
+      Tile { icon: "󰍛"; label: lock.tr("Memory"); value: Math.round(lock.memUsedPct * 100) + "%"; sub: lock.memUsed; fill: lock.memUsedPct }
+      Tile { icon: "󰓅"; label: lock.tr("Load"); value: lock.load.split("  ")[0] || "-"; sub: lock.load }
       Tile {
         icon: lock.charging ? "󰂄" : "󰁹"
-        label: "Battery"
+        label: lock.tr("Battery")
         value: lock.hasBattery ? lock.batteryPct + "%" : "AC"
-        sub: lock.hasBattery ? (lock.charging ? "Charging" : "On battery") : "No battery"
+        sub: lock.hasBattery ? (lock.charging ? lock.tr("Charging") : lock.tr("On battery")) : lock.tr("No battery")
         fill: lock.hasBattery ? lock.batteryPct / 100 : -1
       }
     }
@@ -159,7 +159,7 @@ DesignBase {
       anchors.horizontalCenter: parent.horizontalCenter
       width: 400
       height: 54
-      placeholder: "Password"
+      placeholder: lock.tr("Password")
     }
   }
 }

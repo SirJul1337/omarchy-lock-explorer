@@ -8,6 +8,7 @@ import "designs"
 import "Designs.js" as Designs
 import "Designer.js" as Layout
 import "Bridge.js" as Bridge
+import "ExplorerStrings.js" as UiText
 
 Item {
   id: root
@@ -65,6 +66,7 @@ Item {
   // otherwise).
   onOpenedChanged: {
     if (!opened) return
+    thumbSlots = 0
     Quickshell.execDetached(["omarchy-shell", "osd", "close"])
     // The entries can be added or removed outside the explorer too.
     if (root.service && typeof root.service.refreshMenuEntry === "function") root.service.refreshMenuEntry()
@@ -76,6 +78,41 @@ Item {
   }
   property int selectedIndex: 0
   property bool fullPreview: false
+  // The ? sheet: every key the explorer takes, over whatever page is open.
+  property bool showingKeys: false
+  // Widest row of key caps, so every description starts on one line.
+  property real keyCapsWidth: 0
+  readonly property var keySections: [
+    { title: "Browse", rows: [
+      { keys: ["←", "→", "↑", "↓"], text: "Move between designs" },
+      { keys: ["H", "J", "K", "L"], text: "The same, Vim style" },
+      { keys: ["Home", "End"], text: "First and last design" },
+      { keys: ["PgUp", "PgDn"], text: "Scroll a page" },
+      { keys: ["Space", "P"], text: "Full-size preview" },
+      { keys: ["Enter"], text: "Use the selected design" },
+      { keys: ["/", "Ctrl+F"], text: "Search every design" },
+      { keys: ["F"], text: "Star it, or unstar it, for Favorites" }
+    ] },
+    { title: "Your designs", rows: [
+      { keys: ["D"], text: "Designer: new, or this one if made there" },
+      { keys: ["C"], text: "Copy to Custom and edit the code" },
+      { keys: ["E"], text: "Edit a design of your own" },
+      { keys: ["N"], text: "New design from the template" },
+      { keys: ["X", "Del"], text: "Delete your own design (press twice)" }
+    ] },
+    { title: "Pictures and video", rows: [
+      { keys: ["A", "Shift+A"], text: "Pick or clear the profile picture" },
+      { keys: ["V", "Shift+V"], text: "Pick or clear the Motion video" },
+      { keys: ["S", "Shift+S"], text: "Pick or clear the unlock clip" }
+    ] },
+    { title: "Pages", rows: [
+      { keys: ["Tab", "Shift+Tab"], text: "Styling, Animation, Favorites" },
+      { keys: ["U"], text: "Settings" },
+      { keys: ["B"], text: "Boot screen" },
+      { keys: ["?"], text: "This list" },
+      { keys: ["Esc"], text: "Back, or close the explorer" }
+    ] }
+  ]
   property bool editing: false
   property var editingDesign: null
   // The visual designer, which takes over the card the same way the code
@@ -85,11 +122,105 @@ Item {
   property var designingDesign: null
   property bool designerPaused: false
   property string category: "all"
+  // Type-to-filter over every design, from the field in the header (/ or
+  // Ctrl+F). While it is non-empty the grid shows matches from all of them,
+  // whichever sidebar entry is picked.
+  property string searchText: ""
+  property bool searching: false
+  onSearchTextChanged: { selectedIndex = 0; reveal(GridView.Beginning) }
+  readonly property var favoriteIds: service && service.favorites ? service.favorites : []
+  function isFavorite(id) { return root.favoriteIds.indexOf(id) !== -1 }
+  function favoriteDesigns() {
+    return Designs.all().filter(function(d) { return root.favoriteIds.indexOf(d.id) !== -1 })
+  }
+  function matchesSearch(d, words) {
+    var hay = [d.name, d.id, d.description || ""].concat(d.tags || []).join(" ").toLowerCase()
+    for (var i = 0; i < words.length; i++) if (hay.indexOf(words[i]) === -1) return false
+    return true
+  }
+  // Things that stop part of the plugin working here, each with the way out.
+  // Shown at the top of Settings, and only when there is something to say.
+  readonly property bool multimediaMissing: !!service && service.multimediaAvailable === false
+  readonly property var healthIssues: {
+    var list = []
+    if (root.multimediaMissing)
+      list.push({ text: root.tr("Video designs, clip designs and the unlock clip need qt6-multimedia, which Omarchy does not install."),
+                  packages: ["qt6-multimedia"] })
+    if (root.wallpaperBroken && root.wallpaperIsWebp)
+      list.push({ text: root.tr("Your wallpaper is WebP, which the shell can only read with qt6-imageformats."),
+                  packages: ["qt6-imageformats"] })
+    var dirs = service && service.shadowingDirs ? service.shadowingDirs : []
+    if (dirs.length > 0)
+      list.push({ text: root.tr("Another copy of this plugin may load instead of this one: %1. Move it out of ~/.config/omarchy/plugins/ (to ~/.local/share/omarchy/lock-explorer-backups) and restart the shell.").arg(dirs.join(", ")),
+                  packages: [], fix: "copies" })
+    return list
+  }
+
+  function installPackages(names) {
+    if (!root.service || typeof root.service.installPackages !== "function") return
+    root.dismiss()
+    root.service.installPackages(names)
+  }
+
+  readonly property bool movingCopies: !!service && service.movingCopies === true
+  function moveCopies() {
+    if (!root.service || typeof root.service.moveCopies !== "function" || root.movingCopies) return
+    root.service.moveCopies()
+  }
+
+  function runDoctor() {
+    if (!root.service || typeof root.service.runDoctor !== "function") return
+    root.dismiss()
+    root.service.runDoctor()
+  }
+
+  readonly property bool gridTab: mainTab === "styling" || mainTab === "animation" || mainTab === "favorites"
 
   readonly property var categories: Designs.categories()
+
+  // A picture of each grid preview, taken once it has settled. A card that
+  // comes back -- a search, another tab -- shows it at once while its live
+  // design builds again on top, instead of an empty frame. Everything a
+  // preview draws from is in the key, and a change to any of it starts over.
+  property var thumbCache: ({})
+  readonly property string thumbStateKey: [
+    service ? service.designsRevision : 0,
+    service ? service.backgroundPath : "", service ? service.backgroundVersion : 0,
+    service ? service.avatarPath : "", service ? service.avatarVersion : 0,
+    lockLanguage, accountName, twelveHour, wallpaperBlurValue, wallpaperDimShift, uiScale, motionReduced,
+    showLayoutBadge, showCapsBadge, allowPasswordToggle, showAuthIcons,
+    String(Color.lock.text), String(Color.lock.background), String(Color.background), thumbWidth
+  ].join("|")
+  onThumbStateKeyChanged: thumbCache = ({})
+  function thumbFor(id) {
+    var entry = thumbCache[id]
+    return entry ? String(entry.url) : ""
+  }
+  function keepThumb(id, key, result) {
+    if (key !== thumbStateKey) return
+    var next = {}
+    for (var k in thumbCache) next[k] = thumbCache[k]
+    next[id] = result
+    thumbCache = next
+  }
+
+  // Live previews start one after another, from the top-left of what is on
+  // screen, rather than all at once and finishing in whatever order.
+  property int thumbSlots: 0
+  readonly property int gridTopRow: grid.cellHeight > 0 ? Math.floor(grid.contentY / grid.cellHeight) : 0
+  onGridTopRowChanged: thumbSlots = 0
+  Timer {
+    interval: 40
+    repeat: true
+    running: root.opened && root.gridTab && root.thumbSlots < root.columns * 5
+    onTriggered: root.thumbSlots += 1
+  }
   readonly property var designs: {
     var r = service ? service.designsRevision : 0
+    var words = searchText.trim().toLowerCase().split(/\s+/).filter(function(w) { return w.length > 0 })
+    if (words.length > 0) return Designs.all().filter(function(d) { return root.matchesSearch(d, words) })
     if (mainTab === "animation") return Designs.animations()
+    if (mainTab === "favorites") return favoriteDesigns()
     return Designs.stylings()
   }
   readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "io.github.sirjul1337.lock-explorer"
@@ -114,16 +245,59 @@ Item {
   readonly property var blankPresets: [5000, 15000, 30000, 60000, 300000]
   readonly property int wakeGrace: service && service.wakeGrace !== undefined ? service.wakeGrace : 1000
   readonly property bool powerActions: service && service.powerActions === true
+  readonly property bool awayReport: !service || service.awayReport !== false
+  readonly property string wallpaperBlur: service && service.wallpaperBlur !== undefined ? String(service.wallpaperBlur) : "design"
+  readonly property string wallpaperDim: service && service.wallpaperDim !== undefined ? String(service.wallpaperDim) : "design"
+  readonly property real wallpaperBlurValue: service && service.wallpaperBlurValue !== undefined ? service.wallpaperBlurValue : -1
+  readonly property real wallpaperDimShift: service && service.wallpaperDimShift !== undefined ? service.wallpaperDimShift : 0
+  readonly property string reduceMotion: service && service.reduceMotion !== undefined ? String(service.reduceMotion) : "off"
+  readonly property bool motionReduced: !!service && service.motionReduced === true
+  readonly property real uiScale: service && service.uiScale !== undefined ? service.uiScale : 1
+  readonly property string accountName: service && service.accountName !== undefined ? String(service.accountName) : ""
+  readonly property string lockLanguage: service && service.language !== undefined ? String(service.language) : "en"
+  // The explorer speaks the lock screen's language (ExplorerStrings.js).
+  function tr(text) { return UiText.tr(root.lockLanguage, text) }
+  readonly property string languageSetting: service && service.languageSetting !== undefined ? String(service.languageSetting) : "auto"
+  readonly property var languageChoices: {
+    var list = service && service.languages ? service.languages : []
+    var system = service && service.systemLanguage ? String(service.systemLanguage) : "en"
+    var sysName = "English"
+    for (var i = 0; i < list.length; i++) if (list[i].id === system) sysName = list[i].name
+    return [{ id: "auto", name: root.tr("System (%1)").arg(sysName) }].concat(list.map(function(l) { return { id: l.id, name: l.name } }))
+  }
+  readonly property var reduceMotionChoices: [
+    { id: "off", name: root.tr("Off") }, { id: "on", name: root.tr("On") }, { id: "battery", name: root.tr("On battery") }
+  ]
+  readonly property var uiScaleChoices: [
+    { id: 1, name: "100%" }, { id: 1.25, name: "125%" }, { id: 1.5, name: "150%" }
+  ]
+  readonly property var wallpaperBlurChoices: [
+    { id: "design", name: root.tr("As designed") }, { id: "sharp", name: root.tr("Sharp") },
+    { id: "soft", name: root.tr("Soft") }, { id: "heavy", name: root.tr("Heavy") }
+  ]
+  readonly property var wallpaperDimChoices: [
+    { id: "lighter", name: root.tr("Lighter") }, { id: "design", name: root.tr("As designed") }, { id: "darker", name: root.tr("Darker") }
+  ]
   readonly property bool faceConfigured: service && service.faceConfigured === true
   readonly property string faceStart: service && service.faceStart !== undefined ? String(service.faceStart) : "wake"
-  readonly property var onOffOptions: [{ id: "on", name: "On" }, { id: "off", name: "Off" }]
+  readonly property var onOffOptions: [{ id: "on", name: root.tr("On") }, { id: "off", name: root.tr("Off") }]
+  readonly property var shownHiddenOptions: [{ id: "show", name: root.tr("Show") }, { id: "hide", name: root.tr("Hide") }]
+  // What the password field shows beside the text (Settings > Password field).
+  readonly property bool showLayoutBadge: !service || service.showLayoutBadge !== false
+  readonly property bool showCapsBadge: !service || service.showCapsBadge !== false
+  readonly property bool allowPasswordToggle: !service || service.allowPasswordToggle !== false
+  readonly property bool showAuthIcons: !service || service.showAuthIcons !== false
+  function setFieldItem(name, show) {
+    if (!root.service || typeof root.service.setFieldItem !== "function") return
+    root.service.setFieldItem(name, show)
+  }
   property bool customDelayEditing: false
   property string customDelayText: ""
   readonly property bool blankDelayIsCustom: !root.keepDisplayOn && root.blankPresets.indexOf(root.blankDelay) === -1
   readonly property string unlockLabel: {
     for (var i = 0; i < unlockOptions.length; i++)
-      if (unlockOptions[i].id === unlockAnimation) return unlockOptions[i].name
-    return "Off"
+      if (unlockOptions[i].id === unlockAnimation) return root.tr(unlockOptions[i].name)
+    return root.tr("Off")
   }
   // Top level view: the design grid, or one of the settings pages.
   property string mainTab: "styling"
@@ -138,6 +312,8 @@ Item {
   }
 
   function handleEscape() {
+    if (showingKeys) { showingKeys = false; return }
+    if (searchText.length > 0 && gridTab) { searchText = ""; return }
     if (confirmingDelete.length > 0) { confirmingDelete = ""; return }
     if (designing) { designerView.requestClose(); return }
     if (editing) { closeEditor(); return }
@@ -151,7 +327,10 @@ Item {
   // confirms. Esc or moving the selection disarms.
   property string confirmingDelete: ""
   onSelectedIndexChanged: confirmingDelete = ""
-  onDesignsChanged: if (selectedIndex >= designs.length) selectedIndex = Math.max(0, designs.length - 1)
+  onDesignsChanged: {
+    if (selectedIndex >= designs.length) selectedIndex = Math.max(0, designs.length - 1)
+    thumbSlots = 0
+  }
 
   function deleteSelected() {
     var d = root.selectedDesign
@@ -171,21 +350,36 @@ Item {
 
   function refocus() { Qt.callLater(function() { keyCatcher.forceActiveFocus() }) }
 
+  function focusSearch() {
+    root.searching = true
+    Qt.callLater(function() { searchInput.forceActiveFocus(); searchInput.selectAll() })
+  }
+
+  function leaveSearch() {
+    root.searching = false
+    refocus()
+  }
+
   // Quick setting for the boot (LUKS decrypt) screen, applied through
   // `omarchy-shell lock setBoot`. Only designs with a Plymouth twin under
   // plymouth/ can style it; "follow" tracks the lock design when it has one.
   readonly property string followHint: {
     var d = Designs.byId(activeDesignId)
-    var name = d ? d.name : "your lock screen"
-    if (d && d.boot === true) return "Boot matches " + name + " with its animated twin"
-    return "Boot matches " + name + " as a still — same styling for both"
+    var name = d ? d.name : root.tr("your lock screen")
+    if (d && d.boot === true) return root.tr("Boot matches %1 with its animated twin").arg(name)
+    return root.tr("Boot matches %1 as a still — same styling for both").arg(name)
   }
+  // What the boot layout form's dropdowns show for each value.
+  readonly property var bootOptionNames: ({
+    theme: root.tr("Theme"), wallpaper: root.tr("Wallpaper"), none: root.tr("None"),
+    pill: root.tr("Pill"), line: root.tr("Line")
+  })
   function bootKindLabel(d) {
-    if (!d || !d.bootKind) return "theme styling"
-    if (d.bootKind === "clip") return "clip \u00b7 plays on unlock"
-    if (d.bootKind === "reactive") return "reacts to typing"
-    if (d.bootKind === "animated") return "animated"
-    return "theme styling"
+    if (!d || !d.bootKind) return root.tr("theme styling")
+    if (d.bootKind === "clip") return root.tr("clip") + " \u00b7 " + root.tr("plays on unlock")
+    if (d.bootKind === "reactive") return root.tr("reacts to typing")
+    if (d.bootKind === "animated") return root.tr("animated")
+    return root.tr("theme styling")
   }
   readonly property var bootTwins: {
     var twins = Designs.bootCapable()
@@ -197,11 +391,11 @@ Item {
   readonly property string bootApplied: service ? service.bootApplied : ""
   readonly property string bootAppliedTheme: service ? service.bootAppliedTheme : ""
   readonly property string bootNowName: {
-    if (bootApplied.length === 0) return "Stock Omarchy"
-    if (bootApplied === "theme") return "Theme colors"
+    if (bootApplied.length === 0) return root.tr("Stock Omarchy")
+    if (bootApplied === "theme") return root.tr("Theme colors")
     if (bootApplied.indexOf("snapshot:") === 0) {
       var sd = Designs.byId(bootApplied.substring(9))
-      return (sd ? sd.name : bootApplied.substring(9)) + " (snapshot)"
+      return root.tr("%1 (snapshot)").arg(sd ? sd.name : bootApplied.substring(9))
     }
     if (bootApplied.indexOf("custom:") === 0) return bootApplied.substring(7)
     if (bootApplied.indexOf("video:") === 0) return bootApplied.substring(6).replace(/\.[^.]+$/, "")
@@ -213,21 +407,21 @@ Item {
   readonly property int bootClipSeconds: service && service.bootClipSeconds !== undefined ? service.bootClipSeconds : 0
   readonly property var bootCards: {
     var cards = [
-      { id: "stock", name: "Untouched", kind: "stock Omarchy splash" },
-      { id: "theme", name: "Theme colors", kind: "stock layout, your theme" }
+      { id: "stock", name: root.tr("Untouched"), kind: root.tr("stock Omarchy splash") },
+      { id: "theme", name: root.tr("Theme colors"), kind: root.tr("stock layout, your theme") }
     ]
     var claimed = {}
     var twins = Designs.bootCapable()
     for (var i = 0; i < twins.length; i++) {
-      cards.push({ id: twins[i].id, name: twins[i].name, kind: bootKindLabel(twins[i]) + (twins[i].credit ? " \u00b7 by " + twins[i].credit : "") })
+      cards.push({ id: twins[i].id, name: twins[i].name, kind: bootKindLabel(twins[i]) + (twins[i].credit ? " \u00b7 " + root.tr("by %1").arg(twins[i].credit) : "") })
       if (twins[i].clipFile) claimed[twins[i].clipFile] = true
     }
     for (var v = 0; v < bootVideos.length; v++) {
       if (claimed[bootVideos[v]]) continue
-      cards.push({ id: "video:" + bootVideos[v], name: bootVideos[v].replace(/\.[^.]+$/, ""), kind: "your clip \u00b7 plays on unlock" })
+      cards.push({ id: "video:" + bootVideos[v], name: bootVideos[v].replace(/\.[^.]+$/, ""), kind: root.tr("your clip") + " \u00b7 " + root.tr("plays on unlock") })
     }
     for (var c = 0; c < bootCustomDesigns.length; c++)
-      cards.push({ id: "custom:" + bootCustomDesigns[c], name: bootCustomDesigns[c], kind: "your layout" })
+      cards.push({ id: "custom:" + bootCustomDesigns[c], name: bootCustomDesigns[c], kind: root.tr("your layout") })
     return cards
   }
   readonly property string bootFollowTarget: {
@@ -453,8 +647,8 @@ Item {
         if (!root.pendingResnapshot) {
           root.pendingResnapshot = { id: id, persist: root.snapshotPersist }
           Quickshell.execDetached(["notify-send", "-a", "Lock Screen Explorer",
-            "Boot screen is out of date",
-            "The background changed. Open the lock screen explorer once and it refreshes itself."])
+            root.tr("Boot screen is out of date"),
+            root.tr("The background changed. Open the lock screen explorer once and it refreshes itself.")])
         }
       }
     }
@@ -558,7 +752,7 @@ Item {
 
   // The launcher and Omarchy menu entries, see extras/install.sh.
   readonly property bool menuEntryInstalled: service && service.menuEntryInstalled === true
-  readonly property var menuEntryOptions: [{ id: "on", name: "Added" }, { id: "off", name: "Not added" }]
+  readonly property var menuEntryOptions: [{ id: "on", name: root.tr("Added") }, { id: "off", name: root.tr("Not added") }]
 
   function setMenuEntry(on) {
     if (root.service && typeof root.service.setMenuEntry === "function") root.service.setMenuEntry(on)
@@ -569,7 +763,7 @@ Item {
   // it, and never touches PAM itself.
   readonly property bool fido2Installed: service && service.fido2Installed === true
   readonly property bool fido2Enabled: service && service.fido2Enabled !== undefined ? service.fido2Enabled : true
-  readonly property var fido2Options: [{ id: "on", name: "On" }, { id: "off", name: "Off" }]
+  readonly property var fido2Options: [{ id: "on", name: root.tr("On") }, { id: "off", name: root.tr("Off") }]
 
   function setFido2Enabled(on) {
     if (root.service && typeof root.service.setFido2Enabled === "function") root.service.setFido2Enabled(on)
@@ -617,11 +811,11 @@ Item {
   readonly property bool bootDirty: !bootApplying && bootWouldApply !== bootAppliedId
   readonly property string bootDesiredName: {
     var w = bootWouldApply
-    if (w === "stock") return "Untouched"
-    if (w === "theme") return "Theme colors"
+    if (w === "stock") return root.tr("Untouched")
+    if (w === "theme") return root.tr("Theme colors")
     if (w.indexOf("snapshot:") === 0) {
       var sd = Designs.byId(w.substring(9))
-      return (sd ? sd.name : w.substring(9)) + " (snapshot)"
+      return root.tr("%1 (snapshot)").arg(sd ? sd.name : w.substring(9))
     }
     if (w.indexOf("custom:") === 0) return w.substring(7)
     if (w.indexOf("video:") === 0) return w.substring(6).replace(/\.[^.]+$/, "")
@@ -698,6 +892,9 @@ Item {
   function dismiss() {
     root.opened = false
     root.fullPreview = false
+    root.showingKeys = false
+    root.searchText = ""
+    root.searching = false
     if (root.designerPaused) {
       if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
       return
@@ -737,13 +934,6 @@ Item {
     for (var i = 0; i < list.length; i++) if (list[i].id === current) keep = i
     root.selectedIndex = keep >= 0 ? keep : 0
     reveal(GridView.Contain)
-  }
-
-  function cycleCategory(delta) {
-    var n = categories.length
-    var cur = 0
-    for (var i = 0; i < n; i++) if (categories[i].id === root.category) cur = i
-    setCategory(categories[(cur + delta + n) % n].id)
   }
 
   function move(delta) {
@@ -831,6 +1021,36 @@ Item {
   function setPowerActions(on) {
     if (!root.service || typeof root.service.setPowerActions !== "function") return
     root.service.setPowerActions(on)
+  }
+
+  function setWallpaperBlur(id) {
+    if (!root.service || typeof root.service.setWallpaperBlur !== "function") return
+    root.service.setWallpaperBlur(id)
+  }
+
+  function setReduceMotion(id) {
+    if (!root.service || typeof root.service.setReduceMotion !== "function") return
+    root.service.setReduceMotion(id)
+  }
+
+  function setLanguage(id) {
+    if (!root.service || typeof root.service.setLanguage !== "function") return
+    root.service.setLanguage(id)
+  }
+
+  function setUiScale(id) {
+    if (!root.service || typeof root.service.setUiScale !== "function") return
+    root.service.setUiScale(id)
+  }
+
+  function setWallpaperDim(id) {
+    if (!root.service || typeof root.service.setWallpaperDim !== "function") return
+    root.service.setWallpaperDim(id)
+  }
+
+  function setAwayReport(on) {
+    if (!root.service || typeof root.service.setAwayReport !== "function") return
+    root.service.setAwayReport(on)
   }
 
   function setWakeGrace(ms) {
@@ -982,7 +1202,7 @@ Item {
         root.bootEditBusy = false
     }
     function onExploreTabRequested(tab) {
-      if (tab !== "styling" && tab !== "animation" && tab !== "boot" && tab !== "settings") return
+      if (tab !== "styling" && tab !== "animation" && tab !== "favorites" && tab !== "boot" && tab !== "settings") return
       // summon() re-runs open() even when already open, and open() resets the
       // tab — stash the request so it survives either path.
       root.requestedTab = tab
@@ -1060,6 +1280,16 @@ Item {
         designId: root.activeDesignId
         revision: root.service ? root.service.designsRevision : 0
         twelveHour: root.twelveHour
+        wallpaperBlur: root.wallpaperBlurValue
+        wallpaperDim: root.wallpaperDimShift
+        uiScale: root.uiScale
+        holdStill: root.motionReduced
+        language: root.lockLanguage
+        fullName: root.accountName
+        showLayoutBadge: root.showLayoutBadge
+        showCapsBadge: root.showCapsBadge
+        allowPasswordToggle: root.allowPasswordToggle
+        showAuthIcons: root.showAuthIcons
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         avatarPath: root.service ? root.service.avatarPath : ""
@@ -1095,8 +1325,12 @@ Item {
       // it drifts, except while a real editor field wants it.
       onActiveFocusChanged: {
         if (!activeFocus && root.opened && root.bootEditing.length === 0 && !root.editing
-            && !root.designing && !root.customDelayEditing)
-          Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+            && !root.designing && !root.customDelayEditing && !root.searching)
+          Qt.callLater(function() {
+            // Asked again: a click into the search field moves focus there
+            // before the field has said it is searching.
+            if (!root.searching && !keyCatcher.activeFocus) keyCatcher.forceActiveFocus()
+          })
       }
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape) { root.handleEscape(); event.accepted = true; return }
@@ -1104,7 +1338,39 @@ Item {
         if (root.editing) return
         if (root.bootEditing.length > 0) return
         if (root.customDelayEditing) return
-        if (root.mainTab !== "styling" && root.mainTab !== "animation") {
+        // event.text as well, since ? sits on a different key per layout.
+        var question = event.key === Qt.Key_Question || event.text === "?"
+        if (root.showingKeys) {
+          if (question) root.showingKeys = false
+          event.accepted = true
+          return
+        }
+        if (question) { root.showingKeys = true; event.accepted = true; return }
+        if (root.gridTab && (event.text === "/" || (event.key === Qt.Key_F && (event.modifiers & Qt.ControlModifier)))) {
+          root.fullPreview = false
+          root.focusSearch()
+          event.accepted = true
+          return
+        }
+        // The settings pages scroll from the keyboard as well as the wheel.
+        if (!root.gridTab && root.mainTab === "settings") {
+          var page = settingsFlick.height * 0.85
+          var bottom = Math.max(0, settingsFlick.contentHeight - settingsFlick.height)
+          var y = settingsFlick.contentY
+          if (event.key === Qt.Key_Down || event.key === Qt.Key_J) y += Style.space(60)
+          else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) y -= Style.space(60)
+          else if (event.key === Qt.Key_PageDown || event.key === Qt.Key_Space) y += page
+          else if (event.key === Qt.Key_PageUp) y -= page
+          else if (event.key === Qt.Key_Home) y = 0
+          else if (event.key === Qt.Key_End) y = bottom
+          else y = -1
+          if (y !== -1) {
+            settingsFlick.contentY = Math.max(0, Math.min(bottom, y))
+            event.accepted = true
+            return
+          }
+        }
+        if (!root.gridTab) {
           if (event.key === Qt.Key_U) { root.toggleSettings("settings"); event.accepted = true }
           else if (event.key === Qt.Key_B) { root.toggleSettings("boot"); event.accepted = true }
           return
@@ -1145,10 +1411,16 @@ Item {
         } else if (event.key === Qt.Key_B) {
           root.toggleSettings("boot")
           event.accepted = true
-        } else if (event.key === Qt.Key_Tab) {
-          root.cycleCategory(1); event.accepted = true
-        } else if (event.key === Qt.Key_Backtab) {
-          root.cycleCategory(-1); event.accepted = true
+        } else if (event.key === Qt.Key_F) {
+          if (root.selectedDesign && root.service && typeof root.service.toggleFavorite === "function")
+            root.service.toggleFavorite(root.selectedDesign.id)
+          event.accepted = true
+        } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+          // Through the grid entries in the sidebar, as if clicking the next.
+          var tabs = ["styling", "animation", "favorites"]
+          var step = event.key === Qt.Key_Backtab ? tabs.length - 1 : 1
+          root.mainTab = tabs[(Math.max(0, tabs.indexOf(root.mainTab)) + step) % tabs.length]
+          event.accepted = true
         } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
           root.move(-1); event.accepted = true
         } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
@@ -1209,7 +1481,7 @@ Item {
               font.weight: Font.Bold
             }
             Text {
-              text: "LOCK SCREEN EXPLORER"
+              text: root.tr("LOCK SCREEN EXPLORER")
               color: root.foreground
               font.family: root.fontFamily
               font.pixelSize: Style.font.display
@@ -1219,12 +1491,20 @@ Item {
           }
           Text {
             text: {
-              if (root.wallpaperBroken) return "Wallpaper failed to load" + (root.wallpaperIsWebp ? " — WebP needs:  sudo pacman -S qt6-imageformats  (then omarchy restart shell)" : "")
-              if (root.mainTab === "settings") return "Unlock transition, avatar and sign-in monitor"
-              if (root.mainTab === "boot") return "The disk-passphrase screen at first boot · a broken theme falls back to a plain text prompt"
-              if (root.mainTab === "animation") return Designs.animations().length + " animated lock screens"
-              if (root.mainTab === "editor") return root.bootEditing.length > 0 ? "Editing " + root.bootEditing : "Make a matching lock screen and boot screen"
-              return (root.mainTab === "styling" ? Designs.stylings().length + " lock screen stylings · " : "") + root.currentThemeName + " · follows your theme"
+              if (root.wallpaperBroken) return root.tr("Wallpaper failed to load")
+                + (root.wallpaperIsWebp ? " — " + root.tr("WebP needs %1, then %2").arg("sudo pacman -S qt6-imageformats").arg("omarchy restart shell") : "")
+              if (root.mainTab === "settings") return root.tr("How the lock screen looks, unlocks and looks after itself")
+              if (root.mainTab === "boot") return root.tr("The disk-passphrase screen at first boot") + " · " + root.tr("A broken theme falls back to a plain text prompt")
+              if (root.mainTab === "animation" && root.multimediaMissing)
+                return root.tr("Video designs need qt6-multimedia") + " · " + root.tr("Settings (U) installs it")
+              if (root.gridTab && root.searchText.trim().length > 0)
+                return (root.designs.length === 1 ? root.tr("1 design matches “%1”").arg(root.searchText.trim())
+                                                  : root.tr("%1 designs match “%2”").arg(root.designs.length).arg(root.searchText.trim()))
+                  + " · " + root.tr("Esc clears")
+              if (root.mainTab === "favorites") return root.tr("%1 starred with F").arg(root.designs.length)
+              if (root.mainTab === "animation") return root.tr("%1 animated lock screens").arg(Designs.animations().length)
+              if (root.mainTab === "editor") return root.bootEditing.length > 0 ? root.tr("Editing %1").arg(root.bootEditing) : root.tr("Make a matching lock screen and boot screen")
+              return (root.mainTab === "styling" ? root.tr("%1 lock screen stylings").arg(Designs.stylings().length) + " · " : "") + root.currentThemeName + " · " + root.tr("Follows your theme")
             }
             textFormat: Text.PlainText
             color: root.wallpaperBroken ? root.danger : root.muted
@@ -1238,6 +1518,82 @@ Item {
           anchors.right: parent.right
           anchors.top: parent.top
           spacing: Style.space(8)
+
+          // Search over every design. The grid keys stay the grid's: the
+          // field only takes the keyboard while it has focus (/ or a click),
+          // and Enter, Down or Esc hands it back.
+          Rectangle {
+            id: searchBox
+            visible: root.gridTab
+            height: Style.space(28)
+            width: Style.space(220)
+            radius: root.cornerRadius
+            color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, root.searching ? 0.12 : 0.07)
+            border.width: 1
+            border.color: root.searching ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.15)
+
+            TextInput {
+              id: searchInput
+              anchors.left: parent.left
+              anchors.right: searchHint.left
+              anchors.leftMargin: Style.space(10)
+              anchors.rightMargin: Style.space(6)
+              anchors.verticalCenter: parent.verticalCenter
+              clip: true
+              text: root.searchText
+              color: root.foreground
+              selectionColor: root.accent
+              selectedTextColor: Color.background
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              onTextEdited: root.searchText = text
+              onActiveFocusChanged: root.searching = activeFocus
+              Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Escape) {
+                  if (root.searchText.length > 0) root.searchText = ""
+                  else root.leaveSearch()
+                  event.accepted = true
+                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                           || event.key === Qt.Key_Down || event.key === Qt.Key_Tab) {
+                  root.leaveSearch()
+                  event.accepted = true
+                }
+              }
+
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.searchText.length === 0
+                text: root.tr("Search designs")
+                color: root.muted
+                font: searchInput.font
+              }
+            }
+
+            Text {
+              id: searchHint
+              anchors.right: parent.right
+              anchors.rightMargin: Style.space(10)
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.searchText.length > 0 ? "✕" : "/"
+              color: searchClear.containsMouse ? root.foreground : root.muted
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              MouseArea {
+                id: searchClear
+                anchors.fill: parent
+                anchors.margins: -Style.space(4)
+                hoverEnabled: true
+                onClicked: { if (root.searchText.length > 0) root.searchText = ""; else root.focusSearch() }
+              }
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              anchors.rightMargin: searchHint.width + Style.space(14)
+              z: -1
+              onClicked: root.focusSearch()
+            }
+          }
 
           // Avatar button: click to pick a picture with the normal file
           // dialog, the x clears it back to the user's initial.
@@ -1269,7 +1625,7 @@ Item {
 
               Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: root.hasAvatar ? "Avatar" : "Add avatar"
+                text: root.tr(root.hasAvatar ? "Avatar" : "Add avatar")
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -1309,7 +1665,7 @@ Item {
             Text {
               id: activeLabel
               anchors.centerIn: parent
-              text: root.selectionError || "Active: " + (Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : root.activeDesignId)
+              text: root.selectionError || root.tr("Active: %1").arg(Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : root.activeDesignId)
               textFormat: Text.PlainText
               color: root.foreground
               font.family: root.fontFamily
@@ -1344,7 +1700,7 @@ Item {
               Text {
                 id: chipLabel
                 anchors.centerIn: parent
-                text: chip.modelData.name
+                text: root.tr(chip.modelData.name)
                 textFormat: Text.PlainText
                 color: chip.current ? Color.background : root.foreground
                 font.family: root.fontFamily
@@ -1364,7 +1720,7 @@ Item {
         // The two settings pages live where the grid otherwise is.
         Item {
           id: settingsPane
-          visible: root.mainTab !== "styling" && root.mainTab !== "animation"
+          visible: !root.gridTab
           anchors.top: parent.bottom
           anchors.topMargin: Style.space(6)
           anchors.left: parent.left
@@ -1373,9 +1729,10 @@ Item {
           anchors.rightMargin: root.mainTab === "editor" ? Style.space(40) : root.rightPanelW + Style.space(40)
           // Sized against the card (footer is not a sibling, so no anchor),
           // clipped and scrollable so tall content never draws over the nav.
-          height: card.height - root.headerHeight - root.footerHeight - Style.space(44)
+          height: card.height - root.headerHeight - root.footerHeight - Style.space(80)
 
           Flickable {
+            id: settingsFlick
             anchors.fill: parent
             clip: true
             contentWidth: width
@@ -1389,656 +1746,497 @@ Item {
             spacing: Style.space(14)
 
             Column {
-              width: parent.width
+              width: Math.min(parent.width, Style.space(900))
               visible: root.mainTab === "settings"
-              spacing: Style.space(10)
+              spacing: Style.space(18)
 
-              Column {
-                spacing: Style.space(2)
-                Repeater {
-                  model: root.unlockOptions
-                  Rectangle {
-                    id: unlockOptionRow
-                    required property var modelData
-                    readonly property bool current: modelData.id === root.unlockAnimation
-                    width: Style.space(400)
-                    height: Style.space(42)
-                    radius: root.cornerRadius
-                    color: current ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
-                                   : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, unlockOptionArea.containsMouse ? 0.07 : 0.0)
-                    Behavior on color { ColorAnimation { duration: 100 } }
+              // Health: only when something is missing, with the fix a click
+              // away. The full check is extras/doctor.sh, under System.
+              SettingSection {
+                explorer: root
+                visible: root.healthIssues.length > 0
+                title: root.tr("Health")
+                description: root.tr("Something here keeps part of the plugin from working.")
 
+                Column {
+                  width: parent.width
+                  spacing: Style.space(8)
+
+                  Repeater {
+                    model: root.healthIssues
                     Rectangle {
-                      id: unlockOptionRadio
-                      anchors.verticalCenter: parent.verticalCenter
-                      anchors.left: parent.left
-                      anchors.leftMargin: Style.space(10)
-                      width: Style.space(16)
-                      height: Style.space(16)
-                      radius: width / 2
-                      color: "transparent"
-                      border.width: Math.max(1, Style.space(2))
-                      border.color: unlockOptionRow.current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.4)
-
-                      Rectangle {
-                        anchors.centerIn: parent
-                        width: Style.space(8)
-                        height: Style.space(8)
-                        radius: width / 2
-                        color: root.accent
-                        visible: unlockOptionRow.current
-                      }
-                    }
-
-                    Column {
-                      anchors.verticalCenter: parent.verticalCenter
-                      anchors.left: unlockOptionRadio.right
-                      anchors.leftMargin: Style.space(10)
-                      spacing: 1
+                      id: issueRow
+                      required property var modelData
+                      width: parent.width
+                      height: issueLine.implicitHeight + Style.space(22)
+                      radius: root.cornerRadius
+                      color: Qt.rgba(root.danger.r, root.danger.g, root.danger.b, 0.12)
+                      border.width: 1
+                      border.color: Qt.rgba(root.danger.r, root.danger.g, root.danger.b, 0.45)
 
                       Text {
-                        text: unlockOptionRow.modelData.name
+                        id: issueLine
+                        anchors.left: parent.left
+                        anchors.right: installButton.visible ? installButton.left : parent.right
+                        anchors.leftMargin: Style.space(14)
+                        anchors.rightMargin: Style.space(14)
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: issueRow.modelData.text
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.bodySmall
-                        font.weight: unlockOptionRow.current ? Font.DemiBold : Font.Normal
                       }
 
-                      Text {
-                        text: unlockOptionRow.modelData.hint
-                        color: root.muted
-                        font.family: root.fontFamily
-                        font.pixelSize: Style.font.caption
+                      Rectangle {
+                        id: installButton
+                        visible: issueRow.modelData.packages.length > 0 || !!issueRow.modelData.fix
+                        anchors.right: parent.right
+                        anchors.rightMargin: Style.space(10)
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: installLabel.implicitWidth + Style.space(26)
+                        height: Style.space(34)
+                        radius: root.cornerRadius
+                        color: installArea.containsMouse ? Qt.lighter(root.accent, 1.15) : root.accent
+                        Text {
+                          id: installLabel
+                          anchors.centerIn: parent
+                          text: issueRow.modelData.fix === "copies" ? root.tr(root.movingCopies ? "Moving…" : "Move it out") : root.tr("Install")
+                          color: Color.background
+                          font.family: root.fontFamily
+                          font.pixelSize: Style.font.bodySmall
+                          font.weight: Font.DemiBold
+                        }
+                        MouseArea {
+                          id: installArea
+                          anchors.fill: parent
+                          hoverEnabled: true
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: {
+                            if (issueRow.modelData.fix === "copies") root.moveCopies()
+                            else root.installPackages(issueRow.modelData.packages)
+                          }
+                        }
                       }
-                    }
-
-                    MouseArea {
-                      id: unlockOptionArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setUnlock(unlockOptionRow.modelData.id)
                     }
                   }
                 }
               }
 
-              Row {
-                visible: root.unlockAnimation !== "none"
-                spacing: Style.space(6)
+              SettingSection {
+                explorer: root
+                title: root.tr("Unlock")
+                description: root.tr("What happens once the password is right.")
 
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Length"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
+                // The animation the lock screen leaves with.
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Animation")
+                  help: root.motionReduced
+                        ? root.tr("Reduce motion is on, so the lock screen leaves at once and no unlock clip plays.")
+                        : (root.unlockAnimation === "none" ? "" : root.tr("The lock screen stays up while it plays."))
 
-                Repeater {
-                  model: root.unlockDurations
-                  Rectangle {
-                    id: speed
-                    required property int modelData
-                    readonly property bool current: modelData === root.unlockDuration
-                    width: speedLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, speedArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                  Column {
+                    width: parent.width
+                    spacing: Style.space(2)
+                    Repeater {
+                      model: root.unlockOptions
+                      Rectangle {
+                        id: unlockOptionRow
+                        required property var modelData
+                        readonly property bool current: modelData.id === root.unlockAnimation
+                        width: Math.min(parent.width, Style.space(460))
+                        height: Style.space(50)
+                        radius: root.cornerRadius
+                        color: current ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
+                                       : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, unlockOptionArea.containsMouse ? 0.07 : 0.0)
+                        Behavior on color { ColorAnimation { duration: 100 } }
 
-                    Text {
-                      id: speedLabel
-                      anchors.centerIn: parent
-                      text: (speed.modelData / 1000).toFixed(1) + "s"
-                      color: speed.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: speed.current ? Font.DemiBold : Font.Normal
-                    }
+                        Rectangle {
+                          id: unlockOptionRadio
+                          anchors.verticalCenter: parent.verticalCenter
+                          anchors.left: parent.left
+                          anchors.leftMargin: Style.space(12)
+                          width: Style.space(18)
+                          height: Style.space(18)
+                          radius: width / 2
+                          color: "transparent"
+                          border.width: Math.max(1, Style.space(2))
+                          border.color: unlockOptionRow.current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.4)
 
-                    MouseArea {
-                      id: speedArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setUnlockDuration(speed.modelData)
+                          Rectangle {
+                            anchors.centerIn: parent
+                            width: Style.space(9)
+                            height: Style.space(9)
+                            radius: width / 2
+                            color: root.accent
+                            visible: unlockOptionRow.current
+                          }
+                        }
+
+                        Column {
+                          anchors.verticalCenter: parent.verticalCenter
+                          anchors.left: unlockOptionRadio.right
+                          anchors.leftMargin: Style.space(12)
+                          spacing: 2
+
+                          Text {
+                            text: root.tr(unlockOptionRow.modelData.name)
+                            color: root.foreground
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.body
+                            font.weight: unlockOptionRow.current ? Font.DemiBold : Font.Normal
+                          }
+
+                          Text {
+                            text: root.tr(unlockOptionRow.modelData.hint)
+                            color: root.muted
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.bodySmall
+                          }
+                        }
+
+                        MouseArea {
+                          id: unlockOptionArea
+                          anchors.fill: parent
+                          hoverEnabled: true
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: root.setUnlock(unlockOptionRow.modelData.id)
+                        }
+                      }
                     }
                   }
                 }
+
+                SettingRow {
+                  explorer: root
+                  visible: root.unlockAnimation !== "none"
+                  label: root.tr("Length")
+                  options: root.unlockDurations.map(function(ms) { return { id: ms, name: (ms / 1000).toFixed(1) + "s" } })
+                  current: root.unlockDuration
+                  onPicked: function(id) { root.setUnlockDuration(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Clip speed")
+                  help: root.tr("How fast the clip designs and the unlock clip play.")
+                  options: root.clipSpeeds.map(function(v) { return { id: v, name: v + "x" } })
+                  current: {
+                    for (var i = 0; i < root.clipSpeeds.length; i++)
+                      if (Math.abs(root.clipSpeeds[i] - root.clipSpeed) < 0.01) return root.clipSpeeds[i]
+                    return undefined
+                  }
+                  onPicked: function(id) { root.setClipSpeed(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Video ends as wallpaper")
+                  help: root.clipWallpaper
+                        ? root.tr("The desktop opens on the frame the clip stopped on, set with omarchy-theme-bg-set.")
+                        : root.tr("The desktop keeps its own wallpaper after a clip.")
+                  options: root.onOffOptions
+                  current: root.clipWallpaper ? "on" : "off"
+                  onPicked: function(id) { if ((id === "on") !== root.clipWallpaper) root.toggleClipWallpaper() }
+                }
               }
 
-              Text {
-                text: "The lock screen stays up while it plays."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
+              SettingSection {
+                explorer: root
+                title: root.tr("Look")
+                description: root.tr("How every design is drawn. The preview on the right follows along.")
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Clock")
+                  options: root.clockFormats
+                  current: root.twelveHour ? "12" : "24"
+                  onPicked: function(id) { root.setTwelveHour(id === "12") }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Language")
+                  help: root.tr("The language of the lock screen and of this explorer.")
+                  options: root.languageChoices
+                  current: root.languageSetting
+                  onPicked: function(id) { root.setLanguage(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Wallpaper blur")
+                  options: root.wallpaperBlurChoices
+                  current: root.wallpaperBlur
+                  onPicked: function(id) { root.setWallpaperBlur(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Wallpaper dim")
+                  help: root.wallpaperBlur === "design" && root.wallpaperDim === "design"
+                        ? root.tr("Each design blurs and darkens the wallpaper its own way.")
+                        : root.tr("Designs drawn over a solid color or their own art are not affected.")
+                  options: root.wallpaperDimChoices
+                  current: root.wallpaperDim
+                  onPicked: function(id) { root.setWallpaperDim(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Size")
+                  help: root.tr("Draws the whole lock screen larger, so text, field and avatar grow together.")
+                  options: root.uiScaleChoices
+                  current: root.uiScale
+                  onPicked: function(id) { root.setUiScale(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Reduce motion")
+                  help: root.reduceMotion === "off"
+                        ? root.tr("Animated designs move as they were made to.")
+                        : root.tr("Designs hold still, changing only for what you type, a wrong password or the minute.")
+                          + (root.reduceMotion === "battery" ? " " + root.tr(root.motionReduced ? root.tr("On battery now.") : root.tr("Moving now: on mains power.")) : "")
+                  options: root.reduceMotionChoices
+                  current: root.reduceMotion
+                  onPicked: function(id) { root.setReduceMotion(id) }
+                }
               }
 
-              // Clip designs land on their own last frame as the wallpaper.
-              Rectangle {
-                width: clipWallRow.implicitWidth + Style.space(8)
-                height: Style.space(30)
-                color: "transparent"
+              SettingSection {
+                explorer: root
+                title: root.tr("Password field")
+                description: root.tr("What the field shows next to what you type, in the designs that use it.")
 
-                Row {
-                  id: clipWallRow
-                  anchors.verticalCenter: parent.verticalCenter
-                  spacing: Style.space(8)
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Keyboard layout")
+                  help: root.tr("The layout code, such as DK or DE, shown when it is not US or when you have more than one. Click it to switch.")
+                  options: root.shownHiddenOptions
+                  current: root.showLayoutBadge ? "show" : "hide"
+                  onPicked: function(id) { root.setFieldItem("layout", id === "show") }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Caps lock warning")
+                  help: root.tr("A CAPS badge while caps lock is on.")
+                  options: root.shownHiddenOptions
+                  current: root.showCapsBadge ? "show" : "hide"
+                  onPicked: function(id) { root.setFieldItem("caps", id === "show") }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Show password button")
+                  help: root.tr("The eye that shows what you typed. Ctrl+E does the same either way.")
+                  options: root.shownHiddenOptions
+                  current: root.allowPasswordToggle ? "show" : "hide"
+                  onPicked: function(id) { root.setFieldItem("reveal", id === "show") }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Sign-in icons")
+                  help: root.tr("The fingerprint, face and security key icons. Without them Tab still switches to the key and Enter on an empty field still starts face unlock.")
+                  options: root.shownHiddenOptions
+                  current: root.showAuthIcons ? "show" : "hide"
+                  onPicked: function(id) { root.setFieldItem("icons", id === "show") }
+                }
+              }
+
+              SettingSection {
+                explorer: root
+                title: root.tr("Screen and power")
+                description: root.tr("How long the lock screen stays lit, and what it can do besides take a password.")
+
+                // Never keeps it powered for the whole lock: video designs keep
+                // playing and slow monitors are never re-blanked mid-wake.
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Blank the display after")
+                  help: root.keepDisplayOn
+                        ? root.tr("The lock screen stays lit for the whole lock: video designs keep playing.")
+                        : root.tr("The lock screen stays lit, then the display powers down.")
+                  options: [
+                    { id: 5000, name: "5s" }, { id: 15000, name: "15s" }, { id: 30000, name: "30s" },
+                    { id: 60000, name: "1m" }, { id: 300000, name: "5m" },
+                    { id: -1, name: root.blankDelayIsCustom ? root.tr("Custom (%1m)").arg(Math.round(root.blankDelay / 60000)) : root.tr("Custom") },
+                    { id: 0, name: root.tr("Never") }
+                  ]
+                  current: root.keepDisplayOn ? 0 : (root.blankDelayIsCustom ? -1 : root.blankDelay)
+                  onPicked: function(id) {
+                    if (id === -1) root.beginCustomDelay()
+                    else root.setBlankAfter(id)
+                  }
 
                   Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Style.space(18)
-                    height: Style.space(18)
+                    visible: root.customDelayEditing
+                    width: Style.space(150)
+                    height: visible ? Style.space(34) : 0
                     radius: root.cornerRadius
-                    color: root.clipWallpaper ? root.accent : "transparent"
+                    color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06)
                     border.width: Math.max(1, Style.space(2))
-                    border.color: root.clipWallpaper ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.4)
+                    border.color: root.accent
 
+                    // The unit hint lives inside the box, right-aligned, and the
+                    // input reserves its width so typed digits never run under it.
                     Text {
-                      anchors.centerIn: parent
-                      visible: root.clipWallpaper
-                      text: "✓"
-                      color: Color.background
-                      font.pixelSize: Style.font.caption
-                      font.weight: Font.Bold
-                    }
-                  }
-
-                  Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Unlock video ends as your wallpaper"
-                    color: root.foreground
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                  }
-                }
-
-                MouseArea {
-                  anchors.fill: parent
-                  anchors.margins: -Style.space(4)
-                  onClicked: root.toggleClipWallpaper()
-                }
-              }
-
-              Text {
-                text: "The desktop opens on the frame the clip stopped on, set with omarchy-theme-bg-set."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // How long the lock screen stays lit before the display blanks.
-              // Never keeps it powered for the whole lock: video designs keep
-              // playing and slow monitors are never re-blanked mid-wake.
-              Row {
-                visible: true
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Blank the display after"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: [
-                    { ms: 5000, name: "5s" },
-                    { ms: 15000, name: "15s" },
-                    { ms: 30000, name: "30s" },
-                    { ms: 60000, name: "1m" },
-                    { ms: 300000, name: "5m" },
-                    { ms: -1, name: "Custom" },
-                    { ms: 0, name: "Never" }
-                  ]
-                  Rectangle {
-                    id: blankChip
-                    required property var modelData
-                    readonly property bool current: modelData.ms === 0 ? root.keepDisplayOn
-                                                                       : modelData.ms === -1 ? root.blankDelayIsCustom
-                                                                       : (!root.keepDisplayOn && root.blankDelay === modelData.ms)
-                    width: blankChipLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, blankChipArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: blankChipLabel
-                      anchors.centerIn: parent
-                      text: blankChip.modelData.ms === -1 && root.blankDelayIsCustom
-                            ? "Custom (" + Math.round(root.blankDelay / 60000) + "m)"
-                            : blankChip.modelData.name
-                      color: blankChip.current ? Color.background : root.foreground
+                      anchors.verticalCenter: parent.verticalCenter
+                      anchors.right: parent.right
+                      anchors.rightMargin: Style.space(10)
+                      text: root.tr("min, Enter")
+                      color: root.muted
                       font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: blankChip.current ? Font.DemiBold : Font.Normal
+                      font.pixelSize: Style.font.bodySmall
                     }
 
-                    MouseArea {
-                      id: blankChipArea
+                    TextInput {
+                      id: customDelayInput
                       anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: {
-                        if (blankChip.modelData.ms === -1) root.beginCustomDelay()
-                        else root.setBlankAfter(blankChip.modelData.ms)
+                      anchors.leftMargin: Style.space(10)
+                      anchors.rightMargin: Style.space(80)
+                      verticalAlignment: TextInput.AlignVCenter
+                      color: root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                      text: root.customDelayText
+                      onTextEdited: root.customDelayText = text
+                      focus: root.customDelayEditing
+                      validator: IntValidator { bottom: 1; top: 60 }
+
+                      Keys.onEscapePressed: {
+                        root.customDelayEditing = false
+                        keyCatcher.forceActiveFocus()
                       }
+                      Keys.onReturnPressed: root.commitCustomDelay()
                     }
                   }
                 }
 
-                Rectangle {
-                  visible: root.customDelayEditing
-                  width: Style.space(110)
-                  height: Style.space(26)
-                  radius: root.cornerRadius
-                  color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06)
-                  border.width: Math.max(1, Style.space(2))
-                  border.color: root.accent
+                // A key pressed into a blanked screen only wakes it. Nothing
+                // says when a panel is lit again, so this is how long the field
+                // keeps ignoring keys after the wake has run.
+                SettingRow {
+                  explorer: root
+                  visible: !root.keepDisplayOn
+                  label: root.tr("Ignore keys after waking")
+                  help: root.wakeGrace === 0
+                        ? root.tr("Only the keys pressed before the screen wakes are dropped.")
+                        : root.tr("Keys keep waking the screen without typing until the panel has had %1 to light up.")
+                            .arg(root.wakeGrace % 1000 === 0 ? root.wakeGrace / 1000 + "s" : root.wakeGrace + "ms")
+                  options: [{ id: 0, name: root.tr("Off") }, { id: 500, name: "0.5s" }, { id: 1000, name: "1s" }, { id: 2000, name: "2s" }]
+                  current: root.wakeGrace
+                  onPicked: function(id) { root.setWakeGrace(id) }
+                }
 
-                  // The unit hint lives inside the box, right-aligned, and the
-                  // input reserves its width so typed digits never run under it.
-                  Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.right: parent.right
-                    anchors.rightMargin: Style.space(8)
-                    text: "m, Enter"
-                    color: root.muted
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                  }
-
-                  TextInput {
-                    id: customDelayInput
-                    anchors.fill: parent
-                    anchors.leftMargin: Style.space(8)
-                    anchors.rightMargin: Style.space(52)
-                    verticalAlignment: TextInput.AlignVCenter
-                    color: root.foreground
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                    text: root.customDelayText
-                    onTextEdited: root.customDelayText = text
-                    focus: root.customDelayEditing
-                    validator: IntValidator { bottom: 1; top: 60 }
-
-                    Keys.onEscapePressed: {
-                      root.customDelayEditing = false
-                      keyCatcher.forceActiveFocus()
-                    }
-                    Keys.onReturnPressed: root.commitCustomDelay()
-                  }
+                // Off by default: with it on, anyone at the machine can restart
+                // it without knowing the password.
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Power buttons")
+                  help: root.powerActions
+                        ? root.tr("Sleep, restart and shut down sit in the corner. Each asks once more before it happens.")
+                        : root.tr("The lock screen takes a password and nothing else.")
+                  options: root.onOffOptions
+                  current: root.powerActions ? "on" : "off"
+                  onPicked: function(id) { root.setPowerActions(id === "on") }
                 }
               }
 
-              Text {
-                text: root.keepDisplayOn
-                      ? "The lock screen stays lit for the whole lock: video designs keep playing."
-                      : "The lock screen stays lit, then the display powers down."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
+              SettingSection {
+                explorer: root
+                title: root.tr("Sign-in and security")
 
-              // A key pressed into a blanked screen only wakes it. Nothing
-              // says when a panel is lit again, so this is how long the field
-              // keeps ignoring keys after the wake has run.
-              Row {
-                visible: !root.keepDisplayOn
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Ignore keys after waking for"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
+                // Face unlock can look the moment the lock comes up, which
+                // recognises whoever locked the screen and lets them straight
+                // back in. Only shown when a face is enrolled.
+                SettingRow {
+                  explorer: root
+                  visible: root.faceConfigured
+                  label: root.tr("Face unlock starts")
+                  help: root.faceStart === "always"
+                        ? root.tr("The camera looks as soon as the screen locks. Locking while you sit in front of it can unlock it again.")
+                        : root.faceStart === "off"
+                          ? root.tr("The camera only looks when you press Enter on an empty field or click the face button.")
+                          : root.tr("The camera looks when the display wakes, or when you come back to a screen that stayed lit, and on Enter or the face button. It never looks at a blanked screen.")
+                  options: [{ id: "wake", name: root.tr("On wake") }, { id: "always", name: root.tr("Always") }, { id: "off", name: root.tr("On request") }]
+                  current: root.faceStart
+                  onPicked: function(id) { root.setFaceStart(id) }
                 }
 
-                Repeater {
-                  model: [
-                    { ms: 0, name: "Off" },
-                    { ms: 500, name: "0.5s" },
-                    { ms: 1000, name: "1s" },
-                    { ms: 2000, name: "2s" }
-                  ]
+                // Only once /etc/pam.d/omarchy-lock-fido2 is in place; off sends
+                // the lock screen back to the password without touching PAM, so
+                // the key still works everywhere else.
+                SettingRow {
+                  explorer: root
+                  visible: root.fido2Installed
+                  label: root.tr("Security key")
+                  help: root.tr("Off sends the lock screen back to the password; the key still works for sudo and the rest.")
+                  options: root.fido2Options
+                  current: root.fido2Enabled ? "on" : "off"
+                  onPicked: function(id) { root.setFido2Enabled(id === "on") }
+                }
+
+                // Mistakes on your own way in are left out.
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Report failed attempts")
+                  help: root.awayReport
+                        ? root.tr("After you unlock, a notification says if somebody got it wrong while you were away.")
+                        : root.tr("Failed attempts are not reported.")
+                  options: root.onOffOptions
+                  current: root.awayReport ? "on" : "off"
+                  onPicked: function(id) { root.setAwayReport(id === "on") }
+                }
+              }
+
+              SettingSection {
+                explorer: root
+                title: root.tr("System")
+
+                // An entry in the app launcher and under Style in the Omarchy
+                // menu. A plugin cannot add those on install, so it is a choice.
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Omarchy menu")
+                  help: root.tr("An entry in the app launcher and under Style in the Omarchy menu.")
+                  options: root.menuEntryOptions
+                  current: root.menuEntryInstalled ? "on" : "off"
+                  onPicked: function(id) { root.setMenuEntry(id === "on") }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Check this install")
+                  help: root.healthIssues.length === 0
+                        ? root.tr("Nothing missing that the explorer can see. The full check opens in a terminal, with a fix for anything it finds.")
+                        : root.tr("Opens a terminal with every check and its fix.")
+
                   Rectangle {
-                    id: graceChip
-                    required property var modelData
-                    readonly property bool current: root.wakeGrace === modelData.ms
-                    width: graceChipLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
+                    width: doctorLabel.implicitWidth + Style.space(26)
+                    height: Style.space(34)
                     radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, graceChipArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
+                    color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, doctorArea.containsMouse ? 0.13 : 0.06)
+                    border.width: 1
+                    border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.10)
                     Text {
-                      id: graceChipLabel
+                      id: doctorLabel
                       anchors.centerIn: parent
-                      text: graceChip.modelData.name
-                      color: graceChip.current ? Color.background : root.foreground
+                      text: root.tr("Run the check")
+                      color: root.foreground
                       font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: graceChip.current ? Font.DemiBold : Font.Normal
+                      font.pixelSize: Style.font.bodySmall
                     }
-
                     MouseArea {
-                      id: graceChipArea
+                      id: doctorArea
                       anchors.fill: parent
                       hoverEnabled: true
-                      onClicked: root.setWakeGrace(graceChip.modelData.ms)
-                    }
-                  }
-                }
-              }
-
-              Text {
-                visible: !root.keepDisplayOn
-                text: root.wakeGrace === 0
-                      ? "Only the keys pressed before the screen wakes are dropped."
-                      : "Keys keep waking the screen without typing until the panel has had "
-                        + (root.wakeGrace % 1000 === 0 ? root.wakeGrace / 1000 + "s" : root.wakeGrace + "ms") + " to light up."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // Face unlock can look the moment the lock comes up, which
-              // recognises whoever locked the screen and lets them straight
-              // back in. Only shown when a face is enrolled.
-              Row {
-                visible: root.faceConfigured
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Face unlock starts"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: [
-                    { id: "wake", name: "On wake" },
-                    { id: "always", name: "Always" },
-                    { id: "off", name: "On request" }
-                  ]
-                  Rectangle {
-                    id: faceChip
-                    required property var modelData
-                    readonly property bool current: root.faceStart === modelData.id
-                    width: faceChipLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, faceChipArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: faceChipLabel
-                      anchors.centerIn: parent
-                      text: faceChip.modelData.name
-                      color: faceChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: faceChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: faceChipArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setFaceStart(faceChip.modelData.id)
-                    }
-                  }
-                }
-              }
-
-              Text {
-                visible: root.faceConfigured
-                width: parent.width
-                wrapMode: Text.WordWrap
-                text: root.faceStart === "always"
-                      ? "The camera looks as soon as the screen locks. Locking while you sit in front of it can unlock it again."
-                      : root.faceStart === "off"
-                        ? "The camera only looks when you press Enter on an empty field or click the face button."
-                        : "The camera looks when the display wakes, or when you come back to a screen that stayed lit, and on Enter or the face button. It never looks at a blanked screen."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // Playback rate for the clip designs and the separate unlock clip.
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Clip speed"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.clipSpeeds
-                  Rectangle {
-                    id: clipSpeedChip
-                    required property real modelData
-                    readonly property bool current: Math.abs(modelData - root.clipSpeed) < 0.01
-                    width: clipSpeedLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, clipSpeedArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: clipSpeedLabel
-                      anchors.centerIn: parent
-                      text: clipSpeedChip.modelData + "x"
-                      color: clipSpeedChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: clipSpeedChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: clipSpeedArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setClipSpeed(clipSpeedChip.modelData)
-                    }
-                  }
-                }
-              }
-
-              // 24-hour or 12-hour AM/PM, for the clock in every design. The
-              // preview on the right redraws as you press it.
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Clock"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.clockFormats
-                  Rectangle {
-                    id: clockFormatChip
-                    required property var modelData
-                    readonly property bool current: (modelData.id === "12") === root.twelveHour
-                    width: clockFormatLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, clockFormatArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: clockFormatLabel
-                      anchors.centerIn: parent
-                      text: clockFormatChip.modelData.name
-                      color: clockFormatChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: clockFormatChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: clockFormatArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setTwelveHour(clockFormatChip.modelData.id === "12")
-                    }
-                  }
-                }
-              }
-
-              // An entry in the app launcher and under Style in the Omarchy
-              // menu. A plugin cannot add those on install, so it is a choice.
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Omarchy menu"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.menuEntryOptions
-                  Rectangle {
-                    id: menuEntryChip
-                    required property var modelData
-                    readonly property bool current: (modelData.id === "on") === root.menuEntryInstalled
-                    width: menuEntryLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, menuEntryArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: menuEntryLabel
-                      anchors.centerIn: parent
-                      text: menuEntryChip.modelData.name
-                      color: menuEntryChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: menuEntryChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: menuEntryArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setMenuEntry(menuEntryChip.modelData.id === "on")
-                    }
-                  }
-                }
-              }
-
-              // Sleep, restart and shut down in the corner of the lock
-              // screen. Off by default: with it on, anyone at the machine can
-              // restart it without knowing the password.
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Power buttons"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.onOffOptions
-                  Rectangle {
-                    id: powerChip
-                    required property var modelData
-                    readonly property bool current: (modelData.id === "on") === root.powerActions
-                    width: powerChipLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, powerChipArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: powerChipLabel
-                      anchors.centerIn: parent
-                      text: powerChip.modelData.name
-                      color: powerChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: powerChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: powerChipArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setPowerActions(powerChip.modelData.id === "on")
-                    }
-                  }
-                }
-              }
-
-              Text {
-                text: root.powerActions
-                      ? "Sleep, restart and shut down sit in the corner. Each asks once more before it happens."
-                      : "The lock screen takes a password and nothing else."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // Only shown once /etc/pam.d/omarchy-lock-fido2 is in place; off
-              // sends the lock screen back to the password without touching
-              // PAM, so the key still works everywhere else.
-              Row {
-                spacing: Style.space(6)
-                visible: root.fido2Installed
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Security key"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.fido2Options
-                  Rectangle {
-                    id: fido2Chip
-                    required property var modelData
-                    readonly property bool current: (modelData.id === "on") === root.fido2Enabled
-                    width: fido2ChipLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, fido2ChipArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: fido2ChipLabel
-                      anchors.centerIn: parent
-                      text: fido2Chip.modelData.name
-                      color: fido2Chip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: fido2Chip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: fido2ChipArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setFido2Enabled(fido2Chip.modelData.id === "on")
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.runDoctor()
                     }
                   }
                 }
@@ -2057,7 +2255,7 @@ Item {
                 visible: root.mainTab === "boot"
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: "Now: " + root.bootNowName + (root.bootAppliedTheme.length > 0 ? " \u00b7 baked from " + root.bootAppliedTheme : "")
+                text: root.tr("Now: %1").arg(root.bootNowName) + (root.bootAppliedTheme.length > 0 ? " \u00b7 " + root.tr("Baked from %1").arg(root.bootAppliedTheme) : "")
                 textFormat: Text.PlainText
                 color: root.muted
                 font.family: root.fontFamily
@@ -2093,8 +2291,8 @@ Item {
                     width: parent.width - applyBtn.width - Style.space(50)
                     wrapMode: Text.WordWrap
                     text: root.bootApplying
-                      ? "Applying the boot theme\u2026"
-                      : "Set to " + root.bootDesiredName + ". Applying writes the boot theme to the EFI partition and asks for your password."
+                      ? root.tr("Applying the boot theme\u2026")
+                      : root.tr("Set to %1. Applying writes the boot theme to the EFI partition and asks for your password.").arg(root.bootDesiredName)
                     textFormat: Text.PlainText
                     color: Color.menu.text
                     font.family: root.fontFamily
@@ -2112,7 +2310,7 @@ Item {
                     Text {
                       id: applyBtnLabel
                       anchors.centerIn: parent
-                      text: root.bootApplying ? "Building\u2026" : "Apply"
+                      text: root.bootApplying ? root.tr("Building\u2026") : root.tr("Apply")
                       color: Color.background
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.bodySmall
@@ -2165,7 +2363,7 @@ Item {
                       spacing: 0
 
                       Text {
-                        text: "Follow my lock screen"
+                        text: root.tr("Follow my lock screen")
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2219,7 +2417,7 @@ Item {
 
                     Text {
                       anchors.verticalCenter: parent.verticalCenter
-                      text: "Re-apply when the Omarchy theme changes"
+                      text: root.tr("Re-apply when the Omarchy theme changes")
                       color: root.foreground
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
@@ -2271,7 +2469,7 @@ Item {
                       spacing: 0
 
                       Text {
-                        text: "Rotate boot screens"
+                        text: root.tr("Rotate boot screens")
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2283,8 +2481,8 @@ Item {
                         width: Math.min(implicitWidth, Style.space(230))
                         elide: Text.ElideRight
                         text: root.bootRotating
-                          ? "Tick the cards below \u00b7 advances one per boot (" + root.bootRotation.length + " picked)"
-                          : "A different one each boot, set up once"
+                          ? root.tr("Tick the cards below") + " \u00b7 " + root.tr("advances one per boot (%1 picked)").arg(root.bootRotation.length)
+                          : root.tr("A different one each boot, set up once")
                         color: root.muted
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2306,7 +2504,7 @@ Item {
 
                   Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Clip length"
+                    text: root.tr("Clip length")
                     color: root.muted
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -2327,7 +2525,7 @@ Item {
                       Text {
                         id: clipLenLabel
                         anchors.centerIn: parent
-                        text: clipLen.modelData === 0 ? "Full" : clipLen.modelData + "s"
+                        text: clipLen.modelData === 0 ? root.tr("Full") : clipLen.modelData + "s"
                         color: clipLen.current ? Color.background : root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2373,7 +2571,7 @@ Item {
 
                       Text {
                         anchors.centerIn: parent
-                        text: "rendering preview..."
+                        text: root.tr("rendering preview...")
                         color: root.muted
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2401,7 +2599,7 @@ Item {
                         Text {
                           id: onDiskLabel
                           anchors.centerIn: parent
-                          text: "\u2713 Applied"
+                          text: "\u2713 " + root.tr("Applied")
                           color: Color.background
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
@@ -2456,7 +2654,7 @@ Item {
                         Text {
                           id: bootEditLabel
                           anchors.centerIn: parent
-                          text: "Edit"
+                          text: root.tr("Edit")
                           color: root.foreground
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
@@ -2486,7 +2684,7 @@ Item {
                         Text {
                           id: bootDelLabel
                           anchors.centerIn: parent
-                          text: root.confirmingDelete === bootCard.modelData.id ? "Sure?" : "Delete"
+                          text: root.tr(root.confirmingDelete === bootCard.modelData.id ? "Sure?" : "Delete")
                           color: root.confirmingDelete === bootCard.modelData.id ? Color.background : root.foreground
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
@@ -2554,7 +2752,7 @@ Item {
                         width: parent.width
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.WordWrap
-                        text: "Snapshot this lock screen"
+                        text: root.tr("Snapshot this lock screen")
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2570,7 +2768,7 @@ Item {
                   }
 
                   Text {
-                    text: (Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : "current") + " as a still"
+                    text: root.tr("%1 as a still").arg(Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : root.tr("current"))
                     textFormat: Text.PlainText
                     color: root.muted
                     font.family: root.fontFamily
@@ -2657,7 +2855,7 @@ Item {
 
                       Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "New layout"
+                        text: root.tr("New layout")
                         color: root.muted
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2673,7 +2871,7 @@ Item {
                   }
 
                   Text {
-                    text: "One layout, both screens"
+                    text: root.tr("One layout, both screens")
                     color: root.muted
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -2701,25 +2899,27 @@ Item {
                   }
 
                   BootField {
-                    label: "Background"
+                    label: root.tr("Background")
                     control: "dropdown"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
                     value: root.bootFormGet("background", "theme")
+                    optionNames: root.bootOptionNames
                     options: ["theme", "wallpaper"]
                     onSelected: function(o) { root.bootFormSet("background", o) }
                   }
                   BootField {
-                    label: "Logo"
+                    label: root.tr("Logo")
                     control: "dropdown"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
                     value: root.bootFormGet("logo", "theme")
+                    optionNames: root.bootOptionNames
                     options: ["theme", "none"]
                     onSelected: function(o) { root.bootFormSet("logo", o) }
                   }
                   BootField {
-                    label: "Title"
+                    label: root.tr("Title")
                     control: "text"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2727,7 +2927,7 @@ Item {
                     onEdited: function(t) { root.bootFormSet("title", t) }
                   }
                   BootField {
-                    label: "Subtitle"
+                    label: root.tr("Subtitle")
                     control: "text"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2735,7 +2935,7 @@ Item {
                     onEdited: function(t) { root.bootFormSet("subtitle", t) }
                   }
                   BootField {
-                    label: "Clock (lock screen)"
+                    label: root.tr("Clock (lock screen)")
                     control: "toggle"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2743,16 +2943,17 @@ Item {
                     onToggled: root.bootFormSet("clock", root.bootFormGet("clock", "on") === "on" ? "off" : "on")
                   }
                   BootField {
-                    label: "Passphrase field"
+                    label: root.tr("Passphrase field")
                     control: "dropdown"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
                     value: root.bootFormGet("entry", "pill")
+                    optionNames: root.bootOptionNames
                     options: ["pill", "line", "none"]
                     onSelected: function(o) { root.bootFormSet("entry", o) }
                   }
                   BootField {
-                    label: "Scanlines"
+                    label: root.tr("Scanlines")
                     control: "toggle"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2760,7 +2961,7 @@ Item {
                     onToggled: root.bootFormSet("scanlines", root.bootFormGet("scanlines", "off") === "on" ? "off" : "on")
                   }
                   BootField {
-                    label: "Title position"
+                    label: root.tr("Title position")
                     control: "stepper"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2768,7 +2969,7 @@ Item {
                     onStep: function(d) { root.bootFormSet("title_y", Math.max(0, Math.min(100, (parseInt(root.bootFormGet("title_y", "18")) || 18) + d * 4))) }
                   }
                   BootField {
-                    label: "Title size"
+                    label: root.tr("Title size")
                     control: "stepper"
                     suffix: ""
                     rev: root.bootFormRev
@@ -2777,7 +2978,7 @@ Item {
                     onStep: function(d) { root.bootFormSet("title_size", Math.max(10, Math.min(64, (parseInt(root.bootFormGet("title_size", "26")) || 26) + d * 2))) }
                   }
                   BootField {
-                    label: "Subtitle position"
+                    label: root.tr("Subtitle position")
                     control: "stepper"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2785,7 +2986,7 @@ Item {
                     onStep: function(d) { root.bootFormSet("subtitle_y", Math.max(0, Math.min(100, (parseInt(root.bootFormGet("subtitle_y", "26")) || 26) + d * 4))) }
                   }
                   BootField {
-                    label: "Subtitle size"
+                    label: root.tr("Subtitle size")
                     control: "stepper"
                     suffix: ""
                     rev: root.bootFormRev
@@ -2794,7 +2995,7 @@ Item {
                     onStep: function(d) { root.bootFormSet("subtitle_size", Math.max(8, Math.min(40, (parseInt(root.bootFormGet("subtitle_size", "15")) || 15) + d * 1))) }
                   }
                   BootField {
-                    label: "Field position"
+                    label: root.tr("Field position")
                     control: "stepper"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2813,7 +3014,7 @@ Item {
                     Column {
                       spacing: Style.space(6)
                       Text {
-                        text: "Lock screen"
+                        text: root.tr("Lock screen")
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.bodySmall
@@ -2831,7 +3032,7 @@ Item {
                         Text {
                           anchors.centerIn: parent
                           visible: editorLockPreview.status !== Image.Ready
-                          text: "rendering preview..."
+                          text: root.tr("rendering preview...")
                           color: root.muted
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
@@ -2849,7 +3050,7 @@ Item {
                           Text {
                             id: busyLabel1
                             anchors.centerIn: parent
-                            text: "re-rendering…"
+                            text: root.tr("re-rendering…")
                             color: root.foreground
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
@@ -2875,7 +3076,7 @@ Item {
                     Column {
                       spacing: Style.space(6)
                       Text {
-                        text: "Boot screen"
+                        text: root.tr("Boot screen")
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.bodySmall
@@ -2892,7 +3093,7 @@ Item {
                         Text {
                           anchors.centerIn: parent
                           visible: editorBootPreview.status !== Image.Ready
-                          text: "rendering preview..."
+                          text: root.tr("rendering preview...")
                           color: root.muted
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
@@ -2910,7 +3111,7 @@ Item {
                           Text {
                             id: busyLabel2
                             anchors.centerIn: parent
-                            text: "re-rendering…"
+                            text: root.tr("re-rendering…")
                             color: root.foreground
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
@@ -2937,7 +3138,8 @@ Item {
                   Text {
                     width: edLockRect.width * 2 + Style.space(14)
                     wrapMode: Text.WordWrap
-                    text: "Changes save and re-render automatically \u00b7 Esc goes back \u00b7 apply the boot screen from its card, pick the lock screen on the Lock screens tab. $USER and $HOST expand."
+                    text: root.tr("Changes save and re-render automatically") + " \u00b7 " + root.tr("Esc goes back") + " \u00b7 "
+                      + root.tr("apply the boot screen from its card, pick the lock screen under Styling or Animation. $USER and $HOST expand.")
                     color: root.muted
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -2969,6 +3171,7 @@ Item {
             return [
               { id: "styling", name: "Styling", count: Designs.stylings().length },
               { id: "animation", name: "Animation", count: Designs.animations().length },
+              { id: "favorites", name: "Favorites", count: root.favoriteDesigns().length },
               { id: "boot", name: "Boot screen", count: 0 },
               { id: "settings", name: "Settings", count: 0 }
             ]
@@ -2995,7 +3198,7 @@ Item {
               anchors.left: parent.left
               anchors.leftMargin: Style.space(12)
               anchors.verticalCenter: parent.verticalCenter
-              text: (navItem.modelData.name + (navItem.modelData.id === "boot" && root.bootApplying ? " ·" : "")).toUpperCase()
+              text: (root.tr(navItem.modelData.name) + (navItem.modelData.id === "boot" && root.bootApplying ? " ·" : "")).toUpperCase()
               color: navItem.current ? Color.menu.text : root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
@@ -3051,7 +3254,7 @@ Item {
 
         Text {
           anchors.centerIn: parent
-          text: "+ New design"
+          text: "+ " + root.tr("New design")
           color: root.foreground
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
@@ -3082,7 +3285,7 @@ Item {
 
         Text {
           anchors.centerIn: parent
-          text: "+ New clip"
+          text: "+ " + root.tr("New clip")
           color: newClipArea.containsMouse ? Color.menu.text : root.muted
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
@@ -3112,7 +3315,7 @@ Item {
 
         Text {
           anchors.centerIn: parent
-          text: "+ New styling"
+          text: "+ " + root.tr("New styling")
           color: newStylingArea.containsMouse ? Color.menu.text : root.muted
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
@@ -3144,7 +3347,7 @@ Item {
         Row {
           width: parent.width
           Text {
-            text: "LOCK SCREEN"
+            text: root.tr("LOCK SCREEN")
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
@@ -3152,12 +3355,12 @@ Item {
           }
           Item { width: parent.width - lockLbl.width - liveLbl.width; height: 1 }
           Text {
-            id: lockLbl; visible: false; text: "LOCK SCREEN"
+            id: lockLbl; visible: false; text: root.tr("LOCK SCREEN")
             font.family: root.fontFamily; font.pixelSize: Style.font.caption; font.letterSpacing: 2
           }
           Text {
             id: liveLbl
-            text: "● live"
+            text: "● " + root.tr("Live")
             color: root.accent
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
@@ -3185,6 +3388,16 @@ Item {
               designId: root.selectedDesign ? root.selectedDesign.id : root.activeDesignId
               revision: root.service ? root.service.designsRevision : 0
               twelveHour: root.twelveHour
+              wallpaperBlur: root.wallpaperBlurValue
+              wallpaperDim: root.wallpaperDimShift
+              uiScale: root.uiScale
+              holdStill: root.motionReduced
+              language: root.lockLanguage
+              fullName: root.accountName
+              showLayoutBadge: root.showLayoutBadge
+              showCapsBadge: root.showCapsBadge
+              allowPasswordToggle: root.allowPasswordToggle
+              showAuthIcons: root.showAuthIcons
               backgroundPath: root.service ? root.service.backgroundPath : ""
               backgroundVersion: root.service ? root.service.backgroundVersion : 0
               avatarPath: root.service ? root.service.avatarPath : ""
@@ -3207,7 +3420,7 @@ Item {
           border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.2)
           Text {
             anchors.centerIn: parent
-            text: "Preview full screen · Space"
+            text: root.tr("Preview full screen") + " · Space"
             color: root.foreground
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
@@ -3225,7 +3438,7 @@ Item {
         Row {
           width: parent.width
           Text {
-            text: "BOOT SCREEN"
+            text: root.tr("BOOT SCREEN")
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
@@ -3262,7 +3475,7 @@ Item {
             Text {
               anchors.centerIn: parent
               visible: root.bootApplied.length === 0 && appliedBootThumb.status !== Image.Ready
-              text: "stock"
+              text: root.tr("stock")
               color: root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
@@ -3284,14 +3497,16 @@ Item {
             Text {
               width: parent.width
               wrapMode: Text.WordWrap
-              text: root.bootApplying ? "Rebuilding…" : (root.bootAppliedTheme.length > 0 ? "baked from " + root.bootAppliedTheme : "the disk passphrase screen")
+              text: root.bootApplying ? root.tr("Rebuilding…") : (root.bootAppliedTheme.length > 0 ? root.tr("Baked from %1").arg(root.bootAppliedTheme) : root.tr("The disk passphrase screen"))
               textFormat: Text.PlainText
               color: root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
             }
             Text {
-              text: "Boot screen settings ›"
+              width: parent.width
+              wrapMode: Text.WordWrap
+              text: root.tr("Boot screen settings") + " ›"
               color: root.accent
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
@@ -3301,9 +3516,25 @@ Item {
         }
       }
 
+      // What an empty grid means: nothing starred yet, or no match.
+      Text {
+        visible: root.gridTab && root.designs.length === 0
+        anchors.centerIn: grid
+        width: Math.min(grid.width, Style.space(420))
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.WordWrap
+        textFormat: Text.PlainText
+        text: root.searchText.trim().length > 0
+              ? root.tr("No design matches “%1”. Esc clears the search.").arg(root.searchText.trim())
+              : root.tr("Nothing starred yet. Press F on a design, or click the star on its card, to keep it here.")
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+
       GridView {
         id: grid
-        visible: root.mainTab === "styling" || root.mainTab === "animation"
+        visible: root.gridTab
         anchors.top: header.bottom
         anchors.bottom: footer.top
         anchors.left: parent.left
@@ -3334,6 +3565,39 @@ Item {
           width: grid.cellWidth
           height: grid.cellHeight
 
+          // Its turn to build: see thumbSlots. Once started it stays built.
+          readonly property int rank: index - root.gridTopRow * root.columns
+          readonly property bool mayLoad: inView && rank < root.thumbSlots
+          property bool wanted: false
+          onMayLoadChanged: if (mayLoad) wanted = true
+          Component.onCompleted: if (mayLoad) wanted = true
+
+          readonly property string cachedThumb: root.thumbFor(modelData.id)
+          readonly property bool designUp: thumbLoader.status === Loader.Ready && !!thumbLoader.item && !!thumbLoader.item.item
+          // Over a picture the live design fades in once it has had a moment
+          // to draw; with no picture it shows as soon as it is there.
+          property bool liveShown: false
+          onDesignUpChanged: {
+            if (!designUp) return
+            if (cachedThumb.length === 0) liveShown = true
+            else revealTimer.restart()
+            if (cachedThumb.length === 0) grabTimer.restart()
+          }
+          onCachedThumbChanged: if (cachedThumb.length === 0 && designUp) grabTimer.restart()
+          Timer { id: revealTimer; interval: 700; onTriggered: cell.liveShown = true }
+          // A first picture soon, so a quick change of tab already has one,
+          // and a second once slow wallpapers and intros have finished.
+          Timer { id: grabTimer; interval: 1200; onTriggered: { cell.grabThumb(false); regrabTimer.restart() } }
+          Timer { id: regrabTimer; interval: 3500; onTriggered: cell.grabThumb(true) }
+          function grabThumb(again) {
+            if (!root.opened || !cell.inView || !thumbLoader.item || (!again && cell.cachedThumb.length > 0)) return
+            var id = cell.modelData.id
+            var key = root.thumbStateKey
+            var dpr = Screen.devicePixelRatio || 1
+            thumbLoader.item.grabToImage(function(result) { root.keepThumb(id, key, result) },
+              Qt.size(Math.round(root.thumbWidth * dpr), Math.round(root.thumbHeight * dpr)))
+          }
+
           Rectangle {
             id: frame
             width: root.thumbWidth
@@ -3349,19 +3613,41 @@ Item {
               anchors.fill: parent
               anchors.margins: frame.border.width
               clip: true
+              Image {
+                anchors.fill: parent
+                visible: cell.inView && source != "" && !(cell.liveShown && cell.designUp)
+                source: cell.cachedThumb
+                cache: false
+                smooth: true
+              }
               Item {
                 width: panel.width
                 height: panel.height
                 scale: (frame.width - frame.border.width * 2) / panel.width
                 transformOrigin: Item.TopLeft
                 visible: cell.inView
+                opacity: cell.liveShown ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 180 } }
                 Loader {
+                  id: thumbLoader
                   anchors.fill: parent
                   asynchronous: true
+                  active: cell.wanted
                   sourceComponent: LockHost {
+                    stillTextureSize: Qt.size(root.thumbWidth, root.thumbHeight)
                     designId: cell.modelData.id
                     revision: root.service ? root.service.designsRevision : 0
                     twelveHour: root.twelveHour
+                    wallpaperBlur: root.wallpaperBlurValue
+                    wallpaperDim: root.wallpaperDimShift
+                    uiScale: root.uiScale
+                    holdStill: root.motionReduced
+                    language: root.lockLanguage
+                    fullName: root.accountName
+                    showLayoutBadge: root.showLayoutBadge
+                    showCapsBadge: root.showCapsBadge
+                    allowPasswordToggle: root.allowPasswordToggle
+                    showAuthIcons: root.showAuthIcons
                     backgroundPath: root.service ? root.service.backgroundPath : ""
                     backgroundVersion: root.service ? root.service.backgroundVersion : 0
                     avatarPath: root.service ? root.service.avatarPath : ""
@@ -3392,6 +3678,34 @@ Item {
               }
             }
 
+            // Favorite: shown when starred, and on the selected card as the
+            // way to star it with the mouse. Above the card's own click area,
+            // which is declared after it.
+            Rectangle {
+              z: 2
+              readonly property bool starred: root.isFavorite(cell.modelData.id)
+              visible: starred || cell.selected
+              anchors.left: parent.left; anchors.top: parent.top
+              anchors.leftMargin: Style.space(40); anchors.topMargin: Style.space(10)
+              width: Style.space(24); height: Style.space(24); radius: 5
+              color: root.shade(0.55)
+              Text {
+                anchors.centerIn: parent
+                text: parent.starred ? "★" : "☆"
+                color: parent.starred ? root.accent : root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+              MouseArea {
+                anchors.fill: parent
+                z: 1
+                onClicked: {
+                  root.selectedIndex = cell.index
+                  if (root.service && typeof root.service.toggleFavorite === "function") root.service.toggleFavorite(cell.modelData.id)
+                }
+              }
+            }
+
             Rectangle {
               visible: cell.active
               anchors.right: parent.right; anchors.top: parent.top; anchors.margins: Style.space(10)
@@ -3400,7 +3714,7 @@ Item {
               Text {
                 id: activeText
                 anchors.centerIn: parent
-                text: "󰄬 Active"
+                text: "󰄬 " + root.tr("Active")
                 color: Color.background
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -3426,7 +3740,7 @@ Item {
                 Text {
                   id: useLabel
                   anchors.centerIn: parent
-                  text: "Use  ⏎"
+                  text: root.tr("Use") + "  ⏎"
                   color: Color.background
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -3442,8 +3756,8 @@ Item {
                 Text {
                   id: custLabel
                   anchors.centerIn: parent
-                  text: cell.modelData.designer ? "Design  E"
-                    : (cell.modelData.path ? "Edit  E" : "Customize  C")
+                  text: cell.modelData.designer ? root.tr("Design") + "  E"
+                    : (cell.modelData.path ? root.tr("Edit") + "  E" : root.tr("Customize") + "  C")
                   color: root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -3461,7 +3775,7 @@ Item {
                 Text {
                   id: delLabel
                   anchors.centerIn: parent
-                  text: root.confirmingDelete === cell.modelData.id ? "Sure?  X" : "Delete  X"
+                  text: root.tr(root.confirmingDelete === cell.modelData.id ? "Sure?" : "Delete") + "  X"
                   color: root.confirmingDelete === cell.modelData.id ? Color.background : root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -3503,7 +3817,7 @@ Item {
                       anchors.centerIn: parent
                       text: {
                         var cats = Designs.categories()
-                        for (var i = 0; i < cats.length; i++) if (cats[i].id === parent.modelData) return cats[i].name
+                        for (var i = 0; i < cats.length; i++) if (cats[i].id === parent.modelData) return root.tr(cats[i].name)
                         return parent.modelData
                       }
                       textFormat: Text.PlainText
@@ -3517,7 +3831,7 @@ Item {
             }
             Text {
               width: parent.width
-              text: cell.modelData.description + (cell.modelData.credit ? "  ·  clip by " + cell.modelData.credit : "")
+              text: cell.modelData.description + (cell.modelData.credit ? "  ·  " + root.tr("Clip by %1").arg(cell.modelData.credit) : "")
               textFormat: Text.PlainText
               color: root.muted
               font.family: root.fontFamily
@@ -3576,10 +3890,10 @@ Item {
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
           text: {
-            if (root.mainTab === "editor") return "Changes save automatically   ·   Esc: back"
-            if (root.mainTab === "boot") return "Click a card to pick it   ·   Apply writes it to the boot image   ·   B / Esc: back"
-            if (root.mainTab === "settings") return "U / Esc: back"
-            return "Arrows: browse   Space: preview   Enter: select   D: designer   C: customize   E: edit   N: new   X: delete   A: avatar   V: video   S: unlock clip   U: unlock effect   B: boot screen   Esc: close"
+            if (root.mainTab === "editor") return root.tr("Changes save automatically   ·   Esc: back")
+            if (root.mainTab === "boot") return root.tr("Click a card to pick it   ·   Apply writes it to the boot image   ·   B / Esc: back   ·   ?: all keys")
+            if (root.mainTab === "settings") return root.tr("Arrows / PgUp / PgDn: scroll   ·   U / Esc: back   ·   ?: all keys")
+            return root.tr("Arrows: browse   Space: preview   Enter: select   /: search   F: favorite   D: designer   U: settings   ?: all keys   Esc: close")
           }
           color: root.muted
           font.family: root.fontFamily
@@ -3626,7 +3940,7 @@ Item {
               font.weight: Font.DemiBold
             }
             Text {
-              text: "Custom design"
+              text: root.tr("Custom design")
               color: root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
@@ -3642,7 +3956,7 @@ Item {
               Text {
                 id: saveLabel
                 anchors.centerIn: parent
-                text: "Save  Ctrl+S"
+                text: root.tr("Save  Ctrl+S")
                 color: editorView.dirty ? Color.background : root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -3656,7 +3970,7 @@ Item {
               Text {
                 id: useLabel2
                 anchors.centerIn: parent
-                text: "Use this design"
+                text: root.tr("Use this design")
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -3674,7 +3988,7 @@ Item {
               Text {
                 id: backLabel
                 anchors.centerIn: parent
-                text: "Back  Esc"
+                text: root.tr("Back  Esc")
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -3753,6 +4067,16 @@ Item {
         designId: root.selectedDesign ? root.selectedDesign.id : Designs.DEFAULT_ID
         revision: root.service ? root.service.designsRevision : 0
         twelveHour: root.twelveHour
+        wallpaperBlur: root.wallpaperBlurValue
+        wallpaperDim: root.wallpaperDimShift
+        uiScale: root.uiScale
+        holdStill: root.motionReduced
+        language: root.lockLanguage
+        fullName: root.accountName
+        showLayoutBadge: root.showLayoutBadge
+        showCapsBadge: root.showCapsBadge
+        allowPasswordToggle: root.allowPasswordToggle
+        showAuthIcons: root.showAuthIcons
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         fingerprintConfigured: root.service ? root.service.fingerprintConfigured : false
@@ -3788,11 +4112,142 @@ Item {
             font.weight: Font.DemiBold
           }
           Text {
-            text: "Arrows: next   Enter: select   Esc: back"
+            text: root.tr("Arrows: next   Enter: select   Esc: back")
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
             anchors.verticalCenter: parent.verticalCenter
+          }
+        }
+      }
+    }
+
+    Item {
+      anchors.fill: parent
+      visible: root.showingKeys
+      z: 100
+
+      Rectangle { anchors.fill: parent; color: root.scrim }
+      MouseArea { anchors.fill: parent; onClicked: root.showingKeys = false }
+
+      BorderSurface {
+        id: keysSheet
+        anchors.centerIn: parent
+        width: keysBody.implicitWidth + contentLeftInset + contentRightInset
+        height: keysBody.implicitHeight + contentTopInset + contentBottomInset
+        radius: root.cornerRadius
+        color: root.background
+        borderSpec: root.borderSpec
+        padding: root.contentMargin
+
+        MouseArea { anchors.fill: parent; onClicked: {} }
+
+        Column {
+          id: keysBody
+          x: keysSheet.contentLeftInset
+          y: keysSheet.contentTopInset
+          spacing: Style.space(24)
+
+          Column {
+            spacing: 3
+            Row {
+              spacing: Style.space(8)
+              Text {
+                text: "::"
+                color: root.accent
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.display
+                font.weight: Font.Bold
+              }
+              Text {
+                text: root.tr("KEYBOARD SHORTCUTS")
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.display
+                font.weight: Font.Bold
+                font.letterSpacing: 2
+              }
+            }
+            Text {
+              text: root.tr("On the design grid") + " · " + root.tr("Esc or ? closes this")
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+            }
+          }
+
+          Grid {
+            columns: 2
+            columnSpacing: Style.space(48)
+            rowSpacing: Style.space(24)
+
+            Repeater {
+              model: root.keySections
+              Column {
+                id: keySection
+                required property var modelData
+                spacing: Style.space(8)
+
+                Text {
+                  text: root.tr(keySection.modelData.title).toUpperCase()
+                  color: root.accent
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.weight: Font.DemiBold
+                  font.letterSpacing: 1.5
+                }
+
+                Repeater {
+                  model: keySection.modelData.rows
+                  Row {
+                    id: keyRow
+                    required property var modelData
+                    spacing: Style.space(12)
+
+                    Item {
+                      width: root.keyCapsWidth
+                      height: Style.space(22)
+                      Row {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Style.space(4)
+                        onImplicitWidthChanged: root.keyCapsWidth = Math.max(root.keyCapsWidth, implicitWidth)
+                        Repeater {
+                          model: keyRow.modelData.keys
+                          Rectangle {
+                            id: keyCap
+                            required property var modelData
+                            width: Math.max(Style.space(22), capLabel.implicitWidth + Style.space(12))
+                            height: Style.space(22)
+                            radius: root.cornerRadius
+                            color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.08)
+                            border.width: 1
+                            border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.18)
+                            Text {
+                              id: capLabel
+                              anchors.centerIn: parent
+                              text: keyCap.modelData
+                              textFormat: Text.PlainText
+                              color: root.foreground
+                              font.family: root.fontFamily
+                              font.pixelSize: Style.font.caption
+                            }
+                          }
+                        }
+                      }
+                    }
+
+                    Text {
+                      anchors.verticalCenter: parent.verticalCenter
+                      text: root.tr(keyRow.modelData.text)
+                      textFormat: Text.PlainText
+                      color: root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

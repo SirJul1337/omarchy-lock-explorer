@@ -94,7 +94,7 @@ DesignBase {
       }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: Qt.formatDate(lock.now, "dddd, d MMMM")
+        text: lock.date("dddd, d MMMM")
         color: lock.withAlpha(Color.lock.text, 0.7)
         font.family: Style.font.family
         font.pixelSize: Style.font.heading
@@ -111,7 +111,7 @@ DesignBase {
       radius: 28
       showLockGlyph: false
       color: lock.withAlpha(Color.lock.background, 0.4)
-      placeholder: lock.greeting() + ", " + lock.userName
+      placeholder: lock.greeting() + ", " + lock.displayName
     }
   }
 
@@ -121,8 +121,8 @@ DesignBase {
     anchors.bottomMargin: 40
     opacity: lock.snapshotMode ? 0 : 1
     text: lock.failedAttempts > 0
-      ? lock.failedAttempts + " failed " + (lock.failedAttempts === 1 ? "attempt" : "attempts")
-      : (lock.fingerprintConfigured ? lock.fingerprintHint("Touch the sensor or press Enter") : "Press Enter to unlock")
+      ? lock.tr(lock.failedAttempts === 1 ? "1 failed attempt" : "%1 failed attempts").arg(lock.failedAttempts)
+      : (lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("Touch the sensor or press Enter")) : lock.tr("Press Enter to unlock"))
     textFormat: Text.PlainText
     color: lock.failedAttempts > 0 ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.45)
     font.family: Style.font.family

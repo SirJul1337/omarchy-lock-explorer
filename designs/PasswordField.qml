@@ -4,6 +4,7 @@ import qs.Ui
 
 BorderSurface {
   id: field
+  function tr(text) { return lock && typeof lock.tr === "function" ? lock.tr(text) : text }
 
   property var lock: null
   // In boot-screen snapshots the box itself stays -- the boot theme puts its
@@ -24,12 +25,14 @@ BorderSurface {
   readonly property alias input: input
   readonly property bool errorState: lock ? lock.errorState : false
   readonly property bool authenticating: lock ? lock.authenticatingPassword : false
-  readonly property bool fingerprint: lock ? lock.fingerprintConfigured : false
-  readonly property bool face: lock ? lock.faceConfigured : false
-  readonly property bool fido2: lock ? lock.fido2Configured : false
+  // The sign-in icons, unless hidden in Settings (DesignBase.showAuthIcons).
+  readonly property bool authIcons: lock ? lock.showAuthIcons !== false : true
+  readonly property bool fingerprint: lock ? lock.fingerprintConfigured && authIcons : false
+  readonly property bool face: lock ? lock.faceConfigured && authIcons : false
+  readonly property bool fido2: lock ? lock.fido2Configured && authIcons : false
   readonly property bool fido2Active: lock ? lock.fido2Active : false
   readonly property bool revealed: lock ? lock.passwordVisible : false
-  readonly property bool showToggle: lock ? (lock.showPasswordToggle && !lock.fido2Active) : true
+  readonly property bool showToggle: lock ? (lock.showPasswordToggle && lock.allowPasswordToggle !== false && !lock.fido2Active) : true
   readonly property int fieldFontSize: Math.round(Style.font.heading * fontScale)
   readonly property int dotFontSize: Math.round(Style.font.heading * 1.25 * fontScale)
   readonly property int dotLetterSpacing: Math.round(Style.font.heading * 0.19 * fontScale)
@@ -37,8 +40,8 @@ BorderSurface {
   // A password is typed blind, so a layout that is not a plain US keyboard is
   // said in the box. It goes with the lock glyph on the left, and is left out
   // of boot snapshots like the rest of the chrome.
-  readonly property bool showLayout: lock ? (lock.foreignLayout === true && !snapshotBox && layoutFits) : false
-  readonly property bool showCaps: lock ? (lock.capsLock === true && !snapshotBox) : false
+  readonly property bool showLayout: lock ? ((lock.foreignLayout === true || lock.layoutSwitchable === true) && lock.showLayoutBadge !== false && !snapshotBox && layoutFits) : false
+  readonly property bool showCaps: lock ? (lock.capsLock === true && lock.showCapsBadge !== false && !snapshotBox) : false
   // The badge is sized from the code and comes out of the text area, and a
   // layout is not always a two-letter country code: a custom XKB layout is a
   // free-form name, and Hyprland reports it verbatim. Unbounded, one of those
@@ -107,6 +110,8 @@ BorderSurface {
 
   Rectangle {
     id: layoutBadge
+    // Above the input, so a click on it reaches the layout switch.
+    z: 2
     visible: field.showLayout
     anchors.left: field.showLockGlyph ? lockGlyph.right : parent.left
     anchors.leftMargin: field.showLockGlyph ? 8 : field.borderLeft + field.sidePadding
@@ -127,6 +132,15 @@ BorderSurface {
       font.family: Style.font.family
       font.pixelSize: Math.round(field.fieldFontSize * 0.62)
       font.letterSpacing: 1
+    }
+
+    // The next layout, when there is one to go to. The field keeps focus.
+    MouseArea {
+      anchors.fill: parent
+      anchors.margins: -4
+      enabled: field.lock ? field.lock.layoutSwitchable === true : false
+      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+      onClicked: field.lock.layoutSwitchRequested()
     }
   }
 
@@ -189,9 +203,9 @@ BorderSurface {
 
   Text {
     anchors.fill: input
-    text: field.authenticating ? "Checking…"
+    text: field.authenticating ? tr("Checking…")
       : (field.errorState ? field.lock.failureMessage
-      : (field.fido2Active ? (field.lock.fido2Status.length > 0 ? field.lock.fido2Status : "Waiting for your key…") : field.placeholder))
+      : (field.fido2Active ? (field.lock.fido2Status.length > 0 ? field.lock.fido2Status : tr("Waiting for your key…")) : tr(field.placeholder)))
     textFormat: Text.PlainText
     visible: input.text.length === 0 && !field.snapshotBox
     color: field.authenticating ? Color.lock.text : (field.errorState ? Color.lock.textError : Color.lock.placeholder)

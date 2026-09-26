@@ -111,7 +111,7 @@ DesignBase {
       }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: Qt.formatDate(lock.now, "ddd d MMM").toUpperCase()
+        text: lock.date("ddd d MMM").toUpperCase()
         color: lock.withAlpha(Color.lock.text, 0.65)
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
@@ -127,7 +127,7 @@ DesignBase {
     spacing: 8
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: lock.userName
+      text: lock.displayName
       color: Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Style.font.heading
@@ -139,11 +139,11 @@ DesignBase {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         opacity: lock.snapshotMode ? 0 : 1
-        text: lock.authenticatingPassword ? "Checking…"
+        text: lock.authenticatingPassword ? lock.tr("Checking…")
           : (lock.errorState ? lock.failureMessage
           : (lock.passwordText.length > 0
             ? (lock.passwordVisible ? lock.passwordText : lock.passwordText.length + " characters, Enter to unlock")
-            : (lock.fingerprintConfigured ? lock.fingerprintHint("Type your password or touch the sensor") : "Type your password")))
+            : (lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("Type your password or touch the sensor")) : lock.tr("Type your password"))))
         textFormat: Text.PlainText
         color: lock.errorState ? Color.lock.textError : (lock.passwordVisible && lock.passwordText.length > 0 ? Color.lock.text : lock.withAlpha(Color.lock.text, 0.55))
         font.family: Style.font.family

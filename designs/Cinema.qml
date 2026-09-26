@@ -40,7 +40,7 @@ DesignBase {
       anchors.rightMargin: lock.pad
       anchors.verticalCenter: parent.verticalCenter
       opacity: lock.snapshotMode ? 0 : 1
-      text: Qt.formatDate(lock.now, "dddd d MMMM yyyy").toUpperCase()
+      text: lock.date("dddd d MMMM yyyy").toUpperCase()
       color: "#bdbdbd"
       font.family: Style.font.family
       font.pixelSize: Style.font.subtitle
@@ -61,8 +61,8 @@ DesignBase {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: lock.errorState ? lock.failureMessage
-          : (lock.authenticatingPassword ? "Checking…"
-          : lock.greeting() + ", " + lock.userName + ". Enter your password to continue.")
+          : (lock.authenticatingPassword ? lock.tr("Checking…")
+          : lock.greeting() + ", " + lock.displayName + ". Enter your password to continue.")
         textFormat: Text.PlainText
         color: lock.errorState ? Color.lock.textError : "#f2f2f2"
         font.family: Style.font.family
@@ -79,7 +79,7 @@ DesignBase {
         outlineThickness: 1
         showLockGlyph: false
         color: "#161616"
-        placeholder: "Password"
+        placeholder: lock.tr("Password")
       }
     }
   }

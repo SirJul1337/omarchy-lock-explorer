@@ -12,6 +12,7 @@ import qs.Commons
 // repaints.
 Item {
   id: piece
+  function tr(text) { return lock && typeof lock.tr === "function" ? lock.tr(text) : text }
 
   property var lock: null
   property string kind: "label"
@@ -89,12 +90,34 @@ Item {
 
   readonly property bool isText: kind === "clock" || kind === "date" || kind === "greeting"
     || kind === "label" || kind === "username" || kind === "hostname" || kind === "status"
+    || kind === "weather" || kind === "media" || kind === "battery" || kind === "system"
+
+  // The live pieces read their data from a source made only for them, so a
+  // layout without a weather piece never asks for the weather.
+  Loader {
+    id: live
+    active: sourceComponent !== null
+    sourceComponent: {
+      switch (piece.kind) {
+      case "weather": return liveWeatherC
+      case "media": case "art": return liveMediaC
+      case "battery": return liveBatteryC
+      case "system": return liveSystemC
+      }
+      return null
+    }
+  }
+  readonly property var liveData: live.item
+  Component { id: liveWeatherC; LiveWeather { lock: piece.lock } }
+  Component { id: liveMediaC; LiveMedia {} }
+  Component { id: liveBatteryC; LiveBattery {} }
+  Component { id: liveSystemC; LiveSystem {} }
 
   implicitWidth: loader.item ? loader.item.implicitWidth : 0
   implicitHeight: loader.item ? loader.item.implicitHeight : 0
   width: (fillParent && parent) ? parent.width : (fixedWidth > 0 ? fixedWidth : implicitWidth)
   height: (fillParent && parent) ? parent.height
-    : (kind === "avatar" ? width : (fixedHeight > 0 ? fixedHeight : implicitHeight))
+    : ((kind === "avatar" || kind === "art") ? width : (fixedHeight > 0 ? fixedHeight : implicitHeight))
 
   function roleColor(role) {
     var r = String(role || "text")
@@ -121,20 +144,60 @@ Item {
     if (!lock) return ""
     switch (kind) {
     case "clock": return lock.clock(String(p("format", "HH:mm")))
-    case "date": return Qt.formatDate(lock.now, String(p("format", "dddd, d MMMM")))
-    case "greeting": return lock.greeting() + (p("withName", true) ? ", " + lock.userName : "")
-    case "username": return lock.userName
+    case "date": return lock.date(String(p("format", "dddd, d MMMM")))
+    case "greeting": return lock.greeting() + (p("withName", true) ? ", " + lock.displayName : "")
+    case "username": return lock.displayName
     case "hostname": return lock.hostName
     case "status":
       if (lock.failureMessage.length > 0) return lock.failureMessage
       if (piece.fingerprintFailed) return lock.fingerprintStatus
       if (p("attempts", true) && lock.failedAttempts > 0)
-        return lock.failedAttempts + (lock.failedAttempts === 1 ? " failed attempt" : " failed attempts")
-      if (lock.authenticatingPassword) return "Checking…"
+        return tr(lock.failedAttempts === 1 ? "1 failed attempt" : "%1 failed attempts").arg(lock.failedAttempts)
+      if (lock.authenticatingPassword) return tr("Checking…")
       if ((lock.fingerprintStatus || "").length > 0) return lock.fingerprintStatus
       return String(p("text", ""))
+    case "weather": return weatherText()
+    case "media": return mediaText()
+    case "battery": return batteryText()
+    case "system": return systemText()
     }
     return String(p("text", ""))
+  }
+
+  function weatherText() {
+    var w = piece.liveData
+    if (!w || !w.current) return w && !w.loading ? tr("Weather unavailable") : tr("Loading weather")
+    var parts = [(p("icon", true) ? w.glyph + "  " : "") + (p("unit", "c") === "f" ? w.tempF : w.tempC)]
+    if (p("condition", true) && w.condition.length > 0) parts.push(w.condition)
+    if (p("place", false) && w.place.length > 0) parts.push(w.place)
+    return parts.join("  ·  ")
+  }
+
+  function mediaText() {
+    var m = piece.liveData
+    if (!m || !m.hasMedia) return tr(String(p("idle", "Nothing playing")))
+    var show = p("show", "both")
+    var words = show === "title" ? m.title
+      : (show === "artist" ? m.artist
+      : (m.artist.length > 0 ? m.title + "  ·  " + m.artist : m.title))
+    return (p("icon", true) ? (m.playing ? "󰐊  " : "󰏤  ") : "") + words
+  }
+
+  function batteryText() {
+    var b = piece.liveData
+    var icon = p("icon", true) && b ? b.glyph + "  " : ""
+    if (!b || !b.hasBattery) return p("hideWithout", false) ? "" : icon + tr("No battery")
+    return icon + b.percent + "%" + (p("state", true) && b.charging ? "  ·  " + tr("Charging") : "")
+  }
+
+  function systemText() {
+    var s = piece.liveData
+    if (!s) return ""
+    var stat = p("stat", "uptime")
+    var value = stat === "memory" ? s.memory : (stat === "load" ? s.load : (stat === "kernel" ? s.kernel : s.uptime))
+    if (!p("label", true)) return value
+    var label = stat === "memory" ? tr("Memory") : (stat === "load" ? tr("Load") : (stat === "kernel" ? tr("Kernel") : tr("Uptime")))
+    return label + "  " + value
   }
 
   // The reader reported a failure. The designer's preview has no reader, so
@@ -159,6 +222,8 @@ Item {
       case "panel": return panelC
       case "line": return lineC
       case "ttfx": return ttfxC
+      case "art": return artC
+      case "month": return monthC
       case "custom": return null
       }
       return piece.isText ? textC : null
@@ -241,7 +306,7 @@ Item {
       id: passwordBox
       property Item field: passwordBox.input
       lock: piece.lock
-      placeholder: String(piece.p("placeholder", "Enter password"))
+      placeholder: String(piece.p("placeholder", tr("Enter password")))
       showLockGlyph: piece.p("glyph", true)
       fontScale: piece.p("fontScale", 1)
       textAlignment: piece.p("align", "center") === "left" ? TextInput.AlignLeft
@@ -370,6 +435,150 @@ Item {
         visible: false
         layer.enabled: true
         Rectangle { anchors.fill: parent; radius: piece.p("radius", 8); color: "white"; antialiasing: true }
+      }
+    }
+  }
+
+  // The playing track's cover, or a note while there is none.
+  Component {
+    id: artC
+    Item {
+      implicitWidth: 200
+      implicitHeight: 200
+      readonly property string url: piece.liveData ? piece.liveData.artUrl : ""
+      opacity: piece.p("hideIdle", false) && !(piece.liveData && piece.liveData.hasMedia) ? 0 : 1
+      Behavior on opacity { NumberAnimation { duration: 250 } }
+      Rectangle {
+        anchors.fill: parent
+        visible: cover.status !== Image.Ready
+        radius: piece.p("radius", 16)
+        color: piece.tint("text", 0.08)
+        border.width: 1
+        border.color: piece.tint("text", 0.16)
+        Text {
+          anchors.centerIn: parent
+          text: "󰝚"
+          color: piece.tint("text", 0.45)
+          font.family: Style.font.family
+          font.pixelSize: Math.min(72, Math.max(14, parent.height / 3))
+        }
+      }
+      Image {
+        id: cover
+        anchors.fill: parent
+        source: parent.url
+        asynchronous: true
+        fillMode: Image.PreserveAspectCrop
+        sourceSize.width: Math.round(width)
+        sourceSize.height: Math.round(height)
+        opacity: piece.p("alpha", 1)
+        layer.enabled: piece.p("radius", 16) > 0 && status === Image.Ready
+        layer.smooth: true
+        layer.effect: MultiEffect {
+          maskEnabled: true
+          maskSource: artMask
+          maskThresholdMin: 0.5
+          maskSpreadAtMin: 0.05
+        }
+      }
+      Item {
+        id: artMask
+        anchors.fill: parent
+        visible: false
+        layer.enabled: true
+        Rectangle { anchors.fill: parent; radius: piece.p("radius", 16); color: "white"; antialiasing: true }
+      }
+      layer.enabled: piece.p("shadow", true)
+      layer.effect: MultiEffect {
+        shadowEnabled: true
+        shadowColor: Qt.rgba(0, 0, 0, 0.5)
+        shadowBlur: 1.0
+        shadowVerticalOffset: 10
+      }
+    }
+  }
+
+  // This month as a grid, Monday first, today marked in the accent color.
+  Component {
+    id: monthC
+    Column {
+      id: month
+      readonly property int cell: Math.max(12, Math.round(piece.p("size", 36)))
+      readonly property date today: piece.lock ? piece.lock.now : new Date()
+      readonly property var days: {
+        var first = new Date(today.getFullYear(), today.getMonth(), 1)
+        var out = []
+        for (var i = 0; i < (first.getDay() + 6) % 7; i++) out.push(0)
+        var count = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+        for (var d = 1; d <= count; d++) out.push(d)
+        while (out.length % 7 !== 0) out.push(0)
+        return out
+      }
+      // 1 January 2024 was a Monday.
+      readonly property var weekdays: {
+        var out = []
+        for (var i = 0; i < 7; i++)
+          out.push(piece.lock ? piece.lock.date("ddd", new Date(2024, 0, 1 + i)).substring(0, 2) : "")
+        return out
+      }
+      readonly property color ink: piece.tint(piece.p("color", "text"), piece.p("alpha", 1))
+      spacing: Math.round(cell * 0.2)
+
+      Text {
+        visible: piece.p("title", true)
+        width: monthGrid.width
+        text: piece.lock ? piece.lock.date("MMMM yyyy") : ""
+        textFormat: Text.PlainText
+        horizontalAlignment: Text.AlignHCenter
+        color: month.ink
+        font.family: Style.font.family
+        font.pixelSize: Math.round(month.cell * 0.55)
+        font.weight: Font.DemiBold
+      }
+      Row {
+        visible: piece.p("weekdays", true)
+        Repeater {
+          model: month.weekdays
+          Text {
+            required property string modelData
+            width: month.cell
+            text: modelData
+            textFormat: Text.PlainText
+            horizontalAlignment: Text.AlignHCenter
+            color: piece.tint(piece.p("color", "text"), piece.p("alpha", 1) * 0.55)
+            font.family: Style.font.family
+            font.pixelSize: Math.round(month.cell * 0.34)
+          }
+        }
+      }
+      Grid {
+        id: monthGrid
+        columns: 7
+        Repeater {
+          model: month.days
+          Item {
+            required property int modelData
+            readonly property bool isToday: modelData === month.today.getDate()
+            width: month.cell
+            height: month.cell
+            Rectangle {
+              anchors.centerIn: parent
+              width: parent.width * 0.82
+              height: width
+              radius: width / 2
+              visible: parent.isToday
+              color: piece.roleColor(piece.p("accent", "accent"))
+            }
+            Text {
+              anchors.centerIn: parent
+              text: parent.modelData > 0 ? String(parent.modelData) : ""
+              color: parent.isToday ? Color.background : month.ink
+              font.family: Style.font.family
+              font.pixelSize: Math.round(month.cell * 0.4)
+              font.weight: parent.isToday ? Font.Bold : Font.Normal
+            }
+          }
+        }
       }
     }
   }

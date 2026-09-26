@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "Designer.js" as D
+import "ExplorerStrings.js" as UiText
 
 // One row in the designer's inspector. The kind's field list (Designer.js)
 // says which type to draw; every one of them reports back through edited().
@@ -8,6 +9,8 @@ Item {
   id: field
 
   property string label: ""
+  property string language: "en"
+  function tr(text) { return UiText.tr(field.language, text) }
   property string type: "text"
   property var value: null
   property var options: []
@@ -340,7 +343,7 @@ Item {
             anchors.fill: parent
             verticalAlignment: Text.AlignVCenter
             visible: hexEntry.text.length === 0
-            text: "or #rrggbb"
+            text: field.tr("or #rrggbb")
             color: field.muted
             font: hexEntry.font
           }
@@ -404,7 +407,7 @@ Item {
         border.color: field.line
         Text {
           anchors.centerIn: parent
-          text: "Draw…"
+          text: field.tr("Draw…")
           color: field.foreground
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.caption
@@ -450,7 +453,7 @@ Item {
 
         Text {
           anchors.centerIn: parent
-          text: "nothing drawn yet"
+          text: field.tr("nothing drawn yet")
           color: field.muted
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.caption
@@ -473,7 +476,7 @@ Item {
         border.color: field.line
         Text {
           anchors.centerIn: parent
-          text: "Choose…"
+          text: field.tr("Choose…")
           color: field.foreground
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.caption
@@ -488,7 +491,7 @@ Item {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         width: field.width - Style.space(82)
-        text: String(field.value || "").length > 0 ? String(field.value).split("/").pop() : "none"
+        text: String(field.value || "").length > 0 ? String(field.value).split("/").pop() : field.tr("none")
         textFormat: Text.PlainText
         color: field.muted
         font.family: Style.font.menuFamily
@@ -551,7 +554,7 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: Style.space(6)
-        text: "Ctrl+Enter applies"
+        text: field.tr("Ctrl+Enter applies")
         color: field.muted
         font.family: Style.font.menuFamily
         font.pixelSize: Style.font.caption

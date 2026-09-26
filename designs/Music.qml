@@ -71,7 +71,7 @@ DesignBase {
     anchors.top: parent.top
     anchors.right: parent.right
     anchors.margins: 56
-    text: Qt.formatDate(lock.now, "dddd d MMMM")
+    text: lock.date("dddd d MMMM")
     color: lock.withAlpha(Color.lock.text, 0.7)
     font.family: Style.font.family
     font.pixelSize: Style.font.title
@@ -125,7 +125,7 @@ DesignBase {
           spacing: 6
           width: 380
           Text {
-            text: lock.hasMedia ? (lock.playing ? "󰐊  NOW PLAYING" : "󰏤  PAUSED") : "󰝛  NOTHING PLAYING"
+            text: lock.hasMedia ? (lock.playing ? lock.tr("󰐊  NOW PLAYING") : lock.tr("󰏤  PAUSED")) : lock.tr("󰝛  NOTHING PLAYING")
             color: Color.lock.borderActive
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
@@ -133,7 +133,7 @@ DesignBase {
           }
           Text {
             width: parent.width
-            text: lock.hasMedia ? lock.title : lock.greeting() + ", " + lock.userName
+            text: lock.hasMedia ? lock.title : lock.greeting() + ", " + lock.displayName
             textFormat: Text.PlainText
             color: Color.lock.text
             font.family: Style.font.family
@@ -145,7 +145,7 @@ DesignBase {
           }
           Text {
             width: parent.width
-            text: lock.hasMedia ? lock.artist + (lock.album ? "  ·  " + lock.album : "") : "Start something and it shows up here"
+            text: lock.hasMedia ? lock.artist + (lock.album ? "  ·  " + lock.album : "") : lock.tr("Start something and it shows up here")
             textFormat: Text.PlainText
             color: lock.withAlpha(Color.lock.text, 0.7)
             font.family: Style.font.family
@@ -171,7 +171,7 @@ DesignBase {
       width: 400
       height: 54
       radius: 27
-      placeholder: "Password"
+      placeholder: lock.tr("Password")
       color: lock.withAlpha(Color.lock.background, 0.7)
     }
   }

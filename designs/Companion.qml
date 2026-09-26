@@ -38,7 +38,7 @@ DesignBase {
     }
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: Qt.formatDate(lock.now, "dddd, d MMMM")
+      text: lock.date("dddd, d MMMM")
       color: lock.withAlpha(Color.lock.text, 0.75)
       font.family: Style.font.family
       font.pixelSize: Style.font.display
@@ -50,7 +50,7 @@ DesignBase {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: lock.errorState ? lock.failureMessage
-          : (lock.authenticatingPassword ? "Checking…"
+          : (lock.authenticatingPassword ? lock.tr("Checking…")
           : (lock.passwordText.length > 0 ? (lock.passwordVisible ? lock.passwordText : "●".repeat(Math.min(lock.passwordText.length, 24))) : "󰌾"))
         textFormat: Text.PlainText
         color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, lock.passwordVisible ? 0.9 : 0.55)

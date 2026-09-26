@@ -33,7 +33,7 @@ DesignBase {
       layer.effect: MultiEffect { shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.6); shadowBlur: 1.0; shadowVerticalOffset: 2 }
     }
     Text {
-      text: Qt.formatDate(lock.now, "dddd, d MMMM")
+      text: lock.date("dddd, d MMMM")
       color: lock.withAlpha(Color.lock.text, 0.85)
       font.family: Style.font.family
       font.pixelSize: Style.font.display
@@ -80,14 +80,14 @@ DesignBase {
           anchors.verticalCenter: parent.verticalCenter
           spacing: 2
           Text {
-            text: lock.greeting() + ", " + lock.userName
+            text: lock.greeting() + ", " + lock.displayName
             color: Color.lock.text
             font.family: Style.font.family
             font.pixelSize: Style.font.display
             font.weight: Font.DemiBold
           }
           Text {
-            text: lock.errorState ? lock.failureMessage : (lock.authenticatingPassword ? "Checking…" : "Enter your password to unlock")
+            text: lock.errorState ? lock.failureMessage : (lock.authenticatingPassword ? lock.tr("Checking…") : lock.tr("Enter your password to unlock"))
             textFormat: Text.PlainText
             color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.6)
             font.family: Style.font.family
@@ -102,14 +102,14 @@ DesignBase {
         anchors.horizontalCenter: parent.horizontalCenter
         width: 440
         height: 56
-        placeholder: "Password"
+        placeholder: lock.tr("Password")
         color: lock.withAlpha(Color.background, 0.6)
       }
 
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         opacity: lock.snapshotMode ? 0 : 1
-        text: lock.fingerprintConfigured ? lock.fingerprintHint("󰆠  Touch sensor or press Enter") : "Press Enter to unlock  ·  Esc clears"
+        text: lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("󰆠  Touch sensor or press Enter")) : lock.tr("Press Enter to unlock  ·  Esc clears")
         textFormat: Text.PlainText
         color: lock.withAlpha(Color.lock.text, 0.45)
         font.family: Style.font.family

@@ -12,6 +12,8 @@ Colors and fonts follow your Omarchy theme.
 - **Unlock animations** that fade, zoom or rise the lock screen away
 - **A matching boot screen** for the disk decryption prompt
 - **Multi-monitor aware**, with a clock-only screen on the others, and a 12-hour clock option
+- **In your language**, with reduce motion, a larger size and wallpaper blur and dim for every design
+- **Search and favorites** in the explorer, and a built-in check for anything missing from an install
 
 ## Install
 
@@ -58,8 +60,8 @@ moves over once the stock one is gone, within a few seconds. If `omarchy-shell l
 still answers `Function not found` after that, run `omarchy restart shell`.
 
 This replaces the built-in `omarchy.lock` service (the manifest has `clonedFrom: omarchy.lock`
-so the shell swaps them and everything that locks the screen keeps working). Disable or remove
-the plugin to get the stock lock screen back.
+so the shell swaps them and everything that locks the screen keeps working). To go back to the
+stock lock screen, see [Remove](#remove): Omarchy does not always switch its own one back on.
 
 ## Usage
 
@@ -67,7 +69,18 @@ the plugin to get the stock lock screen back.
 omarchy-shell lock explore
 ```
 
-Arrows to browse, Tab to switch category (or click the chips), Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` cycles the unlock animation and `Shift+U` its length, the same as clicking the Unlock chip in the header.
+Arrows (or H J K L) to browse, Tab to go through Styling, Animation and Favorites, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, and `B` the boot screen. `?` lists every key the explorer takes.
+
+Settings is one page in sections -- Unlock, Look, Password field, Screen and power, Sign-in and
+security, System -- with a line of help under every choice. It scrolls with the mouse wheel, the
+arrow keys, PageUp/PageDown and Home/End.
+
+`/` (or Ctrl+F, or a click on the field in the header) searches every design by name, description
+and tag, across Styling and Animation at once; Enter or Down goes back to the grid with the matches
+kept, Esc clears them. `F` stars the selected design, or click the star on its card, and starred
+designs are listed under Favorites in the sidebar. They are saved on the plugin entry as
+`favorites`; `omarchy-shell lock toggleFavorite zen` and `omarchy-shell lock favorites` do the same
+from the command line.
 
 `A` picks a profile picture with the normal file dialog (the explorer steps aside while the
 dialog is up and comes back when you are done), `Shift+A` clears it again. The designs that show
@@ -94,6 +107,11 @@ blanking cut short is ignored. Enter and the face button work in every mode.
 The field also shows the keyboard layout when it is not a US one — `DK`, `DE`, and so on,
 read from Hyprland and updated while the screen is locked, so a layout switched since you
 last typed is visible rather than something you discover four wrong passwords later.
+With more than one layout configured (`kb_layout = "us,dk"`) the code is always shown, US too,
+and clicking it switches to the next layout, the same as Hyprland's own layout toggle.
+
+On battery at 15% or less, every design shows a low-battery warning in the top right corner,
+so a laptop left locked does not run flat unnoticed.
 
 A security key works too, once you have enrolled one with the Omarchy menu (Setup > Security >
 Fido2) and run `bash extras/setup-fido2.sh`. That script writes `/etc/pam.d/omarchy-lock-fido2`,
@@ -183,9 +201,8 @@ omarchy-shell lock setBoot follow            # stock, follow, or a design id wit
 With more than one monitor you can pick which one shows the sign-in with `setInputMonitor`.
 The others get a clock only screen (typing still works there).
 
-The unlock is instant unless you ask for an animation. The Unlock chip in the explorer header
-turns one on -- click it to cycle, click the milliseconds next to it for the length, or use `U`
-and `Shift+U`. With one on, the lock screen animates away rather than blinking out: the design fades into the plain wallpaper and the desktop is behind it on the
+The unlock is instant unless you ask for an animation. Settings in the explorer (`U`) turns one
+on, and `setUnlockDuration` sets its length. With one on, the lock screen animates away rather than blinking out: the design fades into the plain wallpaper and the desktop is behind it on the
 same background. `fade` dissolves it, `zoom` fades with a slight push in and `rise` lifts it off
 the screen, `none` is the default instant one. `setUnlockDuration` takes milliseconds.
 `previewUnlock` plays the animation on the preview so you can see it without locking. The lock
@@ -197,7 +214,10 @@ fade: the desktop comes back on the same background instead of through a dark fl
 instead, and the fade goes straight into it.
 
 The selected design, the avatar, the unlock animation and the boot screen setting are saved on
-the plugin entry in `~/.config/omarchy/shell.json`.
+the plugin entry in `~/.config/omarchy/shell.json`, with a copy in
+`~/.config/omarchy/lock-explorer.json`. Omarchy drops a plugin's entry when the plugin is
+removed, so the copy is what brings every setting back after removing and adding the plugin
+again. Delete that file too if you want to start over from the defaults.
 
 ### 12-hour clock
 
@@ -213,6 +233,62 @@ format is used as written on a 24-hour clock, and rewritten to a 12-hour one
 with AM/PM after the time when the setting is on. A design that shows a bare
 hour on its own — Flip's tiles, Poster's numerals — counts 1 to 12 and puts the
 meridiem in `lock.meridiem`, which those two draw beside the digits.
+
+### Wallpaper blur and dim
+
+Each design blurs and darkens your wallpaper its own way. The Settings tab has two rows to change
+that for all of them. **Wallpaper blur** is As designed, Sharp (no blur), Soft or Heavy, and
+replaces the design's own. **Wallpaper dim** is Lighter, As designed or Darker, and moves each
+design's own dim up or down rather than replacing it: some designs darken the picture a lot so
+their text stays readable, and one value for all of them would undo that. Designs drawn over a
+solid color or their own art (Aurora, Neon, the ttfx designs and so on) are not affected. By hand:
+`omarchy-shell lock setWallpaperBlur sharp` and `setWallpaperDim darker`, `design` for either to
+go back. They are saved on the plugin entry as `wallpaperBlur` and `wallpaperDim`.
+
+### Language
+
+The lock screen speaks your system's language when it has it: Danish, Dutch, English, French,
+German, Italian, Norwegian, Polish, Portuguese, Spanish and Swedish so far. Prompts, greetings,
+failure messages and the failed-attempt notification are translated, and dates use that
+language's day and month names. The Settings tab has a "Language" row to pick one instead of
+following `LANG`; by hand, `omarchy-shell lock setLanguage de` (`auto` to follow the system
+again). The explorer follows the same choice, with its boot screen page, the designer and the
+code editor; only the designs' own names and descriptions are still English. Designs that play on a terminal or a video recorder (Terminal,
+Login, Statusline, VHS, Rain's lines) keep their English on purpose.
+
+The lock screen's text lives in `designs/Strings.js` and the explorer's in `ExplorerStrings.js`,
+both keyed by the English. Corrections and new languages are
+welcome as pull requests. In a design of your own, `lock.tr("Press Enter to unlock")` gives the
+translated text and `lock.date("dddd d MMMM")` a date in the lock screen's language.
+
+### Reduce motion and size
+
+**Reduce motion** in Settings holds every design still: Off, On, or On battery (moving while on
+mains power, still on the battery). The design keeps running underneath -- the password field
+works as always -- but what is on screen is a still frame of it, taken once it has settled and
+again whenever something on it changes: what you type, a wrong password, the fingerprint or key
+status, the minute on the clock. It applies to the explorer's previews too, and to the unlock:
+while motion is reduced the lock screen leaves at once, with no unlock animation, and neither the
+clip designs' video nor the unlock clip plays. By hand: `omarchy-shell lock setReduceMotion on` (`off`, `battery`).
+
+**Size** draws the whole lock screen larger, 100%, 125% or 150%: the design is laid out as if the
+screen were that much smaller and then drawn to fill it, so the clock, the password field, the
+messages and the avatar all grow together and nothing falls off the edge. Handy on a 4K panel at
+scale 1, or when the text is simply too small to read. By hand: `omarchy-shell lock setSize 125`.
+Both are saved on the plugin entry, as `reduceMotion` and `uiScale`.
+
+### Password field
+
+The Password field section of Settings chooses what the field shows next to what you type: the
+keyboard layout code, the CAPS warning, the eye button that shows the password, and the
+fingerprint, face and security key icons. Each is shown by default. Hiding the sign-in icons hides
+their buttons too; Tab still switches to the key and Enter on an empty field still starts face
+unlock. By hand: `omarchy-shell lock setFieldItem layout hide` (`caps`, `reveal`, `icons`; `show` to
+bring one back), and `omarchy-shell lock fieldItems` lists them. They are saved on the plugin entry
+as `hideLayoutBadge`, `hideCapsBadge`, `hidePasswordToggle` and `hideAuthIcons`, only while hidden.
+They apply to the designs that use the standard password field; a design that draws its own can
+read them as `lock.showLayoutBadge`, `lock.showCapsBadge`, `lock.allowPasswordToggle` and
+`lock.showAuthIcons`.
 
 ### Blank the display after
 
@@ -235,6 +311,12 @@ sleep, restart and shut down in the bottom right corner, each asking a second ti
 happens — handy on a machine that otherwise can only be powered off by holding the button,
 and worth leaving off anywhere a locked screen should do nothing but take a password.
 By hand: `omarchy-shell lock setPowerActions on`.
+
+"Report failed attempts", on by default, sends a notification after you unlock when somebody got
+the password or the security key wrong while you were away: how many times, and when the last one
+was. Wrong attempts that run straight into your own unlock, each within 30 seconds of the next,
+are you getting it wrong on the way in and are left out. By hand:
+`omarchy-shell lock setAwayReport off`.
 
 **Never** keeps the lock screen lit for the whole lock: video designs keep playing, and slow
 monitors are never re-blanked mid-wake on resume — the display was never off to begin with.
@@ -321,6 +403,13 @@ into; **Avatar** and **Image**; **Panel** and **Divider** to build a card out of
 QML** for anything else — that one is a box you write QML into, with `lock.now`, `lock.userName`,
 `lock.greeting()` and the rest in scope, exactly as in a hand-written design.
 
+The **Live** pieces show what is going on while the screen is locked: **Weather** (from wttr.in
+for the place in Omarchy's weather settings, in the lock screen's language, in °C or °F),
+**Now playing** and **Album art** for whatever player is running, **Battery**, **System info**
+(uptime, memory, load or the kernel) and **Month**, this month's calendar with today marked. The
+weather is fetched once per half hour and shared by every screen and thumbnail showing it; a
+layout without a Weather piece never asks for it.
+
 Nothing is parked at fixed pixel coordinates. Every piece holds on to a corner, an edge or the
 middle of the screen ("Sticks to" in the inspector, picked from where you drop it) and keeps its
 distance from there, so a design made on one screen still looks right on another. Dragging snaps
@@ -399,7 +488,8 @@ To add a design to the plugin itself, copy one of the files in `designs/`, add i
 
 A design is a `DesignBase` item. It gets `passwordText`, `failureMessage`, `failedAttempts`,
 `authenticatingPassword`, `fingerprintConfigured`, `faceConfigured`, `fido2Configured`,
-`fido2Active`, `fido2Authenticating`, `fido2NeedsPin`, `fido2Status`, `inputEnabled`, a ticking `now`, `userName`,
+`fido2Active`, `fido2Authenticating`, `fido2NeedsPin`, `fido2Status`, `inputEnabled`, a ticking `now`, `userName`
+(the login) and `displayName` (the account's first name, or the login with a capital),
 `hostName` and `greeting()`. Use `PasswordField` for a normal input box or `LockInput` if you
 want to draw the input yourself, and point `inputItem` at it so it gets focus. Set
 `shakeOnFail: true` on box-less designs (the base flashes red on a wrong password either way), and
@@ -413,17 +503,42 @@ values are on the base as `hasAvatar` and `avatarUrl` if you want to draw it you
 ## Remove
 
 ```sh
-omarchy plugin remove io.github.sirjul1337.lock-explorer
-omarchy restart shell
+omarchy plugin remove --yes io.github.sirjul1337.lock-explorer
+omarchy plugin enable omarchy.lock
 ```
 
-That restores the built-in Omarchy lock screen. Your own designs in
+The second line matters. Omarchy switches its own lock screen off while this plugin is enabled,
+and after disabling or removing the plugin it can leave it off -- it says "Restored omarchy.lock"
+and still nothing answers `omarchy-shell lock`, so nothing locks the screen. `omarchy plugin
+enable omarchy.lock` brings the built-in one back; the same goes for `omarchy plugin disable`.
+
+`omarchy plugin remove` keeps a backup of the plugin as `.io.github.sirjul1337.lock-explorer.bak.*`
+inside `~/.config/omarchy/plugins/`. Delete it or move it elsewhere before installing the plugin
+again, or the shell may load the old copy instead of the new one. Your own designs in
 `~/.config/omarchy/lock-designs/` are left alone, delete that folder if you want them gone.
 The optional launcher entry from `extras/install.sh` can be removed with
 `rm ~/.local/share/applications/lock-screen-explorer.desktop ~/.local/share/icons/hicolor/scalable/apps/lock-screen-explorer.svg`
 and by deleting the `style.lockscreen` line from `~/.config/omarchy/extensions/omarchy-menu.jsonc`.
 
 ## Troubleshooting
+
+Start with the check that ships with the plugin. It looks at everything below and prints the fix
+next to anything wrong, and it works even when the explorer will not open:
+
+```sh
+bash ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer/extras/doctor.sh
+```
+
+`--fix` also does the two fixes that are safe to do unasked: it moves a second copy of the plugin
+out of the plugins folder (to `~/.local/share/omarchy/lock-explorer-backups`, nothing is deleted)
+and switches Omarchy's own lock back on when neither lock screen is. The "Move it out" button next
+to that warning in Settings runs the same.
+
+"Check this install" in Settings runs the same thing in a terminal (when no terminal comes up,
+a notification gives the command to run instead), and Settings also
+lists what it can see is missing, such as `qt6-multimedia`, with an Install button that runs
+`omarchy pkg add` in a terminal and restarts the shell. If you open an issue, paste the doctor's
+output into it.
 
 `omarchy-shell lock explore` says `Function not found`: the stock lock service is still the one
 answering, so this plugin never took over the `lock` IPC target. Run `omarchy restart shell`.

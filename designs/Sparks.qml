@@ -135,7 +135,7 @@ DesignBase {
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: lock.greeting() + ", " + lock.userName
+      text: lock.greeting() + ", " + lock.displayName
       color: lock.withAlpha(Color.lock.text, 0.7)
       font.family: Style.font.family
       font.pixelSize: Style.font.title
@@ -154,7 +154,7 @@ DesignBase {
     radius: 10
     showLockGlyph: false
     shakeOnFail: false
-    placeholder: "Password"
+    placeholder: lock.tr("Password")
     color: lock.withAlpha(Color.lock.background, 0.6)
   }
 }

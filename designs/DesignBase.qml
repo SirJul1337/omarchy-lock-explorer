@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "Strings.js" as Strings
 
 Item {
   id: base
@@ -47,6 +48,15 @@ Item {
   property bool capsLock: false
   signal capsProbeRequested()
   readonly property bool foreignLayout: keyboardLayout.length > 0 && keyboardLayout !== "US"
+  // More than one layout configured: the badge is shown for US too, and a
+  // click on it asks for the next layout.
+  property int keyboardLayoutCount: 1
+  readonly property bool layoutSwitchable: keyboardLayout.length > 0 && keyboardLayoutCount > 1
+  signal layoutSwitchRequested()
+  // Set by the service while on battery at 15% or less. The warning in the
+  // top right corner is the base's, so every design has it.
+  property bool batteryLow: false
+  property int batteryPercent: -1
 
   // Sleep, restart and shut down, off unless the owner turned them on. Every
   // design gets them from here, in the corner, and each asks a second time
@@ -77,6 +87,9 @@ Item {
   signal unlockFinished()
 
   signal submitPassword(string password)
+  // Something drawn over time has come to rest (a ttfx effect, say): under
+  // reduce motion LockHost takes its still frame again.
+  signal stillRequested()
   signal passwordTextEdited(string password)
   signal clearFailureRequested()
   signal wakeRequested()
@@ -87,7 +100,18 @@ Item {
 
   readonly property bool errorState: failureMessage.length > 0
   readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"
-  readonly property string userInitial: userName.length > 0 ? userName.charAt(0).toUpperCase() : "?"
+  readonly property string userInitial: displayName.length > 0 ? displayName.charAt(0).toUpperCase() : "?"
+  // The account's full name (the GECOS field), set by the service when there
+  // is one. displayName is what a design greets: its first word, or else the
+  // login name with a capital, so "niklas" reads "Niklas". userName stays the
+  // login itself, for designs that show it as one ("niklas@host", "login:").
+  property string fullName: ""
+  readonly property string displayName: {
+    var first = String(fullName || "").trim().split(/\s+/)[0] || ""
+    if (first.length > 0) return first
+    var u = String(userName || "")
+    return u.length > 0 ? u.charAt(0).toUpperCase() + u.slice(1) : u
+  }
 
   // Set with `omarchy-shell lock pickAvatar` or the A key in the explorer.
   // Designs show it with Avatar, which falls back to userInitial when unset.
@@ -211,9 +235,46 @@ Item {
       }
     }
 
-    PowerButton { action: "suspend"; glyph: "󰤄"; label: "Sleep" }
-    PowerButton { action: "reboot"; glyph: "󰜉"; label: "Restart" }
-    PowerButton { action: "shutdown"; glyph: "󰐥"; label: "Shut down" }
+    PowerButton { action: "suspend"; glyph: "󰤄"; label: base.tr("Sleep") }
+    PowerButton { action: "reboot"; glyph: "󰜉"; label: base.tr("Restart") }
+    PowerButton { action: "shutdown"; glyph: "󰐥"; label: base.tr("Shut down") }
+  }
+
+  Rectangle {
+    id: batteryWarning
+    z: 900
+    visible: base.batteryLow && !base.snapshotMode
+    anchors.right: parent.right
+    anchors.top: parent.top
+    anchors.rightMargin: 28
+    anchors.topMargin: 24
+    width: batteryRow.implicitWidth + 24
+    height: 30
+    radius: 15
+    color: withAlpha(Color.background, 0.72)
+    border.width: 1
+    border.color: withAlpha(Color.lock.textError, 0.7)
+
+    Row {
+      id: batteryRow
+      anchors.centerIn: parent
+      spacing: 8
+      Text {
+        text: "󰂃"
+        color: Color.lock.textError
+        font.family: Style.font.family
+        font.pixelSize: 15
+        anchors.verticalCenter: parent.verticalCenter
+      }
+      Text {
+        text: base.tr("Battery low (%1%)").arg(base.batteryPercent)
+        textFormat: Text.PlainText
+        color: Color.lock.text
+        font.family: Style.font.family
+        font.pixelSize: 13
+        anchors.verticalCenter: parent.verticalCenter
+      }
+    }
   }
 
   transform: Translate { id: shakeTranslate }
@@ -258,13 +319,30 @@ Item {
   // down through LockHost; designs never read the setting themselves, they
   // render their clock through clock() below.
   property bool twelveHour: false
+  // Set from the wallpaper setting, read by Wallpaper: -1 keeps the blur a
+  // design asks for, and the dim shift is added to the design's own.
+  property real wallpaperBlur: -1
+  property real wallpaperDim: 0
+  // The lock screen's language (see Strings.js), set by the service from the
+  // system locale or the Language setting. tr() gives a design's own text in
+  // it, date() and clock() write month and day names in it.
+  property string language: "en"
+  // Set from Settings > Password field; PasswordField reads them. A design
+  // that draws its own field can read them too.
+  property bool showLayoutBadge: true
+  property bool showCapsBadge: true
+  property bool allowPasswordToggle: true
+  property bool showAuthIcons: true
+  readonly property var dateLocale: Qt.locale(Strings.localeName(language))
+  function tr(text) { return Strings.tr(language, text) }
+  function date(spec, when) { return (when || now).toLocaleString(dateLocale, String(spec)) }
 
   // Designs pass their ordinary 24-hour Qt format string here. With the
   // 12-hour setting off it is used as written, so a design that never calls
   // this still behaves exactly as before.
   function clock(spec) {
     var s = String(spec)
-    if (!twelveHour || s.indexOf("H") === -1) return Qt.formatDateTime(now, s)
+    if (!twelveHour || s.indexOf("H") === -1) return now.toLocaleString(dateLocale, s)
     // An hour standing on its own -- a flip tile, a poster numeral -- has
     // nowhere to put AM/PM, so it just counts 1 to 12. Qt only reads h/hh as
     // 12-hour when the format carries AP, which is why this one is counted by
@@ -275,18 +353,18 @@ Item {
     }
     var out = s.replace(/H{1,2}/, "h")
     if (!/AP|ap/.test(out)) out = out.replace(/h{1,2}(:mm)?(:ss)?/, "$& AP")
-    return Qt.formatDateTime(now, out)
+    return now.toLocaleString(dateLocale, out)
   }
 
   // For designs that lay the meridiem out themselves next to a bare hour.
-  readonly property string meridiem: twelveHour ? Qt.formatDateTime(now, "AP") : ""
+  readonly property string meridiem: twelveHour ? now.toLocaleString(dateLocale, "AP") : ""
 
   function greeting() {
     var h = now.getHours()
-    if (h < 5) return "Good night"
-    if (h < 12) return "Good morning"
-    if (h < 18) return "Good afternoon"
-    return "Good evening"
+    if (h < 5) return tr("Good night")
+    if (h < 12) return tr("Good morning")
+    if (h < 18) return tr("Good afternoon")
+    return tr("Good evening")
   }
 
   function fileUrl(path) {

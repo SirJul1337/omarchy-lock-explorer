@@ -87,7 +87,7 @@ DesignBase {
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: Qt.formatDate(lock.now, "dddd, d MMMM") + "  ·  " + Math.round(lock.dayFraction * 100) + "% of the day"
+      text: lock.date("dddd, d MMMM") + "  ·  " + lock.tr("%1% of the day").arg(Math.round(lock.dayFraction * 100))
       color: lock.withAlpha(Color.lock.text, 0.7)
       font.family: Style.font.family
       font.pixelSize: Style.font.subtitle
@@ -102,7 +102,7 @@ DesignBase {
       anchors.horizontalCenter: parent.horizontalCenter
       width: 380
       height: 54
-      placeholder: lock.userName
+      placeholder: lock.displayName
     }
   }
 }

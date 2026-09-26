@@ -122,7 +122,7 @@ DesignBase {
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: Qt.formatDate(lock.now, "dddd d MMMM")
+      text: lock.date("dddd d MMMM")
       color: lock.withAlpha(Color.lock.text, 0.7)
       font.family: Style.font.family
       font.pixelSize: Style.font.title
@@ -141,7 +141,7 @@ DesignBase {
     radius: height / 2
     showLockGlyph: false
     shakeOnFail: false
-    placeholder: "Password"
+    placeholder: lock.tr("Password")
     color: lock.withAlpha(Color.lock.background, 0.6)
   }
 }

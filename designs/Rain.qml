@@ -89,7 +89,7 @@ DesignBase {
       }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: "wake up, " + lock.userName + "..."
+        text: "wake up, " + lock.displayName + "..."
         color: lock.withAlpha(Color.lock.text, 0.8)
         font.family: Style.font.family
         font.pixelSize: Style.font.heading

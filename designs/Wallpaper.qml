@@ -14,6 +14,13 @@ Item {
   property real vignetteMiddle: 0.10
   property real vignetteBottom: 0.45
 
+  // What is drawn: the design's blur and dim, as the wallpaper setting on the
+  // lock (see DesignBase) adjusts them.
+  readonly property real shownBlur: wall.lock && wall.lock.wallpaperBlur !== undefined && wall.lock.wallpaperBlur >= 0
+                                    ? wall.lock.wallpaperBlur : wall.blur
+  readonly property real shownDim: Math.max(0, Math.min(0.9, wall.dim
+                                   + (wall.lock && wall.lock.wallpaperDim !== undefined ? wall.lock.wallpaperDim : 0)))
+
   Rectangle {
     anchors.fill: parent
     color: Color.background
@@ -31,7 +38,7 @@ Item {
     cache: true
     sourceSize.width: width
     sourceSize.height: height
-    visible: wall.blur <= 0
+    visible: wall.shownBlur <= 0
   }
 
   MultiEffect {
@@ -40,14 +47,14 @@ Item {
     // Hidden until the image decodes: with a broken wallpaper (e.g. WebP
     // without qt6-imageformats) the effect paints its empty source as solid
     // black, hiding the theme-color fallback underneath.
-    visible: wall.blur > 0 && image.status === Image.Ready
+    visible: wall.shownBlur > 0 && image.status === Image.Ready
     autoPaddingEnabled: false
-    blurEnabled: wall.blur > 0 && image.status === Image.Ready
-    blur: wall.blur
+    blurEnabled: wall.shownBlur > 0 && image.status === Image.Ready
+    blur: wall.shownBlur
     blurMax: 96
     blurMultiplier: 1.25
     contrast: wall.contrast
-    brightness: -wall.dim
+    brightness: -wall.shownDim
   }
 
   Rectangle {

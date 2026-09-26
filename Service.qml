@@ -2435,7 +2435,11 @@ echo "$out"
   }
 
   function requestSessionLock() {
-    if (!lockRequested || sessionLock.locked || sessionLock.secure) return
+    // Only this copy's own request counts. `secure` can already be true with
+    // no surface of ours -- a copy of this service that held the lock was
+    // reloaded away, and Hyprland is showing its crashed-lock screen -- and
+    // waiting on it then leaves that screen up for good.
+    if (!lockRequested || sessionLock.locked) return
     if (sessionLockStabilizeTimer.running) return
 
     if (!hasRealScreen()) {
@@ -2463,6 +2467,42 @@ echo "$out"
     }
 
     strandedLockCheckProc.running = true
+  }
+
+  // Which copy of this service holds the lock. Omarchy hot-reloads a local
+  // plugin when its files change and can run the new copy next to the old one
+  // for a while; a lock the old copy holds is not an orphan, and locking again
+  // from the new one leaves a second lock that never comes up. The holder says
+  // so once a second in this file; a check that finds the session locked and
+  // the claim fresh and someone else's waits, and takes over only once the
+  // claim goes stale -- the holder gone with the session still locked.
+  readonly property string lockClaimPath: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omarchy-lock-explorer.lock-held"
+  readonly property string instanceToken: String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9))
+  readonly property bool holdsLock: sessionLock.locked || sessionLock.secure
+
+  FileView {
+    id: lockClaim
+    path: root.lockClaimPath
+    atomicWrites: true
+    printErrors: false
+  }
+
+  Timer {
+    id: lockClaimHeartbeat
+    interval: 1000
+    repeat: true
+    triggeredOnStart: true
+    running: root.holdsLock
+    onTriggered: lockClaim.setText(root.instanceToken + "\n")
+  }
+
+  onHoldsLockChanged: if (!holdsLock) lockClaim.setText("")
+
+  // A claim that was fresh: ask again until it is released or goes stale.
+  Timer {
+    id: strandedDeferTimer
+    interval: 1500
+    onTriggered: root.checkStrandedLock()
   }
 
   function recoverStrandedLock() {
@@ -3487,10 +3527,24 @@ echo "$out"
 
   Process {
     id: strandedLockCheckProc
-    command: ["bash", "-c", "omarchy-hyprland-session-locked"]
+    // 0 locked and nobody holds it, 1 not locked, 2 no answer yet,
+    // 3 locked and another copy of this service still holds it.
+    command: ["bash", "-c",
+      "omarchy-hyprland-session-locked || exit $?; " +
+      "[[ -s $1 ]] || exit 0; " +
+      "[[ $(head -n1 -- \"$1\") == \"$2\" ]] && exit 0; " +
+      "age=$(( $(date +%s) - $(stat -c %Y -- \"$1\") )); " +
+      "(( age <= 2 )) && exit 3; exit 0",
+      "bash", root.lockClaimPath, root.instanceToken]
     onExited: function(exitCode) {
       // No output to read the lock off yet.
       if (exitCode === 2) return
+
+      if (exitCode === 3) {
+        if (root.lastEvent !== "lock-held-elsewhere: waiting") root.logEvent("lock-held-elsewhere: waiting")
+        strandedDeferTimer.restart()
+        return
+      }
 
       root.strandedLockResolved = true
 

@@ -215,6 +215,7 @@ Item {
               uiScale: editor.service && editor.service.uiScale !== undefined ? editor.service.uiScale : 1
               holdStill: editor.service ? editor.service.motionReduced === true : false
               language: editor.service && editor.service.language !== undefined ? editor.service.language : "en"
+              fullName: editor.service && editor.service.accountName !== undefined ? editor.service.accountName : ""
               fingerprintConfigured: editor.service ? editor.service.fingerprintConfigured : false
               inputEnabled: false
               loadBackground: true

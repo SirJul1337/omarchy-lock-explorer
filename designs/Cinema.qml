@@ -62,7 +62,7 @@ DesignBase {
         anchors.horizontalCenter: parent.horizontalCenter
         text: lock.errorState ? lock.failureMessage
           : (lock.authenticatingPassword ? lock.tr("Checking…")
-          : lock.greeting() + ", " + lock.userName + ". Enter your password to continue.")
+          : lock.greeting() + ", " + lock.displayName + ". Enter your password to continue.")
         textFormat: Text.PlainText
         color: lock.errorState ? Color.lock.textError : "#f2f2f2"
         font.family: Style.font.family

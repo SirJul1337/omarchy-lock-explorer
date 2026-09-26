@@ -228,6 +228,6 @@ DesignBase {
     anchors.bottomMargin: Math.round(parent.height * 0.16)
     width: 400
     height: 54
-    placeholder: lock.greeting() + ", " + lock.userName
+    placeholder: lock.greeting() + ", " + lock.displayName
   }
 }

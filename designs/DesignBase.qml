@@ -100,7 +100,18 @@ Item {
 
   readonly property bool errorState: failureMessage.length > 0
   readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"
-  readonly property string userInitial: userName.length > 0 ? userName.charAt(0).toUpperCase() : "?"
+  readonly property string userInitial: displayName.length > 0 ? displayName.charAt(0).toUpperCase() : "?"
+  // The account's full name (the GECOS field), set by the service when there
+  // is one. displayName is what a design greets: its first word, or else the
+  // login name with a capital, so "niklas" reads "Niklas". userName stays the
+  // login itself, for designs that show it as one ("niklas@host", "login:").
+  property string fullName: ""
+  readonly property string displayName: {
+    var first = String(fullName || "").trim().split(/\s+/)[0] || ""
+    if (first.length > 0) return first
+    var u = String(userName || "")
+    return u.length > 0 ? u.charAt(0).toUpperCase() + u.slice(1) : u
+  }
 
   // Set with `omarchy-shell lock pickAvatar` or the A key in the explorer.
   // Designs show it with Avatar, which falls back to userInitial when unset.

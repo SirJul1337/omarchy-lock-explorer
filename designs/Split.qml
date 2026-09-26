@@ -88,7 +88,7 @@ DesignBase {
           font.letterSpacing: 2
         }
         Text {
-          text: lock.userName
+          text: lock.displayName
           color: Color.lock.text
           font.family: Style.font.family
           font.pixelSize: Style.font.displayLarge

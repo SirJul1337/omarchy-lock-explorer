@@ -111,7 +111,7 @@ DesignBase {
       radius: 28
       showLockGlyph: false
       color: lock.withAlpha(Color.lock.background, 0.4)
-      placeholder: lock.greeting() + ", " + lock.userName
+      placeholder: lock.greeting() + ", " + lock.displayName
     }
   }
 

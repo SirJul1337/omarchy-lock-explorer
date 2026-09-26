@@ -133,7 +133,7 @@ DesignBase {
           }
           Text {
             width: parent.width
-            text: lock.hasMedia ? lock.title : lock.greeting() + ", " + lock.userName
+            text: lock.hasMedia ? lock.title : lock.greeting() + ", " + lock.displayName
             textFormat: Text.PlainText
             color: Color.lock.text
             font.family: Style.font.family

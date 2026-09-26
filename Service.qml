@@ -2476,6 +2476,18 @@ echo "$out"
   // so once a second in this file; a check that finds the session locked and
   // the claim fresh and someone else's waits, and takes over only once the
   // claim goes stale -- the holder gone with the session still locked.
+  // The account's full name, for the designs' greetings (DesignBase.displayName).
+  property string accountName: ""
+  Process {
+    id: accountNameProc
+    running: true
+    command: ["bash", "-c", "getent passwd -- \"$(id -un)\" | cut -d: -f5 | cut -d, -f1"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.accountName = String(text || "").trim().substring(0, 80)
+    }
+  }
+
   readonly property string lockClaimPath: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omarchy-lock-explorer.lock-held"
   readonly property string instanceToken: String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9))
   readonly property bool holdsLock: sessionLock.locked || sessionLock.secure
@@ -3102,6 +3114,7 @@ echo "$out"
           uiScale: root.uiScale
           holdStill: root.motionReduced
           language: root.language
+          fullName: root.accountName
           showLayoutBadge: root.showLayoutBadge
           showCapsBadge: root.showCapsBadge
           allowPasswordToggle: root.allowPasswordToggle
@@ -3163,6 +3176,7 @@ echo "$out"
         uiScale: root.uiScale
         holdStill: root.motionReduced
         language: root.language
+        fullName: root.accountName
         showLayoutBadge: root.showLayoutBadge
         showCapsBadge: root.showCapsBadge
         allowPasswordToggle: root.allowPasswordToggle
@@ -3723,6 +3737,7 @@ echo "$out"
       readonly property bool awayReport: root.awayReport
       readonly property var favorites: root.favorites
       readonly property bool showLayoutBadge: root.showLayoutBadge
+      readonly property string accountName: root.accountName
       readonly property bool showCapsBadge: root.showCapsBadge
       readonly property bool allowPasswordToggle: root.allowPasswordToggle
       readonly property bool showAuthIcons: root.showAuthIcons

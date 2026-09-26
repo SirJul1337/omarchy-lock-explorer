@@ -81,7 +81,7 @@ DesignBase {
         spacing: 2
         Text {
           anchors.horizontalCenter: parent.horizontalCenter
-          text: lock.greeting() + ", " + lock.userName
+          text: lock.greeting() + ", " + lock.displayName
           color: Color.lock.text
           font.family: Style.font.family
           font.pixelSize: Style.font.display

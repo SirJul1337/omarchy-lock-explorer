@@ -214,6 +214,7 @@ Item {
   readonly property string reduceMotion: service && service.reduceMotion !== undefined ? String(service.reduceMotion) : "off"
   readonly property bool motionReduced: !!service && service.motionReduced === true
   readonly property real uiScale: service && service.uiScale !== undefined ? service.uiScale : 1
+  readonly property string accountName: service && service.accountName !== undefined ? String(service.accountName) : ""
   readonly property string lockLanguage: service && service.language !== undefined ? String(service.language) : "en"
   readonly property string languageSetting: service && service.languageSetting !== undefined ? String(service.languageSetting) : "auto"
   readonly property var languageChoices: {
@@ -1235,6 +1236,7 @@ Item {
         uiScale: root.uiScale
         holdStill: root.motionReduced
         language: root.lockLanguage
+        fullName: root.accountName
         showLayoutBadge: root.showLayoutBadge
         showCapsBadge: root.showCapsBadge
         allowPasswordToggle: root.allowPasswordToggle
@@ -3333,6 +3335,7 @@ Item {
               uiScale: root.uiScale
               holdStill: root.motionReduced
               language: root.lockLanguage
+              fullName: root.accountName
               showLayoutBadge: root.showLayoutBadge
               showCapsBadge: root.showCapsBadge
               allowPasswordToggle: root.allowPasswordToggle
@@ -3536,6 +3539,7 @@ Item {
                     uiScale: root.uiScale
                     holdStill: root.motionReduced
                     language: root.lockLanguage
+                    fullName: root.accountName
                     showLayoutBadge: root.showLayoutBadge
                     showCapsBadge: root.showCapsBadge
                     allowPasswordToggle: root.allowPasswordToggle
@@ -3964,6 +3968,7 @@ Item {
         uiScale: root.uiScale
         holdStill: root.motionReduced
         language: root.lockLanguage
+        fullName: root.accountName
         showLayoutBadge: root.showLayoutBadge
         showCapsBadge: root.showCapsBadge
         allowPasswordToggle: root.allowPasswordToggle

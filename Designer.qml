@@ -1160,6 +1160,7 @@ Item {
         wallpaperBlur: designer.service && designer.service.wallpaperBlurValue !== undefined ? designer.service.wallpaperBlurValue : -1
         wallpaperDim: designer.service && designer.service.wallpaperDimShift !== undefined ? designer.service.wallpaperDimShift : 0
         language: designer.service && designer.service.language !== undefined ? designer.service.language : "en"
+        fullName: designer.service && designer.service.accountName !== undefined ? designer.service.accountName : ""
         // Something in the box, so the input pieces are visible while arranging.
         passwordText: "omarchy"
         onNodePressed: function(id, additive) {

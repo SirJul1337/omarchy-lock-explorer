@@ -31,7 +31,7 @@ DesignBase {
     anchors.left: parent.left
     anchors.top: parent.top
     anchors.margins: lock.margin
-    text: lock.greeting() + ", " + lock.userName
+    text: lock.greeting() + ", " + lock.displayName
     color: lock.withAlpha(Color.lock.text, 0.8)
     font.family: Style.font.family
     font.pixelSize: Style.font.subtitle

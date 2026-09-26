@@ -94,7 +94,7 @@ DesignBase {
         radius: 27
         showLockGlyph: false
         color: Qt.rgba(0, 0, 0, 0.55)
-        placeholder: lock.userName
+        placeholder: lock.displayName
       }
     }
   }

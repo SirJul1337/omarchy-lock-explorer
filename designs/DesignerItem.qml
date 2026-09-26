@@ -123,8 +123,8 @@ Item {
     switch (kind) {
     case "clock": return lock.clock(String(p("format", "HH:mm")))
     case "date": return lock.date(String(p("format", "dddd, d MMMM")))
-    case "greeting": return lock.greeting() + (p("withName", true) ? ", " + lock.userName : "")
-    case "username": return lock.userName
+    case "greeting": return lock.greeting() + (p("withName", true) ? ", " + lock.displayName : "")
+    case "username": return lock.displayName
     case "hostname": return lock.hostName
     case "status":
       if (lock.failureMessage.length > 0) return lock.failureMessage

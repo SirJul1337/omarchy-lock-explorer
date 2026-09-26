@@ -79,7 +79,7 @@ DesignBase {
       spacing: 4
       Text {
         anchors.right: parent.right
-        text: lock.userName
+        text: lock.displayName
         color: Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Style.font.display

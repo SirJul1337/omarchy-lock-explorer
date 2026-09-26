@@ -80,7 +80,7 @@ DesignBase {
           anchors.verticalCenter: parent.verticalCenter
           spacing: 2
           Text {
-            text: lock.greeting() + ", " + lock.userName
+            text: lock.greeting() + ", " + lock.displayName
             color: Color.lock.text
             font.family: Style.font.family
             font.pixelSize: Style.font.display

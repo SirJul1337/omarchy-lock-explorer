@@ -63,6 +63,8 @@ Item {
   property bool holdStill: false
   // The design's language, see Strings.js.
   property string language: "en"
+  // The account's full name, see DesignBase.displayName.
+  property string fullName: ""
   // What the password field shows beside the text.
   property bool showLayoutBadge: true
   property bool showCapsBadge: true
@@ -145,6 +147,7 @@ Item {
     if (it.wallpaperBlur !== undefined) it.wallpaperBlur = Qt.binding(function() { return host.wallpaperBlur })
     if (it.wallpaperDim !== undefined) it.wallpaperDim = Qt.binding(function() { return host.wallpaperDim })
     if (it.language !== undefined) it.language = Qt.binding(function() { return host.language })
+    if (it.fullName !== undefined) it.fullName = Qt.binding(function() { return host.fullName })
     if (it.showLayoutBadge !== undefined) it.showLayoutBadge = Qt.binding(function() { return host.showLayoutBadge })
     if (it.showCapsBadge !== undefined) it.showCapsBadge = Qt.binding(function() { return host.showCapsBadge })
     if (it.allowPasswordToggle !== undefined) it.allowPasswordToggle = Qt.binding(function() { return host.allowPasswordToggle })

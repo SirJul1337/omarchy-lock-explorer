@@ -53,7 +53,7 @@ DesignBase {
         showLockGlyph: false
         shakeOnFail: false
         textAlignment: TextInput.AlignLeft
-        placeholder: lock.greeting() + ", " + lock.userName
+        placeholder: lock.greeting() + ", " + lock.displayName
         color: lock.withAlpha(Color.background, 0.5)
       }
 

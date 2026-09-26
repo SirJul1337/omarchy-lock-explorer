@@ -102,7 +102,7 @@ DesignBase {
       anchors.horizontalCenter: parent.horizontalCenter
       width: 380
       height: 54
-      placeholder: lock.userName
+      placeholder: lock.displayName
     }
   }
 }

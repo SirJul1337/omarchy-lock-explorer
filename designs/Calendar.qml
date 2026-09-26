@@ -121,7 +121,7 @@ DesignBase {
         width: 360
         height: 54
         textAlignment: TextInput.AlignLeft
-        placeholder: lock.greeting() + ", " + lock.userName
+        placeholder: lock.greeting() + ", " + lock.displayName
       }
       Text {
         opacity: lock.snapshotMode ? 0 : 1

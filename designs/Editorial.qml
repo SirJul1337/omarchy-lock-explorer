@@ -25,7 +25,7 @@ DesignBase {
     spacing: 12
     Rectangle { width: 10; height: 10; radius: 5; color: Color.lock.borderActive; anchors.verticalCenter: parent.verticalCenter }
     Text {
-      text: lock.hostName.toUpperCase() + "  ·  " + lock.userName
+      text: lock.hostName.toUpperCase() + "  ·  " + lock.displayName
       color: lock.withAlpha(Color.lock.text, 0.75)
       font.family: Style.font.family
       font.pixelSize: Style.font.subtitle

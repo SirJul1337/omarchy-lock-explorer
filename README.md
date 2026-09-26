@@ -479,7 +479,8 @@ To add a design to the plugin itself, copy one of the files in `designs/`, add i
 
 A design is a `DesignBase` item. It gets `passwordText`, `failureMessage`, `failedAttempts`,
 `authenticatingPassword`, `fingerprintConfigured`, `faceConfigured`, `fido2Configured`,
-`fido2Active`, `fido2Authenticating`, `fido2NeedsPin`, `fido2Status`, `inputEnabled`, a ticking `now`, `userName`,
+`fido2Active`, `fido2Authenticating`, `fido2NeedsPin`, `fido2Status`, `inputEnabled`, a ticking `now`, `userName`
+(the login) and `displayName` (the account's first name, or the login with a capital),
 `hostName` and `greeting()`. Use `PasswordField` for a normal input box or `LockInput` if you
 want to draw the input yourself, and point `inputItem` at it so it gets focus. Set
 `shakeOnFail: true` on box-less designs (the base flashes red on a wrong password either way), and

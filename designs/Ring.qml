@@ -127,7 +127,7 @@ DesignBase {
     spacing: 8
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: lock.userName
+      text: lock.displayName
       color: Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Style.font.heading

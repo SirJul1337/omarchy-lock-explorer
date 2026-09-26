@@ -732,14 +732,16 @@ var TEXT = {
 }
 
 // Lowercased keys, built once, remembering how the English was written.
-var LOOKUP = (function() {
+// ExplorerStrings.js builds its own table the same way.
+function makeLookup(text) {
   var out = {}
-  for (var lang in TEXT) {
+  for (var lang in text) {
     out[lang] = {}
-    for (var key in TEXT[lang]) out[lang][key.toLowerCase()] = { key: key, text: TEXT[lang][key] }
+    for (var key in text[lang]) out[lang][key.toLowerCase()] = { key: key, text: text[lang][key] }
   }
   return out
-})()
+}
+var LOOKUP = makeLookup(TEXT)
 
 function known(id) {
   for (var i = 0; i < LANGUAGES.length; i++) if (LANGUAGES[i].id === id) return true
@@ -776,8 +778,12 @@ function piece(table, part) {
 }
 
 function tr(lang, text) {
+  return trWith(LOOKUP, lang, text)
+}
+
+function trWith(lookup, lang, text) {
   var s = String(text === undefined || text === null ? "" : text)
-  var table = LOOKUP[lang]
+  var table = lookup[lang]
   if (!table || s.length === 0) return s
   var whole = piece(table, s)
   if (whole !== null) return whole

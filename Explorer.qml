@@ -8,6 +8,7 @@ import "designs"
 import "Designs.js" as Designs
 import "Designer.js" as Layout
 import "Bridge.js" as Bridge
+import "ExplorerStrings.js" as UiText
 
 Item {
   id: root
@@ -142,15 +143,14 @@ Item {
   readonly property var healthIssues: {
     var list = []
     if (root.multimediaMissing)
-      list.push({ text: "Video designs, clip designs and the unlock clip need qt6-multimedia, which Omarchy does not install.",
+      list.push({ text: root.tr("Video designs, clip designs and the unlock clip need qt6-multimedia, which Omarchy does not install."),
                   packages: ["qt6-multimedia"] })
     if (root.wallpaperBroken && root.wallpaperIsWebp)
-      list.push({ text: "Your wallpaper is WebP, which the shell can only read with qt6-imageformats.",
+      list.push({ text: root.tr("Your wallpaper is WebP, which the shell can only read with qt6-imageformats."),
                   packages: ["qt6-imageformats"] })
     var dirs = service && service.shadowingDirs ? service.shadowingDirs : []
     if (dirs.length > 0)
-      list.push({ text: "Another copy of this plugin may load instead of this one: " + dirs.join(", ")
-                        + ". Move it out of ~/.config/omarchy/plugins/ (to ~/.local/share/omarchy/lock-explorer-backups) and restart the shell.",
+      list.push({ text: root.tr("Another copy of this plugin may load instead of this one: %1. Move it out of ~/.config/omarchy/plugins/ (to ~/.local/share/omarchy/lock-explorer-backups) and restart the shell.").arg(dirs.join(", ")),
                   packages: [], fix: "copies" })
     return list
   }
@@ -216,31 +216,33 @@ Item {
   readonly property real uiScale: service && service.uiScale !== undefined ? service.uiScale : 1
   readonly property string accountName: service && service.accountName !== undefined ? String(service.accountName) : ""
   readonly property string lockLanguage: service && service.language !== undefined ? String(service.language) : "en"
+  // The explorer speaks the lock screen's language (ExplorerStrings.js).
+  function tr(text) { return UiText.tr(root.lockLanguage, text) }
   readonly property string languageSetting: service && service.languageSetting !== undefined ? String(service.languageSetting) : "auto"
   readonly property var languageChoices: {
     var list = service && service.languages ? service.languages : []
     var system = service && service.systemLanguage ? String(service.systemLanguage) : "en"
     var sysName = "English"
     for (var i = 0; i < list.length; i++) if (list[i].id === system) sysName = list[i].name
-    return [{ id: "auto", name: "System (" + sysName + ")" }].concat(list.map(function(l) { return { id: l.id, name: l.name } }))
+    return [{ id: "auto", name: root.tr("System (%1)").arg(sysName) }].concat(list.map(function(l) { return { id: l.id, name: l.name } }))
   }
   readonly property var reduceMotionChoices: [
-    { id: "off", name: "Off" }, { id: "on", name: "On" }, { id: "battery", name: "On battery" }
+    { id: "off", name: root.tr("Off") }, { id: "on", name: root.tr("On") }, { id: "battery", name: root.tr("On battery") }
   ]
   readonly property var uiScaleChoices: [
     { id: 1, name: "100%" }, { id: 1.25, name: "125%" }, { id: 1.5, name: "150%" }
   ]
   readonly property var wallpaperBlurChoices: [
-    { id: "design", name: "As designed" }, { id: "sharp", name: "Sharp" },
-    { id: "soft", name: "Soft" }, { id: "heavy", name: "Heavy" }
+    { id: "design", name: root.tr("As designed") }, { id: "sharp", name: root.tr("Sharp") },
+    { id: "soft", name: root.tr("Soft") }, { id: "heavy", name: root.tr("Heavy") }
   ]
   readonly property var wallpaperDimChoices: [
-    { id: "lighter", name: "Lighter" }, { id: "design", name: "As designed" }, { id: "darker", name: "Darker" }
+    { id: "lighter", name: root.tr("Lighter") }, { id: "design", name: root.tr("As designed") }, { id: "darker", name: root.tr("Darker") }
   ]
   readonly property bool faceConfigured: service && service.faceConfigured === true
   readonly property string faceStart: service && service.faceStart !== undefined ? String(service.faceStart) : "wake"
-  readonly property var onOffOptions: [{ id: "on", name: "On" }, { id: "off", name: "Off" }]
-  readonly property var shownHiddenOptions: [{ id: "show", name: "Show" }, { id: "hide", name: "Hide" }]
+  readonly property var onOffOptions: [{ id: "on", name: root.tr("On") }, { id: "off", name: root.tr("Off") }]
+  readonly property var shownHiddenOptions: [{ id: "show", name: root.tr("Show") }, { id: "hide", name: root.tr("Hide") }]
   // What the password field shows beside the text (Settings > Password field).
   readonly property bool showLayoutBadge: !service || service.showLayoutBadge !== false
   readonly property bool showCapsBadge: !service || service.showCapsBadge !== false
@@ -255,8 +257,8 @@ Item {
   readonly property bool blankDelayIsCustom: !root.keepDisplayOn && root.blankPresets.indexOf(root.blankDelay) === -1
   readonly property string unlockLabel: {
     for (var i = 0; i < unlockOptions.length; i++)
-      if (unlockOptions[i].id === unlockAnimation) return unlockOptions[i].name
-    return "Off"
+      if (unlockOptions[i].id === unlockAnimation) return root.tr(unlockOptions[i].name)
+    return root.tr("Off")
   }
   // Top level view: the design grid, or one of the settings pages.
   property string mainTab: "styling"
@@ -703,7 +705,7 @@ Item {
 
   // The launcher and Omarchy menu entries, see extras/install.sh.
   readonly property bool menuEntryInstalled: service && service.menuEntryInstalled === true
-  readonly property var menuEntryOptions: [{ id: "on", name: "Added" }, { id: "off", name: "Not added" }]
+  readonly property var menuEntryOptions: [{ id: "on", name: root.tr("Added") }, { id: "off", name: root.tr("Not added") }]
 
   function setMenuEntry(on) {
     if (root.service && typeof root.service.setMenuEntry === "function") root.service.setMenuEntry(on)
@@ -714,7 +716,7 @@ Item {
   // it, and never touches PAM itself.
   readonly property bool fido2Installed: service && service.fido2Installed === true
   readonly property bool fido2Enabled: service && service.fido2Enabled !== undefined ? service.fido2Enabled : true
-  readonly property var fido2Options: [{ id: "on", name: "On" }, { id: "off", name: "Off" }]
+  readonly property var fido2Options: [{ id: "on", name: root.tr("On") }, { id: "off", name: root.tr("Off") }]
 
   function setFido2Enabled(on) {
     if (root.service && typeof root.service.setFido2Enabled === "function") root.service.setFido2Enabled(on)
@@ -1432,7 +1434,7 @@ Item {
               font.weight: Font.Bold
             }
             Text {
-              text: "LOCK SCREEN EXPLORER"
+              text: root.tr("LOCK SCREEN EXPLORER")
               color: root.foreground
               font.family: root.fontFamily
               font.pixelSize: Style.font.display
@@ -1442,17 +1444,20 @@ Item {
           }
           Text {
             text: {
-              if (root.wallpaperBroken) return "Wallpaper failed to load" + (root.wallpaperIsWebp ? " — WebP needs:  sudo pacman -S qt6-imageformats  (then omarchy restart shell)" : "")
-              if (root.mainTab === "settings") return "How the lock screen looks, unlocks and looks after itself"
-              if (root.mainTab === "boot") return "The disk-passphrase screen at first boot · a broken theme falls back to a plain text prompt"
+              if (root.wallpaperBroken) return root.tr("Wallpaper failed to load")
+                + (root.wallpaperIsWebp ? " — " + root.tr("WebP needs %1, then %2").arg("sudo pacman -S qt6-imageformats").arg("omarchy restart shell") : "")
+              if (root.mainTab === "settings") return root.tr("How the lock screen looks, unlocks and looks after itself")
+              if (root.mainTab === "boot") return root.tr("The disk-passphrase screen at first boot") + " · " + root.tr("A broken theme falls back to a plain text prompt")
               if (root.mainTab === "animation" && root.multimediaMissing)
-                return "Video designs need qt6-multimedia · Settings (U) installs it"
+                return root.tr("Video designs need qt6-multimedia") + " · " + root.tr("Settings (U) installs it")
               if (root.gridTab && root.searchText.trim().length > 0)
-                return root.designs.length + (root.designs.length === 1 ? " design matches" : " designs match") + " \u201c" + root.searchText.trim() + "\u201d · Esc clears"
-              if (root.mainTab === "favorites") return root.designs.length + " starred with F"
-              if (root.mainTab === "animation") return Designs.animations().length + " animated lock screens"
-              if (root.mainTab === "editor") return root.bootEditing.length > 0 ? "Editing " + root.bootEditing : "Make a matching lock screen and boot screen"
-              return (root.mainTab === "styling" ? Designs.stylings().length + " lock screen stylings · " : "") + root.currentThemeName + " · follows your theme"
+                return (root.designs.length === 1 ? root.tr("1 design matches “%1”").arg(root.searchText.trim())
+                                                  : root.tr("%1 designs match “%2”").arg(root.designs.length).arg(root.searchText.trim()))
+                  + " · " + root.tr("Esc clears")
+              if (root.mainTab === "favorites") return root.tr("%1 starred with F").arg(root.designs.length)
+              if (root.mainTab === "animation") return root.tr("%1 animated lock screens").arg(Designs.animations().length)
+              if (root.mainTab === "editor") return root.bootEditing.length > 0 ? root.tr("Editing %1").arg(root.bootEditing) : root.tr("Make a matching lock screen and boot screen")
+              return (root.mainTab === "styling" ? root.tr("%1 lock screen stylings").arg(Designs.stylings().length) + " · " : "") + root.currentThemeName + " · " + root.tr("Follows your theme")
             }
             textFormat: Text.PlainText
             color: root.wallpaperBroken ? root.danger : root.muted
@@ -1511,7 +1516,7 @@ Item {
               Text {
                 anchors.verticalCenter: parent.verticalCenter
                 visible: root.searchText.length === 0
-                text: "Search designs"
+                text: root.tr("Search designs")
                 color: root.muted
                 font: searchInput.font
               }
@@ -1573,7 +1578,7 @@ Item {
 
               Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: root.hasAvatar ? "Avatar" : "Add avatar"
+                text: root.tr(root.hasAvatar ? "Avatar" : "Add avatar")
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -1613,7 +1618,7 @@ Item {
             Text {
               id: activeLabel
               anchors.centerIn: parent
-              text: root.selectionError || "Active: " + (Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : root.activeDesignId)
+              text: root.selectionError || root.tr("Active: %1").arg(Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : root.activeDesignId)
               textFormat: Text.PlainText
               color: root.foreground
               font.family: root.fontFamily
@@ -1648,7 +1653,7 @@ Item {
               Text {
                 id: chipLabel
                 anchors.centerIn: parent
-                text: chip.modelData.name
+                text: root.tr(chip.modelData.name)
                 textFormat: Text.PlainText
                 color: chip.current ? Color.background : root.foreground
                 font.family: root.fontFamily
@@ -1703,8 +1708,8 @@ Item {
               SettingSection {
                 explorer: root
                 visible: root.healthIssues.length > 0
-                title: "Health"
-                description: "Something here keeps part of the plugin from working."
+                title: root.tr("Health")
+                description: root.tr("Something here keeps part of the plugin from working.")
 
                 Column {
                   width: parent.width
@@ -1750,7 +1755,7 @@ Item {
                         Text {
                           id: installLabel
                           anchors.centerIn: parent
-                          text: issueRow.modelData.fix === "copies" ? (root.movingCopies ? "Moving…" : "Move it out") : "Install"
+                          text: issueRow.modelData.fix === "copies" ? root.tr(root.movingCopies ? "Moving…" : "Move it out") : root.tr("Install")
                           color: Color.background
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.bodySmall
@@ -1774,16 +1779,16 @@ Item {
 
               SettingSection {
                 explorer: root
-                title: "Unlock"
-                description: "What happens once the password is right."
+                title: root.tr("Unlock")
+                description: root.tr("What happens once the password is right.")
 
                 // The animation the lock screen leaves with.
                 SettingRow {
                   explorer: root
-                  label: "Animation"
+                  label: root.tr("Animation")
                   help: root.motionReduced
-                        ? "Reduce motion is on, so the lock screen leaves at once and no unlock clip plays."
-                        : (root.unlockAnimation === "none" ? "" : "The lock screen stays up while it plays.")
+                        ? root.tr("Reduce motion is on, so the lock screen leaves at once and no unlock clip plays.")
+                        : (root.unlockAnimation === "none" ? "" : root.tr("The lock screen stays up while it plays."))
 
                   Column {
                     width: parent.width
@@ -1830,7 +1835,7 @@ Item {
                           spacing: 2
 
                           Text {
-                            text: unlockOptionRow.modelData.name
+                            text: root.tr(unlockOptionRow.modelData.name)
                             color: root.foreground
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.body
@@ -1838,7 +1843,7 @@ Item {
                           }
 
                           Text {
-                            text: unlockOptionRow.modelData.hint
+                            text: root.tr(unlockOptionRow.modelData.hint)
                             color: root.muted
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.bodySmall
@@ -1860,7 +1865,7 @@ Item {
                 SettingRow {
                   explorer: root
                   visible: root.unlockAnimation !== "none"
-                  label: "Length"
+                  label: root.tr("Length")
                   options: root.unlockDurations.map(function(ms) { return { id: ms, name: (ms / 1000).toFixed(1) + "s" } })
                   current: root.unlockDuration
                   onPicked: function(id) { root.setUnlockDuration(id) }
@@ -1868,8 +1873,8 @@ Item {
 
                 SettingRow {
                   explorer: root
-                  label: "Clip speed"
-                  help: "How fast the clip designs and the unlock clip play."
+                  label: root.tr("Clip speed")
+                  help: root.tr("How fast the clip designs and the unlock clip play.")
                   options: root.clipSpeeds.map(function(v) { return { id: v, name: v + "x" } })
                   current: {
                     for (var i = 0; i < root.clipSpeeds.length; i++)
@@ -1881,10 +1886,10 @@ Item {
 
                 SettingRow {
                   explorer: root
-                  label: "Video ends as wallpaper"
+                  label: root.tr("Video ends as wallpaper")
                   help: root.clipWallpaper
-                        ? "The desktop opens on the frame the clip stopped on, set with omarchy-theme-bg-set."
-                        : "The desktop keeps its own wallpaper after a clip."
+                        ? root.tr("The desktop opens on the frame the clip stopped on, set with omarchy-theme-bg-set.")
+                        : root.tr("The desktop keeps its own wallpaper after a clip.")
                   options: root.onOffOptions
                   current: root.clipWallpaper ? "on" : "off"
                   onPicked: function(id) { if ((id === "on") !== root.clipWallpaper) root.toggleClipWallpaper() }
@@ -1893,12 +1898,12 @@ Item {
 
               SettingSection {
                 explorer: root
-                title: "Look"
-                description: "How every design is drawn. The preview on the right follows along."
+                title: root.tr("Look")
+                description: root.tr("How every design is drawn. The preview on the right follows along.")
 
                 SettingRow {
                   explorer: root
-                  label: "Clock"
+                  label: root.tr("Clock")
                   options: root.clockFormats
                   current: root.twelveHour ? "12" : "24"
                   onPicked: function(id) { root.setTwelveHour(id === "12") }
@@ -1906,8 +1911,8 @@ Item {
 
                 SettingRow {
                   explorer: root
-                  label: "Language"
-                  help: "The lock screen's prompts, messages and dates. The explorer itself stays in English."
+                  label: root.tr("Language")
+                  help: root.tr("The language of the lock screen and of this explorer.")
                   options: root.languageChoices
                   current: root.languageSetting
                   onPicked: function(id) { root.setLanguage(id) }
@@ -1915,7 +1920,7 @@ Item {
 
                 SettingRow {
                   explorer: root
-                  label: "Wallpaper blur"
+                  label: root.tr("Wallpaper blur")
                   options: root.wallpaperBlurChoices
                   current: root.wallpaperBlur
                   onPicked: function(id) { root.setWallpaperBlur(id) }
@@ -1923,10 +1928,10 @@ Item {
 
                 SettingRow {
                   explorer: root
-                  label: "Wallpaper dim"
+                  label: root.tr("Wallpaper dim")
                   help: root.wallpaperBlur === "design" && root.wallpaperDim === "design"
-                        ? "Each design blurs and darkens the wallpaper its own way."
-                        : "Designs drawn over a solid color or their own art are not affected."
+                        ? root.tr("Each design blurs and darkens the wallpaper its own way.")
+                        : root.tr("Designs drawn over a solid color or their own art are not affected.")
                   options: root.wallpaperDimChoices
                   current: root.wallpaperDim
                   onPicked: function(id) { root.setWallpaperDim(id) }
@@ -1934,8 +1939,8 @@ Item {
 
                 SettingRow {
                   explorer: root
-                  label: "Size"
-                  help: "Draws the whole lock screen larger, so text, field and avatar grow together."
+                  label: root.tr("Size")
+                  help: root.tr("Draws the whole lock screen larger, so text, field and avatar grow together.")
                   options: root.uiScaleChoices
                   current: root.uiScale
                   onPicked: function(id) { root.setUiScale(id) }
@@ -1943,11 +1948,11 @@ Item {
 
                 SettingRow {
                   explorer: root
-                  label: "Reduce motion"
+                  label: root.tr("Reduce motion")
                   help: root.reduceMotion === "off"
-                        ? "Animated designs move as they were made to."
-                        : "Designs hold still, changing only for what you type, a wrong password or the minute."
-                          + (root.reduceMotion === "battery" ? (root.motionReduced ? " On battery now." : " Moving now: on mains power.") : "")
+                        ? root.tr("Animated designs move as they were made to.")
+                        : root.tr("Designs hold still, changing only for what you type, a wrong password or the minute.")
+                          + (root.reduceMotion === "battery" ? " " + root.tr(root.motionReduced ? root.tr("On battery now.") : root.tr("Moving now: on mains power.")) : "")
                   options: root.reduceMotionChoices
                   current: root.reduceMotion
                   onPicked: function(id) { root.setReduceMotion(id) }
@@ -1956,13 +1961,13 @@ Item {
 
               SettingSection {
                 explorer: root
-                title: "Password field"
-                description: "What the field shows next to what you type, in the designs that use it."
+                title: root.tr("Password field")
+                description: root.tr("What the field shows next to what you type, in the designs that use it.")
 
                 SettingRow {
                   explorer: root
-                  label: "Keyboard layout"
-                  help: "The layout code, such as DK or DE, shown when it is not US or when you have more than one. Click it to switch."
+                  label: root.tr("Keyboard layout")
+                  help: root.tr("The layout code, such as DK or DE, shown when it is not US or when you have more than one. Click it to switch.")
                   options: root.shownHiddenOptions
                   current: root.showLayoutBadge ? "show" : "hide"
                   onPicked: function(id) { root.setFieldItem("layout", id === "show") }
@@ -1970,8 +1975,8 @@ Item {
 
                 SettingRow {
                   explorer: root
-                  label: "Caps lock warning"
-                  help: "A CAPS badge while caps lock is on."
+                  label: root.tr("Caps lock warning")
+                  help: root.tr("A CAPS badge while caps lock is on.")
                   options: root.shownHiddenOptions
                   current: root.showCapsBadge ? "show" : "hide"
                   onPicked: function(id) { root.setFieldItem("caps", id === "show") }
@@ -1979,8 +1984,8 @@ Item {
 
                 SettingRow {
                   explorer: root
-                  label: "Show password button"
-                  help: "The eye that shows what you typed. Ctrl+E does the same either way."
+                  label: root.tr("Show password button")
+                  help: root.tr("The eye that shows what you typed. Ctrl+E does the same either way.")
                   options: root.shownHiddenOptions
                   current: root.allowPasswordToggle ? "show" : "hide"
                   onPicked: function(id) { root.setFieldItem("reveal", id === "show") }
@@ -1988,8 +1993,8 @@ Item {
 
                 SettingRow {
                   explorer: root
-                  label: "Sign-in icons"
-                  help: "The fingerprint, face and security key icons. Without them Tab still switches to the key and Enter on an empty field still starts face unlock."
+                  label: root.tr("Sign-in icons")
+                  help: root.tr("The fingerprint, face and security key icons. Without them Tab still switches to the key and Enter on an empty field still starts face unlock.")
                   options: root.shownHiddenOptions
                   current: root.showAuthIcons ? "show" : "hide"
                   onPicked: function(id) { root.setFieldItem("icons", id === "show") }
@@ -1998,22 +2003,22 @@ Item {
 
               SettingSection {
                 explorer: root
-                title: "Screen and power"
-                description: "How long the lock screen stays lit, and what it can do besides take a password."
+                title: root.tr("Screen and power")
+                description: root.tr("How long the lock screen stays lit, and what it can do besides take a password.")
 
                 // Never keeps it powered for the whole lock: video designs keep
                 // playing and slow monitors are never re-blanked mid-wake.
                 SettingRow {
                   explorer: root
-                  label: "Blank the display after"
+                  label: root.tr("Blank the display after")
                   help: root.keepDisplayOn
-                        ? "The lock screen stays lit for the whole lock: video designs keep playing."
-                        : "The lock screen stays lit, then the display powers down."
+                        ? root.tr("The lock screen stays lit for the whole lock: video designs keep playing.")
+                        : root.tr("The lock screen stays lit, then the display powers down.")
                   options: [
                     { id: 5000, name: "5s" }, { id: 15000, name: "15s" }, { id: 30000, name: "30s" },
                     { id: 60000, name: "1m" }, { id: 300000, name: "5m" },
-                    { id: -1, name: root.blankDelayIsCustom ? "Custom (" + Math.round(root.blankDelay / 60000) + "m)" : "Custom" },
-                    { id: 0, name: "Never" }
+                    { id: -1, name: root.blankDelayIsCustom ? root.tr("Custom (%1m)").arg(Math.round(root.blankDelay / 60000)) : root.tr("Custom") },
+                    { id: 0, name: root.tr("Never") }
                   ]
                   current: root.keepDisplayOn ? 0 : (root.blankDelayIsCustom ? -1 : root.blankDelay)
                   onPicked: function(id) {
@@ -2036,7 +2041,7 @@ Item {
                       anchors.verticalCenter: parent.verticalCenter
                       anchors.right: parent.right
                       anchors.rightMargin: Style.space(10)
-                      text: "min, Enter"
+                      text: root.tr("min, Enter")
                       color: root.muted
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.bodySmall
@@ -2071,12 +2076,12 @@ Item {
                 SettingRow {
                   explorer: root
                   visible: !root.keepDisplayOn
-                  label: "Ignore keys after waking"
+                  label: root.tr("Ignore keys after waking")
                   help: root.wakeGrace === 0
-                        ? "Only the keys pressed before the screen wakes are dropped."
-                        : "Keys keep waking the screen without typing until the panel has had "
-                          + (root.wakeGrace % 1000 === 0 ? root.wakeGrace / 1000 + "s" : root.wakeGrace + "ms") + " to light up."
-                  options: [{ id: 0, name: "Off" }, { id: 500, name: "0.5s" }, { id: 1000, name: "1s" }, { id: 2000, name: "2s" }]
+                        ? root.tr("Only the keys pressed before the screen wakes are dropped.")
+                        : root.tr("Keys keep waking the screen without typing until the panel has had %1 to light up.")
+                            .arg(root.wakeGrace % 1000 === 0 ? root.wakeGrace / 1000 + "s" : root.wakeGrace + "ms")
+                  options: [{ id: 0, name: root.tr("Off") }, { id: 500, name: "0.5s" }, { id: 1000, name: "1s" }, { id: 2000, name: "2s" }]
                   current: root.wakeGrace
                   onPicked: function(id) { root.setWakeGrace(id) }
                 }
@@ -2085,10 +2090,10 @@ Item {
                 // it without knowing the password.
                 SettingRow {
                   explorer: root
-                  label: "Power buttons"
+                  label: root.tr("Power buttons")
                   help: root.powerActions
-                        ? "Sleep, restart and shut down sit in the corner. Each asks once more before it happens."
-                        : "The lock screen takes a password and nothing else."
+                        ? root.tr("Sleep, restart and shut down sit in the corner. Each asks once more before it happens.")
+                        : root.tr("The lock screen takes a password and nothing else.")
                   options: root.onOffOptions
                   current: root.powerActions ? "on" : "off"
                   onPicked: function(id) { root.setPowerActions(id === "on") }
@@ -2097,7 +2102,7 @@ Item {
 
               SettingSection {
                 explorer: root
-                title: "Sign-in and security"
+                title: root.tr("Sign-in and security")
 
                 // Face unlock can look the moment the lock comes up, which
                 // recognises whoever locked the screen and lets them straight
@@ -2105,13 +2110,13 @@ Item {
                 SettingRow {
                   explorer: root
                   visible: root.faceConfigured
-                  label: "Face unlock starts"
+                  label: root.tr("Face unlock starts")
                   help: root.faceStart === "always"
-                        ? "The camera looks as soon as the screen locks. Locking while you sit in front of it can unlock it again."
+                        ? root.tr("The camera looks as soon as the screen locks. Locking while you sit in front of it can unlock it again.")
                         : root.faceStart === "off"
-                          ? "The camera only looks when you press Enter on an empty field or click the face button."
-                          : "The camera looks when the display wakes, or when you come back to a screen that stayed lit, and on Enter or the face button. It never looks at a blanked screen."
-                  options: [{ id: "wake", name: "On wake" }, { id: "always", name: "Always" }, { id: "off", name: "On request" }]
+                          ? root.tr("The camera only looks when you press Enter on an empty field or click the face button.")
+                          : root.tr("The camera looks when the display wakes, or when you come back to a screen that stayed lit, and on Enter or the face button. It never looks at a blanked screen.")
+                  options: [{ id: "wake", name: root.tr("On wake") }, { id: "always", name: root.tr("Always") }, { id: "off", name: root.tr("On request") }]
                   current: root.faceStart
                   onPicked: function(id) { root.setFaceStart(id) }
                 }
@@ -2122,8 +2127,8 @@ Item {
                 SettingRow {
                   explorer: root
                   visible: root.fido2Installed
-                  label: "Security key"
-                  help: "Off sends the lock screen back to the password; the key still works for sudo and the rest."
+                  label: root.tr("Security key")
+                  help: root.tr("Off sends the lock screen back to the password; the key still works for sudo and the rest.")
                   options: root.fido2Options
                   current: root.fido2Enabled ? "on" : "off"
                   onPicked: function(id) { root.setFido2Enabled(id === "on") }
@@ -2132,10 +2137,10 @@ Item {
                 // Mistakes on your own way in are left out.
                 SettingRow {
                   explorer: root
-                  label: "Report failed attempts"
+                  label: root.tr("Report failed attempts")
                   help: root.awayReport
-                        ? "After you unlock, a notification says if somebody got it wrong while you were away."
-                        : "Failed attempts are not reported."
+                        ? root.tr("After you unlock, a notification says if somebody got it wrong while you were away.")
+                        : root.tr("Failed attempts are not reported.")
                   options: root.onOffOptions
                   current: root.awayReport ? "on" : "off"
                   onPicked: function(id) { root.setAwayReport(id === "on") }
@@ -2144,14 +2149,14 @@ Item {
 
               SettingSection {
                 explorer: root
-                title: "System"
+                title: root.tr("System")
 
                 // An entry in the app launcher and under Style in the Omarchy
                 // menu. A plugin cannot add those on install, so it is a choice.
                 SettingRow {
                   explorer: root
-                  label: "Omarchy menu"
-                  help: "An entry in the app launcher and under Style in the Omarchy menu."
+                  label: root.tr("Omarchy menu")
+                  help: root.tr("An entry in the app launcher and under Style in the Omarchy menu.")
                   options: root.menuEntryOptions
                   current: root.menuEntryInstalled ? "on" : "off"
                   onPicked: function(id) { root.setMenuEntry(id === "on") }
@@ -2159,10 +2164,10 @@ Item {
 
                 SettingRow {
                   explorer: root
-                  label: "Check this install"
+                  label: root.tr("Check this install")
                   help: root.healthIssues.length === 0
-                        ? "Nothing missing that the explorer can see. The full check opens in a terminal, with a fix for anything it finds."
-                        : "Opens a terminal with every check and its fix."
+                        ? root.tr("Nothing missing that the explorer can see. The full check opens in a terminal, with a fix for anything it finds.")
+                        : root.tr("Opens a terminal with every check and its fix.")
 
                   Rectangle {
                     width: doctorLabel.implicitWidth + Style.space(26)
@@ -2174,7 +2179,7 @@ Item {
                     Text {
                       id: doctorLabel
                       anchors.centerIn: parent
-                      text: "Run the check"
+                      text: root.tr("Run the check")
                       color: root.foreground
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.bodySmall
@@ -3142,7 +3147,7 @@ Item {
               anchors.left: parent.left
               anchors.leftMargin: Style.space(12)
               anchors.verticalCenter: parent.verticalCenter
-              text: (navItem.modelData.name + (navItem.modelData.id === "boot" && root.bootApplying ? " ·" : "")).toUpperCase()
+              text: (root.tr(navItem.modelData.name) + (navItem.modelData.id === "boot" && root.bootApplying ? " ·" : "")).toUpperCase()
               color: navItem.current ? Color.menu.text : root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
@@ -3198,7 +3203,7 @@ Item {
 
         Text {
           anchors.centerIn: parent
-          text: "+ New design"
+          text: "+ " + root.tr("New design")
           color: root.foreground
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
@@ -3229,7 +3234,7 @@ Item {
 
         Text {
           anchors.centerIn: parent
-          text: "+ New clip"
+          text: "+ " + root.tr("New clip")
           color: newClipArea.containsMouse ? Color.menu.text : root.muted
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
@@ -3259,7 +3264,7 @@ Item {
 
         Text {
           anchors.centerIn: parent
-          text: "+ New styling"
+          text: "+ " + root.tr("New styling")
           color: newStylingArea.containsMouse ? Color.menu.text : root.muted
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
@@ -3291,7 +3296,7 @@ Item {
         Row {
           width: parent.width
           Text {
-            text: "LOCK SCREEN"
+            text: root.tr("LOCK SCREEN")
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
@@ -3299,12 +3304,12 @@ Item {
           }
           Item { width: parent.width - lockLbl.width - liveLbl.width; height: 1 }
           Text {
-            id: lockLbl; visible: false; text: "LOCK SCREEN"
+            id: lockLbl; visible: false; text: root.tr("LOCK SCREEN")
             font.family: root.fontFamily; font.pixelSize: Style.font.caption; font.letterSpacing: 2
           }
           Text {
             id: liveLbl
-            text: "● live"
+            text: "● " + root.tr("Live")
             color: root.accent
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
@@ -3364,7 +3369,7 @@ Item {
           border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.2)
           Text {
             anchors.centerIn: parent
-            text: "Preview full screen · Space"
+            text: root.tr("Preview full screen") + " · Space"
             color: root.foreground
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
@@ -3382,7 +3387,7 @@ Item {
         Row {
           width: parent.width
           Text {
-            text: "BOOT SCREEN"
+            text: root.tr("BOOT SCREEN")
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
@@ -3419,7 +3424,7 @@ Item {
             Text {
               anchors.centerIn: parent
               visible: root.bootApplied.length === 0 && appliedBootThumb.status !== Image.Ready
-              text: "stock"
+              text: root.tr("stock")
               color: root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
@@ -3441,14 +3446,16 @@ Item {
             Text {
               width: parent.width
               wrapMode: Text.WordWrap
-              text: root.bootApplying ? "Rebuilding…" : (root.bootAppliedTheme.length > 0 ? "baked from " + root.bootAppliedTheme : "the disk passphrase screen")
+              text: root.bootApplying ? root.tr("Rebuilding…") : (root.bootAppliedTheme.length > 0 ? root.tr("Baked from %1").arg(root.bootAppliedTheme) : root.tr("The disk passphrase screen"))
               textFormat: Text.PlainText
               color: root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
             }
             Text {
-              text: "Boot screen settings ›"
+              width: parent.width
+              wrapMode: Text.WordWrap
+              text: root.tr("Boot screen settings") + " ›"
               color: root.accent
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
@@ -3467,8 +3474,8 @@ Item {
         wrapMode: Text.WordWrap
         textFormat: Text.PlainText
         text: root.searchText.trim().length > 0
-              ? "No design matches “" + root.searchText.trim() + "”. Esc clears the search."
-              : "Nothing starred yet. Press F on a design, or click the star on its card, to keep it here."
+              ? root.tr("No design matches “%1”. Esc clears the search.").arg(root.searchText.trim())
+              : root.tr("Nothing starred yet. Press F on a design, or click the star on its card, to keep it here.")
         color: root.muted
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall
@@ -3612,7 +3619,7 @@ Item {
               Text {
                 id: activeText
                 anchors.centerIn: parent
-                text: "󰄬 Active"
+                text: "󰄬 " + root.tr("Active")
                 color: Color.background
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -3638,7 +3645,7 @@ Item {
                 Text {
                   id: useLabel
                   anchors.centerIn: parent
-                  text: "Use  ⏎"
+                  text: root.tr("Use") + "  ⏎"
                   color: Color.background
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -3654,8 +3661,8 @@ Item {
                 Text {
                   id: custLabel
                   anchors.centerIn: parent
-                  text: cell.modelData.designer ? "Design  E"
-                    : (cell.modelData.path ? "Edit  E" : "Customize  C")
+                  text: cell.modelData.designer ? root.tr("Design") + "  E"
+                    : (cell.modelData.path ? root.tr("Edit") + "  E" : root.tr("Customize") + "  C")
                   color: root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -3673,7 +3680,7 @@ Item {
                 Text {
                   id: delLabel
                   anchors.centerIn: parent
-                  text: root.confirmingDelete === cell.modelData.id ? "Sure?  X" : "Delete  X"
+                  text: root.tr(root.confirmingDelete === cell.modelData.id ? "Sure?" : "Delete") + "  X"
                   color: root.confirmingDelete === cell.modelData.id ? Color.background : root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -3715,7 +3722,7 @@ Item {
                       anchors.centerIn: parent
                       text: {
                         var cats = Designs.categories()
-                        for (var i = 0; i < cats.length; i++) if (cats[i].id === parent.modelData) return cats[i].name
+                        for (var i = 0; i < cats.length; i++) if (cats[i].id === parent.modelData) return root.tr(cats[i].name)
                         return parent.modelData
                       }
                       textFormat: Text.PlainText
@@ -3729,7 +3736,7 @@ Item {
             }
             Text {
               width: parent.width
-              text: cell.modelData.description + (cell.modelData.credit ? "  ·  clip by " + cell.modelData.credit : "")
+              text: cell.modelData.description + (cell.modelData.credit ? "  ·  " + root.tr("Clip by %1").arg(cell.modelData.credit) : "")
               textFormat: Text.PlainText
               color: root.muted
               font.family: root.fontFamily
@@ -3788,10 +3795,10 @@ Item {
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
           text: {
-            if (root.mainTab === "editor") return "Changes save automatically   ·   Esc: back"
-            if (root.mainTab === "boot") return "Click a card to pick it   ·   Apply writes it to the boot image   ·   B / Esc: back   ·   ?: all keys"
-            if (root.mainTab === "settings") return "Arrows / PgUp / PgDn: scroll   ·   U / Esc: back   ·   ?: all keys"
-            return "Arrows: browse   Space: preview   Enter: select   /: search   F: favorite   D: designer   U: settings   ?: all keys   Esc: close"
+            if (root.mainTab === "editor") return root.tr("Changes save automatically   ·   Esc: back")
+            if (root.mainTab === "boot") return root.tr("Click a card to pick it   ·   Apply writes it to the boot image   ·   B / Esc: back   ·   ?: all keys")
+            if (root.mainTab === "settings") return root.tr("Arrows / PgUp / PgDn: scroll   ·   U / Esc: back   ·   ?: all keys")
+            return root.tr("Arrows: browse   Space: preview   Enter: select   /: search   F: favorite   D: designer   U: settings   ?: all keys   Esc: close")
           }
           color: root.muted
           font.family: root.fontFamily
@@ -4010,7 +4017,7 @@ Item {
             font.weight: Font.DemiBold
           }
           Text {
-            text: "Arrows: next   Enter: select   Esc: back"
+            text: root.tr("Arrows: next   Enter: select   Esc: back")
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
@@ -4058,7 +4065,7 @@ Item {
                 font.weight: Font.Bold
               }
               Text {
-                text: "KEYBOARD SHORTCUTS"
+                text: root.tr("KEYBOARD SHORTCUTS")
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.display
@@ -4067,7 +4074,7 @@ Item {
               }
             }
             Text {
-              text: "On the design grid · ? or Esc closes this"
+              text: root.tr("On the design grid") + " · " + root.tr("Esc or ? closes this")
               color: root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
@@ -4087,7 +4094,7 @@ Item {
                 spacing: Style.space(8)
 
                 Text {
-                  text: keySection.modelData.title.toUpperCase()
+                  text: root.tr(keySection.modelData.title).toUpperCase()
                   color: root.accent
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -4136,7 +4143,7 @@ Item {
 
                     Text {
                       anchors.verticalCenter: parent.verticalCenter
-                      text: keyRow.modelData.text
+                      text: root.tr(keyRow.modelData.text)
                       textFormat: Text.PlainText
                       color: root.foreground
                       font.family: root.fontFamily

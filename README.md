@@ -403,6 +403,13 @@ into; **Avatar** and **Image**; **Panel** and **Divider** to build a card out of
 QML** for anything else — that one is a box you write QML into, with `lock.now`, `lock.userName`,
 `lock.greeting()` and the rest in scope, exactly as in a hand-written design.
 
+The **Live** pieces show what is going on while the screen is locked: **Weather** (from wttr.in
+for the place in Omarchy's weather settings, in the lock screen's language, in °C or °F),
+**Now playing** and **Album art** for whatever player is running, **Battery**, **System info**
+(uptime, memory, load or the kernel) and **Month**, this month's calendar with today marked. The
+weather is fetched once per half hour and shared by every screen and thumbnail showing it; a
+layout without a Weather piece never asks for it.
+
 Nothing is parked at fixed pixel coordinates. Every piece holds on to a corner, an edge or the
 middle of the screen ("Sticks to" in the inspector, picked from where you drop it) and keeps its
 distance from there, so a design made on one screen still looks right on another. Dragging snaps

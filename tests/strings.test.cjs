@@ -32,9 +32,11 @@ test("every lock.tr() text in a design is a known line", () => {
   const dir = path.join(root, "designs");
   for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".qml"))) {
     const text = fs.readFileSync(path.join(dir, file), "utf8");
+    // A line German spells the same (Kernel) still has to be in the table.
+    const one = (t) => keys.has(t.toLowerCase().replace(/^[^a-z0-9%]+/, "").trim());
     for (const m of text.matchAll(/\btr\("((?:[^"\\]|\\.)*)"\)/g)) {
-      const translated = S.tr("de", m[1]);
-      assert.notEqual(translated, m[1], `${file}: "${m[1]}" has no translation`);
+      const t = JSON.parse(`"${m[1]}"`);
+      assert.ok(one(t) || t.split(/\s+·\s+/).every(one) || S.tr("de", t) !== t, `${file}: "${m[1]}" has no translation`);
     }
   }
   assert.ok(keys.size > 0);

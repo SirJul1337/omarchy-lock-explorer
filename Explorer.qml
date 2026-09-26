@@ -66,6 +66,7 @@ Item {
   // otherwise).
   onOpenedChanged: {
     if (!opened) return
+    thumbSlots = 0
     Quickshell.execDetached(["omarchy-shell", "osd", "close"])
     // The entries can be added or removed outside the explorer too.
     if (root.service && typeof root.service.refreshMenuEntry === "function") root.service.refreshMenuEntry()
@@ -176,6 +177,44 @@ Item {
   readonly property bool gridTab: mainTab === "styling" || mainTab === "animation" || mainTab === "favorites"
 
   readonly property var categories: Designs.categories()
+
+  // A picture of each grid preview, taken once it has settled. A card that
+  // comes back -- a search, another tab -- shows it at once while its live
+  // design builds again on top, instead of an empty frame. Everything a
+  // preview draws from is in the key, and a change to any of it starts over.
+  property var thumbCache: ({})
+  readonly property string thumbStateKey: [
+    service ? service.designsRevision : 0,
+    service ? service.backgroundPath : "", service ? service.backgroundVersion : 0,
+    service ? service.avatarPath : "", service ? service.avatarVersion : 0,
+    lockLanguage, accountName, twelveHour, wallpaperBlurValue, wallpaperDimShift, uiScale, motionReduced,
+    showLayoutBadge, showCapsBadge, allowPasswordToggle, showAuthIcons,
+    String(Color.lock.text), String(Color.lock.background), String(Color.background), thumbWidth
+  ].join("|")
+  onThumbStateKeyChanged: thumbCache = ({})
+  function thumbFor(id) {
+    var entry = thumbCache[id]
+    return entry ? String(entry.url) : ""
+  }
+  function keepThumb(id, key, result) {
+    if (key !== thumbStateKey) return
+    var next = {}
+    for (var k in thumbCache) next[k] = thumbCache[k]
+    next[id] = result
+    thumbCache = next
+  }
+
+  // Live previews start one after another, from the top-left of what is on
+  // screen, rather than all at once and finishing in whatever order.
+  property int thumbSlots: 0
+  readonly property int gridTopRow: grid.cellHeight > 0 ? Math.floor(grid.contentY / grid.cellHeight) : 0
+  onGridTopRowChanged: thumbSlots = 0
+  Timer {
+    interval: 40
+    repeat: true
+    running: root.opened && root.gridTab && root.thumbSlots < root.columns * 5
+    onTriggered: root.thumbSlots += 1
+  }
   readonly property var designs: {
     var r = service ? service.designsRevision : 0
     var words = searchText.trim().toLowerCase().split(/\s+/).filter(function(w) { return w.length > 0 })
@@ -288,7 +327,10 @@ Item {
   // confirms. Esc or moving the selection disarms.
   property string confirmingDelete: ""
   onSelectedIndexChanged: confirmingDelete = ""
-  onDesignsChanged: if (selectedIndex >= designs.length) selectedIndex = Math.max(0, designs.length - 1)
+  onDesignsChanged: {
+    if (selectedIndex >= designs.length) selectedIndex = Math.max(0, designs.length - 1)
+    thumbSlots = 0
+  }
 
   function deleteSelected() {
     var d = root.selectedDesign
@@ -3523,6 +3565,39 @@ Item {
           width: grid.cellWidth
           height: grid.cellHeight
 
+          // Its turn to build: see thumbSlots. Once started it stays built.
+          readonly property int rank: index - root.gridTopRow * root.columns
+          readonly property bool mayLoad: inView && rank < root.thumbSlots
+          property bool wanted: false
+          onMayLoadChanged: if (mayLoad) wanted = true
+          Component.onCompleted: if (mayLoad) wanted = true
+
+          readonly property string cachedThumb: root.thumbFor(modelData.id)
+          readonly property bool designUp: thumbLoader.status === Loader.Ready && !!thumbLoader.item && !!thumbLoader.item.item
+          // Over a picture the live design fades in once it has had a moment
+          // to draw; with no picture it shows as soon as it is there.
+          property bool liveShown: false
+          onDesignUpChanged: {
+            if (!designUp) return
+            if (cachedThumb.length === 0) liveShown = true
+            else revealTimer.restart()
+            if (cachedThumb.length === 0) grabTimer.restart()
+          }
+          onCachedThumbChanged: if (cachedThumb.length === 0 && designUp) grabTimer.restart()
+          Timer { id: revealTimer; interval: 700; onTriggered: cell.liveShown = true }
+          // A first picture soon, so a quick change of tab already has one,
+          // and a second once slow wallpapers and intros have finished.
+          Timer { id: grabTimer; interval: 1200; onTriggered: { cell.grabThumb(false); regrabTimer.restart() } }
+          Timer { id: regrabTimer; interval: 3500; onTriggered: cell.grabThumb(true) }
+          function grabThumb(again) {
+            if (!cell.inView || !thumbLoader.item || (!again && cell.cachedThumb.length > 0)) return
+            var id = cell.modelData.id
+            var key = root.thumbStateKey
+            var dpr = Screen.devicePixelRatio || 1
+            thumbLoader.item.grabToImage(function(result) { root.keepThumb(id, key, result) },
+              Qt.size(Math.round(root.thumbWidth * dpr), Math.round(root.thumbHeight * dpr)))
+          }
+
           Rectangle {
             id: frame
             width: root.thumbWidth
@@ -3538,15 +3613,26 @@ Item {
               anchors.fill: parent
               anchors.margins: frame.border.width
               clip: true
+              Image {
+                anchors.fill: parent
+                visible: cell.inView && source != "" && !(cell.liveShown && cell.designUp)
+                source: cell.cachedThumb
+                cache: false
+                smooth: true
+              }
               Item {
                 width: panel.width
                 height: panel.height
                 scale: (frame.width - frame.border.width * 2) / panel.width
                 transformOrigin: Item.TopLeft
                 visible: cell.inView
+                opacity: cell.liveShown ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 180 } }
                 Loader {
+                  id: thumbLoader
                   anchors.fill: parent
                   asynchronous: true
+                  active: cell.wanted
                   sourceComponent: LockHost {
                     stillTextureSize: Qt.size(root.thumbWidth, root.thumbHeight)
                     designId: cell.modelData.id

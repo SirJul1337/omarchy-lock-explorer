@@ -4,6 +4,7 @@ import Quickshell.Io
 import qs.Commons
 import "designs"
 import "Designer.js" as D
+import "ExplorerStrings.js" as UiText
 
 // The visual designer: a palette of pieces on the left, the lock screen at
 // its real size in the middle, and the settings for whatever is selected on
@@ -17,6 +18,9 @@ Item {
   id: designer
 
   property var service: null
+  // The explorer's language, which is the lock screen's (ExplorerStrings.js).
+  readonly property string language: service && service.language !== undefined ? String(service.language) : "en"
+  function tr(text) { return UiText.tr(designer.language, text) }
   property var design: null
   property string pluginId: "io.github.sirjul1337.lock-explorer"
   property color background: Color.menu.background
@@ -98,13 +102,13 @@ Item {
     atomicWrites: true
     printErrors: false
     onSaved: {
-      designer.status = "Saved " + Qt.formatTime(new Date(), "HH:mm:ss")
+      designer.status = designer.tr("Saved %1").arg(Qt.formatTime(new Date(), "HH:mm:ss"))
       designer.dirty = false
       if (designer.service && typeof designer.service.reloadDesigns === "function")
         designer.service.reloadDesigns()
     }
-    onSaveFailed: function(error) { designer.status = "Save failed: " + error }
-    onLoadFailed: designer.loadError = "Cannot read " + designer.path
+    onSaveFailed: function(error) { designer.status = designer.tr("Save failed: %1").arg(error) }
+    onLoadFailed: designer.loadError = designer.tr("Cannot read %1").arg(designer.path)
     onLoaded: designer.adopt(file.text())
   }
 
@@ -125,7 +129,7 @@ Item {
   function adopt(text) {
     var parsed = D.parse(text)
     if (!parsed) {
-      loadError = "This design was not made in the designer. Open it with the code editor instead."
+      loadError = designer.tr("This design was not made in the designer. Open it with the code editor instead.")
       return
     }
     loadError = ""
@@ -151,14 +155,14 @@ Item {
   function save() {
     if (path.length === 0) return
     file.setText(D.generate(currentDoc(), pluginId))
-    status = "Saving…"
+    status = designer.tr("Saving…")
     confirmDiscard = false
   }
 
   function requestClose() {
     if (dirty && !confirmDiscard) {
       confirmDiscard = true
-      status = "Unsaved changes. Ctrl+S to save, Esc again to discard."
+      status = designer.tr("Unsaved changes. Ctrl+S to save, Esc again to discard.")
       return
     }
     closeRequested()
@@ -352,7 +356,7 @@ Item {
         designer.touch()
       })
     }
-    status = D.kindName(kindId) + " added"
+    status = designer.tr("%1 added").arg(designer.tr(D.kindName(kindId)))
   }
 
   function addComponent(comp, x, y) {
@@ -371,7 +375,7 @@ Item {
     syncNodes()
     select(ids)
     dirty = true
-    status = comp.name + " added"
+    status = designer.tr("%1 added").arg(comp.name)
   }
 
   function removeSelected() {
@@ -614,13 +618,13 @@ Item {
       rects.push(stage.rectOf(i))
     }
     if (nodes.length === 0) {
-      status = "Backgrounds cannot be saved as a component"
+      status = designer.tr("Backgrounds cannot be saved as a component")
       return
     }
     var comp = D.makeComponent(name, nodes, rects)
     service.saveComponent(D.componentSlug(name), JSON.stringify(comp))
     namingComponent = false
-    status = "Saved “" + comp.name + "” to your components"
+    status = designer.tr("Saved “%1” to your components").arg(comp.name)
   }
 
   function deleteComponent(slug) {
@@ -712,8 +716,8 @@ Item {
         font.weight: Font.DemiBold
       }
       Text {
-        text: designer.nodes.length + (designer.nodes.length === 1 ? " piece" : " pieces")
-          + (designer.dirty ? "  ·  unsaved" : "")
+        text: (designer.nodes.length === 1 ? designer.tr("1 piece") : designer.tr("%1 pieces").arg(designer.nodes.length))
+          + (designer.dirty ? "  ·  " + designer.tr("unsaved") : "")
         textFormat: Text.PlainText
         color: designer.dirty ? designer.accent : designer.muted
         font.family: designer.fontFamily
@@ -727,40 +731,40 @@ Item {
       spacing: Style.space(6)
 
       DesignerButton {
-        label: "Undo"
+        label: designer.tr("Undo")
         active: designer.undoStack.length > 0
         foreground: designer.foreground
         accent: designer.accent
         onClicked: designer.undo()
       }
       DesignerButton {
-        label: "Redo"
+        label: designer.tr("Redo")
         active: designer.redoStack.length > 0
         foreground: designer.foreground
         accent: designer.accent
         onClicked: designer.redo()
       }
       DesignerButton {
-        label: "Edit code"
+        label: designer.tr("Edit code")
         foreground: designer.foreground
         accent: designer.accent
         onClicked: designer.openCodeRequested(designer.path)
       }
       DesignerButton {
-        label: "Use this design"
+        label: designer.tr("Use this design")
         foreground: designer.foreground
         accent: designer.accent
         onClicked: designer.useRequested()
       }
       DesignerButton {
-        label: "Save  Ctrl+S"
+        label: designer.tr("Save  Ctrl+S")
         primary: designer.dirty
         foreground: designer.foreground
         accent: designer.accent
         onClicked: designer.save()
       }
       DesignerButton {
-        label: "Back  Esc"
+        label: designer.tr("Back  Esc")
         foreground: designer.foreground
         accent: designer.accent
         onClicked: designer.requestClose()
@@ -814,7 +818,7 @@ Item {
         spacing: Style.space(6)
 
         Text {
-          text: "YOUR COMPONENTS"
+          text: designer.tr("YOUR COMPONENTS")
           color: designer.muted
           font.family: designer.fontFamily
           font.pixelSize: Style.font.caption
@@ -824,7 +828,7 @@ Item {
         Text {
           width: parent.width
           visible: designer.componentList.length === 0
-          text: "Select a piece (or several with Ctrl) and press “Save as component” to keep it here for every design."
+          text: designer.tr("Select a piece (or several with Ctrl) and press “Save as component” to keep it here for every design.")
           textFormat: Text.PlainText
           color: Qt.rgba(designer.foreground.r, designer.foreground.g, designer.foreground.b, 0.35)
           font.family: designer.fontFamily
@@ -966,13 +970,16 @@ Item {
           Column {
             id: group
             required property string modelData
-            readonly property var entries: D.paletteFor(modelData)
+            // In the order of the names as they are shown.
+            readonly property var entries: D.paletteFor(modelData).sort(function(a, b) {
+              return designer.tr(a.kind.name).localeCompare(designer.tr(b.kind.name))
+            })
             width: paletteColumn.width
             spacing: Style.space(4)
             topPadding: Style.space(6)
 
             Text {
-              text: group.modelData.toUpperCase()
+              text: designer.tr(group.modelData).toUpperCase()
               color: designer.muted
               font.family: designer.fontFamily
               font.pixelSize: Style.font.caption
@@ -1010,7 +1017,7 @@ Item {
                   anchors.right: parent.right
                   anchors.rightMargin: Style.space(6)
                   anchors.verticalCenter: parent.verticalCenter
-                  text: entry.modelData.kind.name
+                  text: designer.tr(entry.modelData.kind.name)
                   textFormat: Text.PlainText
                   color: designer.foreground
                   font.family: designer.fontFamily
@@ -1037,7 +1044,7 @@ Item {
                     color: Qt.rgba(designer.accent.r, designer.accent.g, designer.accent.b, 0.85)
                     Text {
                       anchors.centerIn: parent
-                      text: entry.modelData.kind.name
+                      text: designer.tr(entry.modelData.kind.name)
                       textFormat: Text.PlainText
                       color: Color.background
                       font.family: designer.fontFamily
@@ -1232,8 +1239,10 @@ Item {
         spacing: Style.space(10)
 
         DesignerField {
+
+          language: designer.language
           width: parent.width
-          label: "DESIGN NAME"
+          label: designer.tr("DESIGN NAME")
           type: "text"
           value: designer.docName
           foreground: designer.foreground
@@ -1250,9 +1259,9 @@ Item {
 
         Text {
           width: parent.width
-          text: designer.selection.length === 0 ? "NOTHING SELECTED"
-            : (designer.selection.length > 1 ? designer.selection.length + " PIECES SELECTED"
-               : (designer.primaryKind ? designer.primaryKind.name.toUpperCase() : ""))
+          text: designer.selection.length === 0 ? designer.tr("NOTHING SELECTED")
+            : (designer.selection.length > 1 ? designer.tr("%1 PIECES SELECTED").arg(designer.selection.length)
+               : (designer.primaryKind ? designer.tr(designer.primaryKind.name).toUpperCase() : ""))
           textFormat: Text.PlainText
           color: designer.selection.length === 0 ? designer.muted : designer.accent
           font.family: designer.fontFamily
@@ -1264,7 +1273,7 @@ Item {
         Text {
           width: parent.width
           visible: designer.selection.length === 0
-          text: "Drag a piece onto the screen, or click one there to change it."
+          text: designer.tr("Drag a piece onto the screen, or click one there to change it.")
           textFormat: Text.PlainText
           color: Qt.rgba(designer.foreground.r, designer.foreground.g, designer.foreground.b, 0.35)
           font.family: designer.fontFamily
@@ -1280,7 +1289,7 @@ Item {
           visible: designer.primary !== null && !D.isFill(designer.primary)
 
           Text {
-            text: "STICKS TO"
+            text: designer.tr("STICKS TO")
             color: designer.muted
             font.family: designer.fontFamily
             font.pixelSize: Style.font.caption
@@ -1330,8 +1339,9 @@ Item {
               spacing: Style.space(4)
               width: inspectorColumn.width - Style.space(84)
               DesignerField {
+                language: designer.language
                 width: parent.width
-                label: "OFFSET X"
+                label: designer.tr("OFFSET X")
                 type: "number"
                 minimum: -10000
                 maximum: 10000
@@ -1343,8 +1353,9 @@ Item {
                 onEscaped: designer.focusCanvas()
               }
               DesignerField {
+                language: designer.language
                 width: parent.width
-                label: "OFFSET Y"
+                label: designer.tr("OFFSET Y")
                 type: "number"
                 minimum: -10000
                 maximum: 10000
@@ -1362,8 +1373,9 @@ Item {
             spacing: Style.space(8)
             visible: designer.primary !== null && D.isSized(designer.primary)
             DesignerField {
+              language: designer.language
               width: (inspectorColumn.width - Style.space(8)) / 2
-              label: "WIDTH"
+              label: designer.tr("WIDTH")
               type: "number"
               minimum: 0
               maximum: 10000
@@ -1375,8 +1387,9 @@ Item {
               onEscaped: designer.focusCanvas()
             }
             DesignerField {
+              language: designer.language
               width: (inspectorColumn.width - Style.space(8)) / 2
-              label: "HEIGHT"
+              label: designer.tr("HEIGHT")
               type: "number"
               minimum: 0
               maximum: 10000
@@ -1393,7 +1406,7 @@ Item {
           Text {
             width: parent.width
             visible: designer.primary !== null && !D.isSized(designer.primary)
-            text: "Set a width to make it wrap; leave it at 0 and it hugs its text."
+            text: designer.tr("Set a width to make it wrap; leave it at 0 and it hugs its text.")
             textFormat: Text.PlainText
             color: Qt.rgba(designer.foreground.r, designer.foreground.g, designer.foreground.b, 0.35)
             font.family: designer.fontFamily
@@ -1402,9 +1415,11 @@ Item {
           }
 
           DesignerField {
+
+            language: designer.language
             width: parent.width
             visible: designer.primary !== null && !D.isSized(designer.primary)
-            label: "WIDTH (0 = FIT TEXT)"
+            label: designer.tr("WIDTH (0 = FIT TEXT)")
             type: "number"
             minimum: 0
             maximum: 10000
@@ -1430,11 +1445,13 @@ Item {
           model: designer.primaryKind ? designer.primaryKind.fields : []
 
           DesignerField {
+
+            language: designer.language
             required property var modelData
             width: inspectorColumn.width
-            label: modelData.label.toUpperCase()
+            label: designer.tr(modelData.label).toUpperCase()
             type: modelData.type
-            options: modelData.options ? modelData.options : []
+            options: (modelData.options ? modelData.options : []).map(function(o) { return { id: o.id, name: designer.tr(o.name) } })
             minimum: modelData.min !== undefined ? modelData.min : 0
             maximum: modelData.max !== undefined ? modelData.max : 1
             step: modelData.step !== undefined ? modelData.step : 0.05
@@ -1470,37 +1487,37 @@ Item {
           visible: designer.selection.length > 0
 
           DesignerButton {
-            label: "Duplicate"
+            label: designer.tr("Duplicate")
             foreground: designer.foreground
             accent: designer.accent
             onClicked: designer.duplicateSelected()
           }
           DesignerButton {
-            label: "Delete"
+            label: designer.tr("Delete")
             foreground: designer.foreground
             accent: designer.accent
             onClicked: designer.removeSelected()
           }
           DesignerButton {
-            label: "Front"
+            label: designer.tr("Front")
             foreground: designer.foreground
             accent: designer.accent
             onClicked: designer.restack(2)
           }
           DesignerButton {
-            label: "Forward"
+            label: designer.tr("Forward")
             foreground: designer.foreground
             accent: designer.accent
             onClicked: designer.restack(1)
           }
           DesignerButton {
-            label: "Back"
+            label: designer.tr("Back")
             foreground: designer.foreground
             accent: designer.accent
             onClicked: designer.restack(-1)
           }
           DesignerButton {
-            label: "Bottom"
+            label: designer.tr("Bottom")
             foreground: designer.foreground
             accent: designer.accent
             onClicked: designer.restack(-2)
@@ -1510,7 +1527,7 @@ Item {
         DesignerButton {
           width: parent.width
           visible: designer.selection.length > 0 && !designer.namingComponent
-          label: "Save as component"
+          label: designer.tr("Save as component")
           foreground: designer.foreground
           accent: designer.accent
           onClicked: {
@@ -1528,7 +1545,7 @@ Item {
           function forceFieldFocus() { nameEntry.forceActiveFocus() }
 
           Text {
-            text: "NAME IT"
+            text: designer.tr("NAME IT")
             color: designer.muted
             font.family: designer.fontFamily
             font.pixelSize: Style.font.caption
@@ -1567,14 +1584,14 @@ Item {
           Row {
             spacing: Style.space(5)
             DesignerButton {
-              label: "Save"
+              label: designer.tr("Save")
               primary: true
               foreground: designer.foreground
               accent: designer.accent
               onClicked: if (nameEntry.text.trim().length > 0) designer.saveSelectionAsComponent(nameEntry.text.trim())
             }
             DesignerButton {
-              label: "Cancel"
+              label: designer.tr("Cancel")
               foreground: designer.foreground
               accent: designer.accent
               onClicked: { designer.namingComponent = false; designer.focusCanvas() }
@@ -1587,7 +1604,7 @@ Item {
         Rectangle { width: parent.width; height: 1; color: designer.line }
 
         Text {
-          text: "LAYERS  ·  TOP FIRST"
+          text: designer.tr("LAYERS  ·  TOP FIRST")
           color: designer.muted
           font.family: designer.fontFamily
           font.pixelSize: Style.font.caption
@@ -1630,7 +1647,7 @@ Item {
                 anchors.rightMargin: Style.space(6)
                 anchors.verticalCenter: parent.verticalCenter
                 text: {
-                  var name = D.kindName(layerRow.modelData.kind)
+                  var name = designer.tr(D.kindName(layerRow.modelData.kind))
                   var body = String(layerRow.modelData.spec.text || "")
                   return body.length > 0 ? name + " · " + body : name
                 }
@@ -1672,9 +1689,9 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       width: parent.width - Style.space(20)
       text: {
-        if (designer.hoverHint.length > 0) return designer.hoverHint
+        if (designer.hoverHint.length > 0) return designer.tr(designer.hoverHint)
         if (designer.status.length > 0) return designer.status
-        return "Drag pieces in   ·   arrows nudge (Shift: 10px)   ·   Ctrl+click multi-select   ·   Ctrl+D duplicate   ·   Del remove   ·   [ ] restack   ·   Ctrl+Z undo   ·   Ctrl+S save"
+        return designer.tr("Drag pieces in   ·   arrows nudge (Shift: 10px)   ·   Ctrl+click multi-select   ·   Ctrl+D duplicate   ·   Del remove   ·   [ ] restack   ·   Ctrl+Z undo   ·   Ctrl+S save")
       }
       textFormat: Text.PlainText
       color: designer.status.length > 0 && designer.hoverHint.length === 0 ? designer.foreground : designer.muted
@@ -1709,7 +1726,7 @@ Item {
 
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: "DRAW THE SHAPE"
+        text: designer.tr("DRAW THE SHAPE")
         color: designer.muted
         font.family: designer.fontFamily
         font.pixelSize: Style.font.caption
@@ -1796,43 +1813,43 @@ Item {
         spacing: Style.space(6)
 
         DesignerButton {
-          label: "Omarchy logo"
+          label: designer.tr("Omarchy logo")
           foreground: designer.foreground
           accent: designer.accent
           onClicked: designer.artLoadLogo()
         }
         DesignerButton {
-          label: "Clear"
+          label: designer.tr("Clear")
           foreground: designer.foreground
           accent: designer.accent
           onClicked: designer.artFill(false)
         }
         DesignerButton {
-          label: "Invert"
+          label: designer.tr("Invert")
           foreground: designer.foreground
           accent: designer.accent
           onClicked: designer.artInvert()
         }
         DesignerButton {
-          label: "Wider"
+          label: designer.tr("Wider")
           foreground: designer.foreground
           accent: designer.accent
           onClicked: designer.artResize(4, 0)
         }
         DesignerButton {
-          label: "Narrower"
+          label: designer.tr("Narrower")
           foreground: designer.foreground
           accent: designer.accent
           onClicked: designer.artResize(-4, 0)
         }
         DesignerButton {
-          label: "Taller"
+          label: designer.tr("Taller")
           foreground: designer.foreground
           accent: designer.accent
           onClicked: designer.artResize(0, 2)
         }
         DesignerButton {
-          label: "Shorter"
+          label: designer.tr("Shorter")
           foreground: designer.foreground
           accent: designer.accent
           onClicked: designer.artResize(0, -2)
@@ -1845,20 +1862,20 @@ Item {
 
         Text {
           anchors.verticalCenter: parent.verticalCenter
-          text: designer.artCols + " x " + designer.artRows + " cells   ·   Esc cancels, Enter keeps it"
+          text: designer.tr("%1 x %2 cells").arg(designer.artCols).arg(designer.artRows) + "   ·   " + designer.tr("Esc cancels, Enter keeps it")
           color: designer.muted
           font.family: designer.fontFamily
           font.pixelSize: Style.font.caption
         }
 
         DesignerButton {
-          label: "Cancel"
+          label: designer.tr("Cancel")
           foreground: designer.foreground
           accent: designer.accent
           onClicked: { designer.artEditing = false; designer.artKey = ""; designer.focusCanvas() }
         }
         DesignerButton {
-          label: "Done"
+          label: designer.tr("Done")
           primary: true
           foreground: designer.foreground
           accent: designer.accent

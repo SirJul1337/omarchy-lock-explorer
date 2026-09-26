@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "ExplorerStrings.js" as UiText
 
 // Code on the left, live preview on the right. Ctrl+S saves and reloads the
 // design everywhere (preview, thumbnails and the lock screen itself).
@@ -9,6 +10,9 @@ Item {
   id: editor
 
   property var service: null
+  function tr(text) {
+    return UiText.tr(editor.service && editor.service.language !== undefined ? String(editor.service.language) : "en", text)
+  }
   property var design: null
   property color background: Color.menu.background
   property color foreground: Color.menu.text
@@ -41,13 +45,13 @@ Item {
     file.setText(code.text)
     dirty = false
     confirmDiscard = false
-    status = "Saving…"
+    status = editor.tr("Saving…")
   }
 
   function requestClose() {
     if (dirty && !confirmDiscard) {
       confirmDiscard = true
-      status = "Unsaved changes. Ctrl+S to save, Esc again to discard."
+      status = editor.tr("Unsaved changes. Ctrl+S to save, Esc again to discard.")
       return
     }
     closeRequested()
@@ -62,10 +66,10 @@ Item {
     atomicWrites: true
     printErrors: false
     onSaved: {
-      editor.status = "Saved " + Qt.formatTime(new Date(), "HH:mm:ss")
+      editor.status = editor.tr("Saved %1").arg(Qt.formatTime(new Date(), "HH:mm:ss"))
       if (editor.service && typeof editor.service.reloadDesigns === "function") editor.service.reloadDesigns()
     }
-    onSaveFailed: function(error) { editor.status = "Save failed: " + error }
+    onSaveFailed: function(error) { editor.status = editor.tr("Save failed: %1").arg(error) }
     onFileChanged: reload()
     onLoaded: {
       if (editor.dirty) return
@@ -248,7 +252,7 @@ Item {
           }
           Text {
             width: parent.width
-            text: preview.loadError.length > 0 ? preview.loadError : (editor.status.length > 0 ? editor.status : (editor.dirty ? "Unsaved changes" : "Saved. Preview updates on Ctrl+S."))
+            text: preview.loadError.length > 0 ? preview.loadError : (editor.status.length > 0 ? editor.status : editor.tr(editor.dirty ? "Unsaved changes" : "Saved. Preview updates on Ctrl+S."))
             textFormat: Text.PlainText
             color: preview.loadError.length > 0 ? Color.urgent : (editor.dirty ? editor.foreground : editor.muted)
             font.family: editor.fontFamily
@@ -259,7 +263,7 @@ Item {
           }
           Text {
             width: parent.width
-            text: "Ctrl+S save   Ctrl+O open in your editor   Esc back"
+            text: editor.tr("Ctrl+S save   Ctrl+O open in your editor   Esc back")
             color: editor.muted
             font.family: editor.fontFamily
             font.pixelSize: Style.font.caption

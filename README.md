@@ -252,9 +252,8 @@ German, Italian, Norwegian, Polish, Portuguese, Spanish and Swedish so far. Prom
 failure messages and the failed-attempt notification are translated, and dates use that
 language's day and month names. The Settings tab has a "Language" row to pick one instead of
 following `LANG`; by hand, `omarchy-shell lock setLanguage de` (`auto` to follow the system
-again). The explorer follows the same choice: its pages, Settings, buttons and the `?` sheet are
-translated too, while the boot screen editor, the designer, the code editor and the designs'
-descriptions are still English. Designs that play on a terminal or a video recorder (Terminal,
+again). The explorer follows the same choice, with its boot screen page, the designer and the
+code editor; only the designs' own names and descriptions are still English. Designs that play on a terminal or a video recorder (Terminal,
 Login, Statusline, VHS, Rain's lines) keep their English on purpose.
 
 The lock screen's text lives in `designs/Strings.js` and the explorer's in `ExplorerStrings.js`,

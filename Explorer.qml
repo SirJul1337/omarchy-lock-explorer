@@ -323,16 +323,21 @@ Item {
   // plymouth/ can style it; "follow" tracks the lock design when it has one.
   readonly property string followHint: {
     var d = Designs.byId(activeDesignId)
-    var name = d ? d.name : "your lock screen"
-    if (d && d.boot === true) return "Boot matches " + name + " with its animated twin"
-    return "Boot matches " + name + " as a still — same styling for both"
+    var name = d ? d.name : root.tr("your lock screen")
+    if (d && d.boot === true) return root.tr("Boot matches %1 with its animated twin").arg(name)
+    return root.tr("Boot matches %1 as a still — same styling for both").arg(name)
   }
+  // What the boot layout form's dropdowns show for each value.
+  readonly property var bootOptionNames: ({
+    theme: root.tr("Theme"), wallpaper: root.tr("Wallpaper"), none: root.tr("None"),
+    pill: root.tr("Pill"), line: root.tr("Line")
+  })
   function bootKindLabel(d) {
-    if (!d || !d.bootKind) return "theme styling"
-    if (d.bootKind === "clip") return "clip \u00b7 plays on unlock"
-    if (d.bootKind === "reactive") return "reacts to typing"
-    if (d.bootKind === "animated") return "animated"
-    return "theme styling"
+    if (!d || !d.bootKind) return root.tr("theme styling")
+    if (d.bootKind === "clip") return root.tr("clip") + " \u00b7 " + root.tr("plays on unlock")
+    if (d.bootKind === "reactive") return root.tr("reacts to typing")
+    if (d.bootKind === "animated") return root.tr("animated")
+    return root.tr("theme styling")
   }
   readonly property var bootTwins: {
     var twins = Designs.bootCapable()
@@ -344,11 +349,11 @@ Item {
   readonly property string bootApplied: service ? service.bootApplied : ""
   readonly property string bootAppliedTheme: service ? service.bootAppliedTheme : ""
   readonly property string bootNowName: {
-    if (bootApplied.length === 0) return "Stock Omarchy"
-    if (bootApplied === "theme") return "Theme colors"
+    if (bootApplied.length === 0) return root.tr("Stock Omarchy")
+    if (bootApplied === "theme") return root.tr("Theme colors")
     if (bootApplied.indexOf("snapshot:") === 0) {
       var sd = Designs.byId(bootApplied.substring(9))
-      return (sd ? sd.name : bootApplied.substring(9)) + " (snapshot)"
+      return root.tr("%1 (snapshot)").arg(sd ? sd.name : bootApplied.substring(9))
     }
     if (bootApplied.indexOf("custom:") === 0) return bootApplied.substring(7)
     if (bootApplied.indexOf("video:") === 0) return bootApplied.substring(6).replace(/\.[^.]+$/, "")
@@ -360,21 +365,21 @@ Item {
   readonly property int bootClipSeconds: service && service.bootClipSeconds !== undefined ? service.bootClipSeconds : 0
   readonly property var bootCards: {
     var cards = [
-      { id: "stock", name: "Untouched", kind: "stock Omarchy splash" },
-      { id: "theme", name: "Theme colors", kind: "stock layout, your theme" }
+      { id: "stock", name: root.tr("Untouched"), kind: root.tr("stock Omarchy splash") },
+      { id: "theme", name: root.tr("Theme colors"), kind: root.tr("stock layout, your theme") }
     ]
     var claimed = {}
     var twins = Designs.bootCapable()
     for (var i = 0; i < twins.length; i++) {
-      cards.push({ id: twins[i].id, name: twins[i].name, kind: bootKindLabel(twins[i]) + (twins[i].credit ? " \u00b7 by " + twins[i].credit : "") })
+      cards.push({ id: twins[i].id, name: twins[i].name, kind: bootKindLabel(twins[i]) + (twins[i].credit ? " \u00b7 " + root.tr("by %1").arg(twins[i].credit) : "") })
       if (twins[i].clipFile) claimed[twins[i].clipFile] = true
     }
     for (var v = 0; v < bootVideos.length; v++) {
       if (claimed[bootVideos[v]]) continue
-      cards.push({ id: "video:" + bootVideos[v], name: bootVideos[v].replace(/\.[^.]+$/, ""), kind: "your clip \u00b7 plays on unlock" })
+      cards.push({ id: "video:" + bootVideos[v], name: bootVideos[v].replace(/\.[^.]+$/, ""), kind: root.tr("your clip") + " \u00b7 " + root.tr("plays on unlock") })
     }
     for (var c = 0; c < bootCustomDesigns.length; c++)
-      cards.push({ id: "custom:" + bootCustomDesigns[c], name: bootCustomDesigns[c], kind: "your layout" })
+      cards.push({ id: "custom:" + bootCustomDesigns[c], name: bootCustomDesigns[c], kind: root.tr("your layout") })
     return cards
   }
   readonly property string bootFollowTarget: {
@@ -600,8 +605,8 @@ Item {
         if (!root.pendingResnapshot) {
           root.pendingResnapshot = { id: id, persist: root.snapshotPersist }
           Quickshell.execDetached(["notify-send", "-a", "Lock Screen Explorer",
-            "Boot screen is out of date",
-            "The background changed. Open the lock screen explorer once and it refreshes itself."])
+            root.tr("Boot screen is out of date"),
+            root.tr("The background changed. Open the lock screen explorer once and it refreshes itself.")])
         }
       }
     }
@@ -764,11 +769,11 @@ Item {
   readonly property bool bootDirty: !bootApplying && bootWouldApply !== bootAppliedId
   readonly property string bootDesiredName: {
     var w = bootWouldApply
-    if (w === "stock") return "Untouched"
-    if (w === "theme") return "Theme colors"
+    if (w === "stock") return root.tr("Untouched")
+    if (w === "theme") return root.tr("Theme colors")
     if (w.indexOf("snapshot:") === 0) {
       var sd = Designs.byId(w.substring(9))
-      return (sd ? sd.name : w.substring(9)) + " (snapshot)"
+      return root.tr("%1 (snapshot)").arg(sd ? sd.name : w.substring(9))
     }
     if (w.indexOf("custom:") === 0) return w.substring(7)
     if (w.indexOf("video:") === 0) return w.substring(6).replace(/\.[^.]+$/, "")
@@ -2208,7 +2213,7 @@ Item {
                 visible: root.mainTab === "boot"
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: "Now: " + root.bootNowName + (root.bootAppliedTheme.length > 0 ? " \u00b7 baked from " + root.bootAppliedTheme : "")
+                text: root.tr("Now: %1").arg(root.bootNowName) + (root.bootAppliedTheme.length > 0 ? " \u00b7 " + root.tr("Baked from %1").arg(root.bootAppliedTheme) : "")
                 textFormat: Text.PlainText
                 color: root.muted
                 font.family: root.fontFamily
@@ -2244,8 +2249,8 @@ Item {
                     width: parent.width - applyBtn.width - Style.space(50)
                     wrapMode: Text.WordWrap
                     text: root.bootApplying
-                      ? "Applying the boot theme\u2026"
-                      : "Set to " + root.bootDesiredName + ". Applying writes the boot theme to the EFI partition and asks for your password."
+                      ? root.tr("Applying the boot theme\u2026")
+                      : root.tr("Set to %1. Applying writes the boot theme to the EFI partition and asks for your password.").arg(root.bootDesiredName)
                     textFormat: Text.PlainText
                     color: Color.menu.text
                     font.family: root.fontFamily
@@ -2263,7 +2268,7 @@ Item {
                     Text {
                       id: applyBtnLabel
                       anchors.centerIn: parent
-                      text: root.bootApplying ? "Building\u2026" : "Apply"
+                      text: root.bootApplying ? root.tr("Building\u2026") : root.tr("Apply")
                       color: Color.background
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.bodySmall
@@ -2316,7 +2321,7 @@ Item {
                       spacing: 0
 
                       Text {
-                        text: "Follow my lock screen"
+                        text: root.tr("Follow my lock screen")
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2370,7 +2375,7 @@ Item {
 
                     Text {
                       anchors.verticalCenter: parent.verticalCenter
-                      text: "Re-apply when the Omarchy theme changes"
+                      text: root.tr("Re-apply when the Omarchy theme changes")
                       color: root.foreground
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
@@ -2422,7 +2427,7 @@ Item {
                       spacing: 0
 
                       Text {
-                        text: "Rotate boot screens"
+                        text: root.tr("Rotate boot screens")
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2434,8 +2439,8 @@ Item {
                         width: Math.min(implicitWidth, Style.space(230))
                         elide: Text.ElideRight
                         text: root.bootRotating
-                          ? "Tick the cards below \u00b7 advances one per boot (" + root.bootRotation.length + " picked)"
-                          : "A different one each boot, set up once"
+                          ? root.tr("Tick the cards below") + " \u00b7 " + root.tr("advances one per boot (%1 picked)").arg(root.bootRotation.length)
+                          : root.tr("A different one each boot, set up once")
                         color: root.muted
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2457,7 +2462,7 @@ Item {
 
                   Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Clip length"
+                    text: root.tr("Clip length")
                     color: root.muted
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -2478,7 +2483,7 @@ Item {
                       Text {
                         id: clipLenLabel
                         anchors.centerIn: parent
-                        text: clipLen.modelData === 0 ? "Full" : clipLen.modelData + "s"
+                        text: clipLen.modelData === 0 ? root.tr("Full") : clipLen.modelData + "s"
                         color: clipLen.current ? Color.background : root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2524,7 +2529,7 @@ Item {
 
                       Text {
                         anchors.centerIn: parent
-                        text: "rendering preview..."
+                        text: root.tr("rendering preview...")
                         color: root.muted
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2552,7 +2557,7 @@ Item {
                         Text {
                           id: onDiskLabel
                           anchors.centerIn: parent
-                          text: "\u2713 Applied"
+                          text: "\u2713 " + root.tr("Applied")
                           color: Color.background
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
@@ -2607,7 +2612,7 @@ Item {
                         Text {
                           id: bootEditLabel
                           anchors.centerIn: parent
-                          text: "Edit"
+                          text: root.tr("Edit")
                           color: root.foreground
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
@@ -2637,7 +2642,7 @@ Item {
                         Text {
                           id: bootDelLabel
                           anchors.centerIn: parent
-                          text: root.confirmingDelete === bootCard.modelData.id ? "Sure?" : "Delete"
+                          text: root.tr(root.confirmingDelete === bootCard.modelData.id ? "Sure?" : "Delete")
                           color: root.confirmingDelete === bootCard.modelData.id ? Color.background : root.foreground
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
@@ -2705,7 +2710,7 @@ Item {
                         width: parent.width
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.WordWrap
-                        text: "Snapshot this lock screen"
+                        text: root.tr("Snapshot this lock screen")
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2721,7 +2726,7 @@ Item {
                   }
 
                   Text {
-                    text: (Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : "current") + " as a still"
+                    text: root.tr("%1 as a still").arg(Designs.byId(root.activeDesignId) ? Designs.byId(root.activeDesignId).name : root.tr("current"))
                     textFormat: Text.PlainText
                     color: root.muted
                     font.family: root.fontFamily
@@ -2808,7 +2813,7 @@ Item {
 
                       Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "New layout"
+                        text: root.tr("New layout")
                         color: root.muted
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -2824,7 +2829,7 @@ Item {
                   }
 
                   Text {
-                    text: "One layout, both screens"
+                    text: root.tr("One layout, both screens")
                     color: root.muted
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -2852,25 +2857,27 @@ Item {
                   }
 
                   BootField {
-                    label: "Background"
+                    label: root.tr("Background")
                     control: "dropdown"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
                     value: root.bootFormGet("background", "theme")
+                    optionNames: root.bootOptionNames
                     options: ["theme", "wallpaper"]
                     onSelected: function(o) { root.bootFormSet("background", o) }
                   }
                   BootField {
-                    label: "Logo"
+                    label: root.tr("Logo")
                     control: "dropdown"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
                     value: root.bootFormGet("logo", "theme")
+                    optionNames: root.bootOptionNames
                     options: ["theme", "none"]
                     onSelected: function(o) { root.bootFormSet("logo", o) }
                   }
                   BootField {
-                    label: "Title"
+                    label: root.tr("Title")
                     control: "text"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2878,7 +2885,7 @@ Item {
                     onEdited: function(t) { root.bootFormSet("title", t) }
                   }
                   BootField {
-                    label: "Subtitle"
+                    label: root.tr("Subtitle")
                     control: "text"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2886,7 +2893,7 @@ Item {
                     onEdited: function(t) { root.bootFormSet("subtitle", t) }
                   }
                   BootField {
-                    label: "Clock (lock screen)"
+                    label: root.tr("Clock (lock screen)")
                     control: "toggle"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2894,16 +2901,17 @@ Item {
                     onToggled: root.bootFormSet("clock", root.bootFormGet("clock", "on") === "on" ? "off" : "on")
                   }
                   BootField {
-                    label: "Passphrase field"
+                    label: root.tr("Passphrase field")
                     control: "dropdown"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
                     value: root.bootFormGet("entry", "pill")
+                    optionNames: root.bootOptionNames
                     options: ["pill", "line", "none"]
                     onSelected: function(o) { root.bootFormSet("entry", o) }
                   }
                   BootField {
-                    label: "Scanlines"
+                    label: root.tr("Scanlines")
                     control: "toggle"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2911,7 +2919,7 @@ Item {
                     onToggled: root.bootFormSet("scanlines", root.bootFormGet("scanlines", "off") === "on" ? "off" : "on")
                   }
                   BootField {
-                    label: "Title position"
+                    label: root.tr("Title position")
                     control: "stepper"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2919,7 +2927,7 @@ Item {
                     onStep: function(d) { root.bootFormSet("title_y", Math.max(0, Math.min(100, (parseInt(root.bootFormGet("title_y", "18")) || 18) + d * 4))) }
                   }
                   BootField {
-                    label: "Title size"
+                    label: root.tr("Title size")
                     control: "stepper"
                     suffix: ""
                     rev: root.bootFormRev
@@ -2928,7 +2936,7 @@ Item {
                     onStep: function(d) { root.bootFormSet("title_size", Math.max(10, Math.min(64, (parseInt(root.bootFormGet("title_size", "26")) || 26) + d * 2))) }
                   }
                   BootField {
-                    label: "Subtitle position"
+                    label: root.tr("Subtitle position")
                     control: "stepper"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2936,7 +2944,7 @@ Item {
                     onStep: function(d) { root.bootFormSet("subtitle_y", Math.max(0, Math.min(100, (parseInt(root.bootFormGet("subtitle_y", "26")) || 26) + d * 4))) }
                   }
                   BootField {
-                    label: "Subtitle size"
+                    label: root.tr("Subtitle size")
                     control: "stepper"
                     suffix: ""
                     rev: root.bootFormRev
@@ -2945,7 +2953,7 @@ Item {
                     onStep: function(d) { root.bootFormSet("subtitle_size", Math.max(8, Math.min(40, (parseInt(root.bootFormGet("subtitle_size", "15")) || 15) + d * 1))) }
                   }
                   BootField {
-                    label: "Field position"
+                    label: root.tr("Field position")
                     control: "stepper"
                     rev: root.bootFormRev
                     onEscaped: { keyCatcher.forceActiveFocus(); root.handleEscape() }
@@ -2964,7 +2972,7 @@ Item {
                     Column {
                       spacing: Style.space(6)
                       Text {
-                        text: "Lock screen"
+                        text: root.tr("Lock screen")
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.bodySmall
@@ -2982,7 +2990,7 @@ Item {
                         Text {
                           anchors.centerIn: parent
                           visible: editorLockPreview.status !== Image.Ready
-                          text: "rendering preview..."
+                          text: root.tr("rendering preview...")
                           color: root.muted
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
@@ -3000,7 +3008,7 @@ Item {
                           Text {
                             id: busyLabel1
                             anchors.centerIn: parent
-                            text: "re-rendering…"
+                            text: root.tr("re-rendering…")
                             color: root.foreground
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
@@ -3026,7 +3034,7 @@ Item {
                     Column {
                       spacing: Style.space(6)
                       Text {
-                        text: "Boot screen"
+                        text: root.tr("Boot screen")
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.bodySmall
@@ -3043,7 +3051,7 @@ Item {
                         Text {
                           anchors.centerIn: parent
                           visible: editorBootPreview.status !== Image.Ready
-                          text: "rendering preview..."
+                          text: root.tr("rendering preview...")
                           color: root.muted
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
@@ -3061,7 +3069,7 @@ Item {
                           Text {
                             id: busyLabel2
                             anchors.centerIn: parent
-                            text: "re-rendering…"
+                            text: root.tr("re-rendering…")
                             color: root.foreground
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
@@ -3088,7 +3096,8 @@ Item {
                   Text {
                     width: edLockRect.width * 2 + Style.space(14)
                     wrapMode: Text.WordWrap
-                    text: "Changes save and re-render automatically \u00b7 Esc goes back \u00b7 apply the boot screen from its card, pick the lock screen on the Lock screens tab. $USER and $HOST expand."
+                    text: root.tr("Changes save and re-render automatically") + " \u00b7 " + root.tr("Esc goes back") + " \u00b7 "
+                      + root.tr("apply the boot screen from its card, pick the lock screen under Styling or Animation. $USER and $HOST expand.")
                     color: root.muted
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -3845,7 +3854,7 @@ Item {
               font.weight: Font.DemiBold
             }
             Text {
-              text: "Custom design"
+              text: root.tr("Custom design")
               color: root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
@@ -3861,7 +3870,7 @@ Item {
               Text {
                 id: saveLabel
                 anchors.centerIn: parent
-                text: "Save  Ctrl+S"
+                text: root.tr("Save  Ctrl+S")
                 color: editorView.dirty ? Color.background : root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -3875,7 +3884,7 @@ Item {
               Text {
                 id: useLabel2
                 anchors.centerIn: parent
-                text: "Use this design"
+                text: root.tr("Use this design")
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -3893,7 +3902,7 @@ Item {
               Text {
                 id: backLabel
                 anchors.centerIn: parent
-                text: "Back  Esc"
+                text: root.tr("Back  Esc")
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall

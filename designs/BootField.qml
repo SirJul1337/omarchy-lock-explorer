@@ -12,6 +12,8 @@ Row {
   property string value: ""
   property bool on: false
   property var options: []
+  // Shown in place of a value that has an entry here (a translation).
+  property var optionNames: ({})
   property string suffix: "%"    // stepper unit label
   property bool expanded: false
   property int rev: 0            // bump to reload text from `value`
@@ -97,7 +99,7 @@ Row {
         anchors.left: parent.left
         anchors.leftMargin: Style.space(10)
         anchors.verticalCenter: parent.verticalCenter
-        text: field.value
+        text: field.optionNames[field.value] || field.value
         color: field.fg
         font.family: Style.font.menuFamily
         font.pixelSize: Style.font.bodySmall
@@ -132,7 +134,7 @@ Row {
           anchors.left: parent.left
           anchors.leftMargin: Style.space(10)
           anchors.verticalCenter: parent.verticalCenter
-          text: optionRow.modelData
+          text: field.optionNames[optionRow.modelData] || optionRow.modelData
           color: optionRow.modelData === field.value ? field.accent : field.fg
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.bodySmall

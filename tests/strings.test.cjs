@@ -68,15 +68,40 @@ test("the explorer has every line in every language", () => {
   }
 });
 
-test("every root.tr() text in the explorer is a known line", () => {
+test("every tr() text in the explorer, designer and editor is a known line", () => {
   const keys = new Set(Object.keys(U.TEXT.de).map((k) => k.toLowerCase()));
-  const known = (t) => keys.has(t.toLowerCase().replace(/^[^a-z0-9%]+/, ""));
-  const text = fs.readFileSync(path.join(root, "Explorer.qml"), "utf8");
-  const found = [];
-  for (const m of text.matchAll(/root\.tr\("((?:[^"\\]|\\.)*)"\)/g)) found.push(m[1]);
-  for (const m of text.matchAll(/root\.tr\([^()"]*\?\s*"([^"]*)"\s*:\s*"([^"]*)"\)/g)) found.push(m[1], m[2]);
-  for (const t of found) assert.ok(known(t), `Explorer.qml: "${t}" has no translation`);
-  assert.ok(found.length > 100);
+  const one = (t) => keys.has(t.toLowerCase().replace(/^[^a-z0-9%]+/, ""));
+  const known = (t) => one(t) || t.split(/\s+·\s+/).every(one);
+  const files = ["Explorer.qml", "Designer.qml", "Editor.qml", "DesignerField.qml"];
+  let count = 0;
+  for (const file of files) {
+    const text = fs.readFileSync(path.join(root, file), "utf8");
+    const found = [];
+    for (const m of text.matchAll(/\b(?:root|designer|editor|field)\.tr\("((?:[^"\\]|\\.)*)"\)/g)) found.push(m[1]);
+    for (const m of text.matchAll(/\b(?:root|designer|editor|field)\.tr\([^()"]*\?\s*"([^"]*)"\s*:\s*"([^"]*)"\)/g)) found.push(m[1], m[2]);
+    for (const t of found) assert.ok(known(JSON.parse(`"${t}"`)), `${file}: "${t}" has no translation`);
+    count += found.length;
+  }
+  assert.ok(count > 250);
+});
+
+// The designer's pieces, their settings and choices are shown through
+// designer.tr(); effect names and the clock and date samples are not checked.
+test("every designer piece is a known line", () => {
+  const D = {};
+  const src = fs.readFileSync(path.join(root, "Designer.js"), "utf8").replace(/^\.pragma library\s*/, "").replace(/^\.import .*$/gm, "");
+  vm.runInNewContext(src + "\nthis.KINDS = KINDS; this.GROUPS = GROUPS;", D);
+  const keys = new Set(Object.keys(U.TEXT.de).map((k) => k.toLowerCase()));
+  const texts = [...D.GROUPS];
+  for (const k of Object.values(D.KINDS)) {
+    texts.push(k.name, k.hint);
+    for (const f of k.fields || []) {
+      texts.push(f.label);
+      if (f.key === "effect" || f.key === "format") continue;
+      for (const o of f.options || []) if (/[a-z]/i.test(o.name)) texts.push(o.name);
+    }
+  }
+  for (const t of texts) assert.ok(keys.has(String(t).toLowerCase()), `Designer.js: "${t}" has no translation`);
 });
 
 test("explorer lines keep their placeholders and capitals", () => {
@@ -85,6 +110,9 @@ test("explorer lines keep their placeholders and capitals", () => {
   assert.equal(U.tr("fr", "Esc or ? closes this"), "Échap ou ? ferme ceci");
   assert.equal(U.tr("es", "min, Enter"), "min, Intro");
   assert.equal(U.tr("en", "Settings"), "Settings");
+  assert.equal(U.tr("de", "LAYERS  ·  TOP FIRST"), "EBENEN  ·  OBERSTE ZUERST");
+  assert.equal(U.tr("de", "Back  Esc"), "Zurück  Esc");
+  assert.equal(U.tr("de", "Back"), "Nach hinten");
 });
 
 test("locales map to a language", () => {

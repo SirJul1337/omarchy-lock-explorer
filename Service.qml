@@ -3455,6 +3455,23 @@ echo "$out"
     onTriggered: root.refreshBackground()
   }
 
+  // A theme switch changes the colors at once and points the link at the new
+  // theme's wallpaper with them: look straight away, and once more in case the
+  // link moved just after, instead of showing the old wallpaper under the new
+  // colors until the next poll -- or missing a theme picked within it.
+  readonly property color themeColorProbe: Color.background
+  onThemeColorProbeChanged: themeBackgroundTimer.restart()
+  Timer {
+    id: themeBackgroundTimer
+    interval: 150
+    onTriggered: { root.refreshBackground(); themeBackgroundLateTimer.restart() }
+  }
+  Timer {
+    id: themeBackgroundLateTimer
+    interval: 900
+    onTriggered: root.refreshBackground()
+  }
+
   // The active layout of the keyboard being typed on. `layout` is the list
   // from the config ("us,dk") and `active_layout_index` picks from it, which
   // gives a short code without a table to look it up in.

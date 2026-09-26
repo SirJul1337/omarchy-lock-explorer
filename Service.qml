@@ -2651,7 +2651,8 @@ echo "$out"
     // design says when it is done; the failsafe does not care what it thinks.
     // Without qt6-multimedia a clip design has already fallen back to
     // Classic, so unlock instantly instead of waiting on the clip failsafe.
-    if (designHasClip && multimediaAvailable && (sessionLock.locked || sessionLock.secure)) {
+    // Reduce motion means no moving unlock either: no clip, no animation.
+    if (designHasClip && multimediaAvailable && !motionReduced && (sessionLock.locked || sessionLock.secure)) {
       clipUnlocking = true
       unlockPlayback = true
       clipFailsafe.restart()
@@ -2661,7 +2662,7 @@ echo "$out"
       return
     }
 
-    if (unlockAnimated && (sessionLock.locked || sessionLock.secure)) {
+    if (unlockAnimated && !motionReduced && (sessionLock.locked || sessionLock.secure)) {
       unlocking = true
       logEvent("unlocking=" + unlockAnimation)
       unlockTimer.restart()
@@ -2682,9 +2683,10 @@ echo "$out"
     logEvent("unlocked")
     if (pendingAwayReport) sendAwayReport(pendingAwayReport)
     pendingAwayReport = null
-    // The clip was the whole show, no second video on top of it.
+    // The clip was the whole show, no second video on top of it; and none at
+    // all while motion is reduced.
     if (hadClip) commitClipWallpaper()
-    else playSting()
+    else if (!motionReduced) playSting()
   }
 
   function cancelUnlockAnimation() {

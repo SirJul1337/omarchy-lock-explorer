@@ -265,9 +265,9 @@ translated text and `lock.date("dddd d MMMM")` a date in the lock screen's langu
 mains power, still on the battery). The design keeps running underneath -- the password field
 works as always -- but what is on screen is a still frame of it, taken once it has settled and
 again whenever something on it changes: what you type, a wrong password, the fingerprint or key
-status, the minute on the clock. It applies to the explorer's previews too. The unlock animation
-and the clip designs' unlock video are separate choices and still play; set the unlock animation
-to Off for an instant unlock. By hand: `omarchy-shell lock setReduceMotion on` (`off`, `battery`).
+status, the minute on the clock. It applies to the explorer's previews too, and to the unlock:
+while motion is reduced the lock screen leaves at once, with no unlock animation, and neither the
+clip designs' video nor the unlock clip plays. By hand: `omarchy-shell lock setReduceMotion on` (`off`, `battery`).
 
 **Size** draws the whole lock screen larger, 100%, 125% or 150%: the design is laid out as if the
 screen were that much smaller and then drawn to fill it, so the clock, the password field, the

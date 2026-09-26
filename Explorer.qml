@@ -1781,7 +1781,9 @@ Item {
                 SettingRow {
                   explorer: root
                   label: "Animation"
-                  help: root.unlockAnimation === "none" ? "" : "The lock screen stays up while it plays."
+                  help: root.motionReduced
+                        ? "Reduce motion is on, so the lock screen leaves at once and no unlock clip plays."
+                        : (root.unlockAnimation === "none" ? "" : "The lock screen stays up while it plays.")
 
                   Column {
                     width: parent.width

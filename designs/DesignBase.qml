@@ -106,8 +106,11 @@ Item {
   // login name with a capital, so "niklas" reads "Niklas". userName stays the
   // login itself, for designs that show it as one ("niklas@host", "login:").
   property string fullName: ""
+  // The full name is free text from the passwd entry, and many designs show
+  // the name in a Text left to guess its format: without < and > it can
+  // never be taken for rich text.
   readonly property string displayName: {
-    var first = String(fullName || "").trim().split(/\s+/)[0] || ""
+    var first = String(fullName || "").replace(/[<>]/g, "").trim().split(/\s+/)[0] || ""
     if (first.length > 0) return first
     var u = String(userName || "")
     return u.length > 0 ? u.charAt(0).toUpperCase() + u.slice(1) : u

@@ -48,7 +48,9 @@ Item {
   // As in the Weather design: a j1 answer is a few tens of kilobytes, and
   // anything reaching this cap is refused rather than parsed.
   readonly property int responseCap: 262144
-  readonly property string cacheDir: Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
+  // The per-user runtime dir, and nothing shared: without one every piece
+  // fetches for itself instead of caching.
+  readonly property string cacheDir: Quickshell.env("XDG_RUNTIME_DIR") || ""
 
   function refresh() {
     if (!fetchProc.running && locationKnown) fetchProc.running = true
@@ -78,11 +80,14 @@ Item {
     // Everything the script needs travels as arguments: the URL, the cap and
     // the cache file (keyed by place and language).
     command: ["bash", "-c",
-      'set -o pipefail; c="$3"; exec 9>"$c.lock"; flock -w 30 9 || true; '
+      'set -o pipefail; c="$3"; '
+      + 'if [ -z "$c" ]; then curl -fsS --max-time 15 --max-filesize "$2" "$1" | head -c "$2"; exit; fi; '
+      + 'exec 9>"$c.lock"; flock -w 30 9 || true; '
       + 'if [ -s "$c" ] && [ $(( $(date +%s) - $(stat -c %Y "$c") )) -lt 1800 ]; then cat "$c"; exit 0; fi; '
       + 'curl -fsS --max-time 15 --max-filesize "$2" "$1" | head -c "$2" > "$c.part" && mv -f "$c.part" "$c" && cat "$c"',
       "weather", "https://wttr.in/" + weather.locationQuery + "?format=j1&lang=" + weather.language, String(weather.responseCap),
-      weather.cacheDir + "/omarchy-lock-explorer-weather-" + Qt.md5(weather.locationQuery + "|" + weather.language) + ".json"]
+      weather.cacheDir.length > 0
+        ? weather.cacheDir + "/omarchy-lock-explorer-weather-" + Qt.md5(weather.locationQuery + "|" + weather.language) + ".json" : ""]
     stdout: StdioCollector { id: fetchOut; waitForEnd: true }
     onExited: function(code) {
       var body = String(fetchOut.text || "")

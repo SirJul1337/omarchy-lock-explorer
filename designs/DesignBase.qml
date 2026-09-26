@@ -316,6 +316,12 @@ Item {
   // system locale or the Language setting. tr() gives a design's own text in
   // it, date() and clock() write month and day names in it.
   property string language: "en"
+  // Set from Settings > Password field; PasswordField reads them. A design
+  // that draws its own field can read them too.
+  property bool showLayoutBadge: true
+  property bool showCapsBadge: true
+  property bool allowPasswordToggle: true
+  property bool showAuthIcons: true
   readonly property var dateLocale: Qt.locale(Strings.localeName(language))
   function tr(text) { return Strings.tr(language, text) }
   function date(spec, when) { return (when || now).toLocaleString(dateLocale, String(spec)) }

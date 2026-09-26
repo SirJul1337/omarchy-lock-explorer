@@ -25,12 +25,14 @@ BorderSurface {
   readonly property alias input: input
   readonly property bool errorState: lock ? lock.errorState : false
   readonly property bool authenticating: lock ? lock.authenticatingPassword : false
-  readonly property bool fingerprint: lock ? lock.fingerprintConfigured : false
-  readonly property bool face: lock ? lock.faceConfigured : false
-  readonly property bool fido2: lock ? lock.fido2Configured : false
+  // The sign-in icons, unless hidden in Settings (DesignBase.showAuthIcons).
+  readonly property bool authIcons: lock ? lock.showAuthIcons !== false : true
+  readonly property bool fingerprint: lock ? lock.fingerprintConfigured && authIcons : false
+  readonly property bool face: lock ? lock.faceConfigured && authIcons : false
+  readonly property bool fido2: lock ? lock.fido2Configured && authIcons : false
   readonly property bool fido2Active: lock ? lock.fido2Active : false
   readonly property bool revealed: lock ? lock.passwordVisible : false
-  readonly property bool showToggle: lock ? (lock.showPasswordToggle && !lock.fido2Active) : true
+  readonly property bool showToggle: lock ? (lock.showPasswordToggle && lock.allowPasswordToggle !== false && !lock.fido2Active) : true
   readonly property int fieldFontSize: Math.round(Style.font.heading * fontScale)
   readonly property int dotFontSize: Math.round(Style.font.heading * 1.25 * fontScale)
   readonly property int dotLetterSpacing: Math.round(Style.font.heading * 0.19 * fontScale)
@@ -38,8 +40,8 @@ BorderSurface {
   // A password is typed blind, so a layout that is not a plain US keyboard is
   // said in the box. It goes with the lock glyph on the left, and is left out
   // of boot snapshots like the rest of the chrome.
-  readonly property bool showLayout: lock ? ((lock.foreignLayout === true || lock.layoutSwitchable === true) && !snapshotBox && layoutFits) : false
-  readonly property bool showCaps: lock ? (lock.capsLock === true && !snapshotBox) : false
+  readonly property bool showLayout: lock ? ((lock.foreignLayout === true || lock.layoutSwitchable === true) && lock.showLayoutBadge !== false && !snapshotBox && layoutFits) : false
+  readonly property bool showCaps: lock ? (lock.capsLock === true && lock.showCapsBadge !== false && !snapshotBox) : false
   // The badge is sized from the code and comes out of the text area, and a
   // layout is not always a two-letter country code: a custom XKB layout is a
   // free-form name, and Hyprland reports it verbatim. Unbounded, one of those

@@ -63,6 +63,11 @@ Item {
   property bool holdStill: false
   // The design's language, see Strings.js.
   property string language: "en"
+  // What the password field shows beside the text.
+  property bool showLayoutBadge: true
+  property bool showCapsBadge: true
+  property bool allowPasswordToggle: true
+  property bool showAuthIcons: true
   // Pixel size of that frame; the explorer's small previews ask for less.
   property size stillTextureSize: Qt.size(0, 0)
   property bool stillReady: false
@@ -140,6 +145,10 @@ Item {
     if (it.wallpaperBlur !== undefined) it.wallpaperBlur = Qt.binding(function() { return host.wallpaperBlur })
     if (it.wallpaperDim !== undefined) it.wallpaperDim = Qt.binding(function() { return host.wallpaperDim })
     if (it.language !== undefined) it.language = Qt.binding(function() { return host.language })
+    if (it.showLayoutBadge !== undefined) it.showLayoutBadge = Qt.binding(function() { return host.showLayoutBadge })
+    if (it.showCapsBadge !== undefined) it.showCapsBadge = Qt.binding(function() { return host.showCapsBadge })
+    if (it.allowPasswordToggle !== undefined) it.allowPasswordToggle = Qt.binding(function() { return host.allowPasswordToggle })
+    if (it.showAuthIcons !== undefined) it.showAuthIcons = Qt.binding(function() { return host.showAuthIcons })
   }
 
   Item {
@@ -243,6 +252,10 @@ Item {
     function onBackgroundVersionChanged() { host.restill() }
     function onAvatarVersionChanged() { host.regrab() }
     function onLanguageChanged() { host.regrab() }
+    function onShowLayoutBadgeChanged() { host.regrab() }
+    function onShowCapsBadgeChanged() { host.regrab() }
+    function onAllowPasswordToggleChanged() { host.regrab() }
+    function onShowAuthIconsChanged() { host.regrab() }
   }
 
   FileView {

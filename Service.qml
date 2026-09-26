@@ -457,6 +457,45 @@ Item {
     return setFavorite(id, favorites.indexOf(String(id || "")) === -1)
   }
 
+  // What the password field shows beside the text, each shown unless hidden
+  // in Settings. Saved on the plugin entry as hideLayoutBadge, hideCapsBadge,
+  // hidePasswordToggle and hideAuthIcons, and only while hidden.
+  readonly property var fieldItems: ({ layout: "hideLayoutBadge", caps: "hideCapsBadge",
+                                       reveal: "hidePasswordToggle", icons: "hideAuthIcons" })
+  property var fieldItemOverrides: ({})
+  function fieldItemHidden(key) {
+    if (fieldItemOverrides[key] !== undefined) return fieldItemOverrides[key]
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId) return entry[key] === true
+    }
+    return false
+  }
+  readonly property bool showLayoutBadge: !fieldItemHidden("hideLayoutBadge")
+  readonly property bool showCapsBadge: !fieldItemHidden("hideCapsBadge")
+  readonly property bool allowPasswordToggle: !fieldItemHidden("hidePasswordToggle")
+  readonly property bool showAuthIcons: !fieldItemHidden("hideAuthIcons")
+
+  function setFieldItem(name, show) {
+    var key = fieldItems[String(name || "")]
+    if (!key) return false
+    var on = show === true || show === "true" || show === "on" || show === "show" || show === 1
+    var next = {}
+    for (var k in fieldItemOverrides) next[k] = fieldItemOverrides[k]
+    next[key] = !on
+    fieldItemOverrides = next
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (on) delete current[key]
+      else current[key] = true
+      writeEntry(current)
+    }
+    logEvent("field-" + name + "=" + (on ? "show" : "hide"))
+    return true
+  }
+
   // The lock screen's language: the system's (LANG, through Qt.locale()) when
   // Strings.js has it, English otherwise, or one picked in Settings. Saved on
   // the plugin entry as `language` only once it is picked.
@@ -3023,6 +3062,10 @@ echo "$out"
           uiScale: root.uiScale
           holdStill: root.motionReduced
           language: root.language
+          showLayoutBadge: root.showLayoutBadge
+          showCapsBadge: root.showCapsBadge
+          allowPasswordToggle: root.allowPasswordToggle
+          showAuthIcons: root.showAuthIcons
           onUnlockFinished: root.releaseLock()
           onPasswordTextEdited: function(password) { root.enteredPassword = password }
           onSubmitPassword: function(password) { root.submitPassword(password) }
@@ -3080,6 +3123,10 @@ echo "$out"
         uiScale: root.uiScale
         holdStill: root.motionReduced
         language: root.language
+        showLayoutBadge: root.showLayoutBadge
+        showCapsBadge: root.showCapsBadge
+        allowPasswordToggle: root.allowPasswordToggle
+        showAuthIcons: root.showAuthIcons
         batteryLow: root.batteryLow
         batteryPercent: root.batteryPercent
         // Hold the clip's last frame in the preview instead of snapping back
@@ -3621,6 +3668,10 @@ echo "$out"
       readonly property bool powerActions: root.powerActions
       readonly property bool awayReport: root.awayReport
       readonly property var favorites: root.favorites
+      readonly property bool showLayoutBadge: root.showLayoutBadge
+      readonly property bool showCapsBadge: root.showCapsBadge
+      readonly property bool allowPasswordToggle: root.allowPasswordToggle
+      readonly property bool showAuthIcons: root.showAuthIcons
       readonly property var shadowingDirs: root.shadowingDirs
       readonly property string doctorPath: root.doctorPath
       readonly property string wallpaperBlur: root.wallpaperBlur
@@ -3706,6 +3757,7 @@ echo "$out"
       function setPowerActions(value) { return root.setPowerActions(value) }
       function setAwayReport(value) { return root.setAwayReport(value) }
       function toggleFavorite(id) { return root.toggleFavorite(id) }
+      function setFieldItem(name, show) { return root.setFieldItem(name, show) }
       function installPackages(names) { return root.installPackages(names) }
       function runDoctor() { return root.runDoctor() }
       function moveCopies() { return root.moveCopies() }
@@ -3844,6 +3896,7 @@ echo "$out"
         batteryLow: root.batteryLow,
         uiScale: root.uiScale,
         language: root.language,
+        fieldItems: { layout: root.showLayoutBadge, caps: root.showCapsBadge, reveal: root.allowPasswordToggle, icons: root.showAuthIcons },
         languageSetting: root.languageSetting,
         keepDisplayOn: root.keepDisplayOn,
         displayBlankingSuppressed: root.displayBlankingSuppressed,
@@ -3936,6 +3989,16 @@ echo "$out"
 
     function setReduceMotion(value: string): string {
       return root.setReduceMotion(value) ? "ok" : "invalid-value"
+    }
+
+    function fieldItems(): string {
+      return "layout=" + (root.showLayoutBadge ? "show" : "hide") + " caps=" + (root.showCapsBadge ? "show" : "hide")
+        + " reveal=" + (root.allowPasswordToggle ? "show" : "hide") + " icons=" + (root.showAuthIcons ? "show" : "hide")
+    }
+
+    function setFieldItem(name: string, value: string): string {
+      if (["show", "hide", "on", "off"].indexOf(value) === -1) return "invalid-value"
+      return root.setFieldItem(name, value === "show" || value === "on") ? "ok" : "invalid-item"
     }
 
     function language(): string {

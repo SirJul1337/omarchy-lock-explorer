@@ -69,7 +69,11 @@ stock lock screen, see [Remove](#remove): Omarchy does not always switch its own
 omarchy-shell lock explore
 ```
 
-Arrows (or H J K L) to browse, Tab to go through Styling, Animation and Favorites, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, where the unlock animation is, and `B` the boot screen. `?` lists every key the explorer takes.
+Arrows (or H J K L) to browse, Tab to go through Styling, Animation and Favorites, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, and `B` the boot screen. `?` lists every key the explorer takes.
+
+Settings is one page in sections -- Unlock, Look, Password field, Screen and power, Sign-in and
+security, System -- with a line of help under every choice. It scrolls with the mouse wheel, the
+arrow keys, PageUp/PageDown and Home/End.
 
 `/` (or Ctrl+F, or a click on the field in the header) searches every design by name, description
 and tag, across Styling and Animation at once; Enter or Down goes back to the grid with the matches
@@ -270,6 +274,19 @@ screen were that much smaller and then drawn to fill it, so the clock, the passw
 messages and the avatar all grow together and nothing falls off the edge. Handy on a 4K panel at
 scale 1, or when the text is simply too small to read. By hand: `omarchy-shell lock setSize 125`.
 Both are saved on the plugin entry, as `reduceMotion` and `uiScale`.
+
+### Password field
+
+The Password field section of Settings chooses what the field shows next to what you type: the
+keyboard layout code, the CAPS warning, the eye button that shows the password, and the
+fingerprint, face and security key icons. Each is shown by default. Hiding the sign-in icons hides
+their buttons too; Tab still switches to the key and Enter on an empty field still starts face
+unlock. By hand: `omarchy-shell lock setFieldItem layout hide` (`caps`, `reveal`, `icons`; `show` to
+bring one back), and `omarchy-shell lock fieldItems` lists them. They are saved on the plugin entry
+as `hideLayoutBadge`, `hideCapsBadge`, `hidePasswordToggle` and `hideAuthIcons`, only while hidden.
+They apply to the designs that use the standard password field; a design that draws its own can
+read them as `lock.showLayoutBadge`, `lock.showCapsBadge`, `lock.allowPasswordToggle` and
+`lock.showAuthIcons`.
 
 ### Blank the display after
 

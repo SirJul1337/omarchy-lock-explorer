@@ -239,6 +239,16 @@ Item {
   readonly property bool faceConfigured: service && service.faceConfigured === true
   readonly property string faceStart: service && service.faceStart !== undefined ? String(service.faceStart) : "wake"
   readonly property var onOffOptions: [{ id: "on", name: "On" }, { id: "off", name: "Off" }]
+  readonly property var shownHiddenOptions: [{ id: "show", name: "Show" }, { id: "hide", name: "Hide" }]
+  // What the password field shows beside the text (Settings > Password field).
+  readonly property bool showLayoutBadge: !service || service.showLayoutBadge !== false
+  readonly property bool showCapsBadge: !service || service.showCapsBadge !== false
+  readonly property bool allowPasswordToggle: !service || service.allowPasswordToggle !== false
+  readonly property bool showAuthIcons: !service || service.showAuthIcons !== false
+  function setFieldItem(name, show) {
+    if (!root.service || typeof root.service.setFieldItem !== "function") return
+    root.service.setFieldItem(name, show)
+  }
   property bool customDelayEditing: false
   property string customDelayText: ""
   readonly property bool blankDelayIsCustom: !root.keepDisplayOn && root.blankPresets.indexOf(root.blankDelay) === -1
@@ -1225,6 +1235,10 @@ Item {
         uiScale: root.uiScale
         holdStill: root.motionReduced
         language: root.lockLanguage
+        showLayoutBadge: root.showLayoutBadge
+        showCapsBadge: root.showCapsBadge
+        allowPasswordToggle: root.allowPasswordToggle
+        showAuthIcons: root.showAuthIcons
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         avatarPath: root.service ? root.service.avatarPath : ""
@@ -1286,6 +1300,24 @@ Item {
           root.focusSearch()
           event.accepted = true
           return
+        }
+        // The settings pages scroll from the keyboard as well as the wheel.
+        if (!root.gridTab && root.mainTab === "settings") {
+          var page = settingsFlick.height * 0.85
+          var bottom = Math.max(0, settingsFlick.contentHeight - settingsFlick.height)
+          var y = settingsFlick.contentY
+          if (event.key === Qt.Key_Down || event.key === Qt.Key_J) y += Style.space(60)
+          else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) y -= Style.space(60)
+          else if (event.key === Qt.Key_PageDown || event.key === Qt.Key_Space) y += page
+          else if (event.key === Qt.Key_PageUp) y -= page
+          else if (event.key === Qt.Key_Home) y = 0
+          else if (event.key === Qt.Key_End) y = bottom
+          else y = -1
+          if (y !== -1) {
+            settingsFlick.contentY = Math.max(0, Math.min(bottom, y))
+            event.accepted = true
+            return
+          }
         }
         if (!root.gridTab) {
           if (event.key === Qt.Key_U) { root.toggleSettings("settings"); event.accepted = true }
@@ -1409,7 +1441,7 @@ Item {
           Text {
             text: {
               if (root.wallpaperBroken) return "Wallpaper failed to load" + (root.wallpaperIsWebp ? " — WebP needs:  sudo pacman -S qt6-imageformats  (then omarchy restart shell)" : "")
-              if (root.mainTab === "settings") return "Unlock transition, avatar and sign-in monitor"
+              if (root.mainTab === "settings") return "How the lock screen looks, unlocks and looks after itself"
               if (root.mainTab === "boot") return "The disk-passphrase screen at first boot · a broken theme falls back to a plain text prompt"
               if (root.mainTab === "animation" && root.multimediaMissing)
                 return "Video designs need qt6-multimedia · Settings (U) installs it"
@@ -1643,9 +1675,10 @@ Item {
           anchors.rightMargin: root.mainTab === "editor" ? Style.space(40) : root.rightPanelW + Style.space(40)
           // Sized against the card (footer is not a sibling, so no anchor),
           // clipped and scrollable so tall content never draws over the nav.
-          height: card.height - root.headerHeight - root.footerHeight - Style.space(44)
+          height: card.height - root.headerHeight - root.footerHeight - Style.space(80)
 
           Flickable {
+            id: settingsFlick
             anchors.fill: parent
             clip: true
             contentWidth: width
@@ -1659,1057 +1692,495 @@ Item {
             spacing: Style.space(14)
 
             Column {
-              width: parent.width
+              width: Math.min(parent.width, Style.space(900))
               visible: root.mainTab === "settings"
-              spacing: Style.space(10)
+              spacing: Style.space(18)
 
-              // Health: what is missing, with the fix a click away. The full
-              // check is extras/doctor.sh, which also runs without the shell.
-              Column {
-                width: parent.width
-                spacing: Style.space(6)
+              // Health: only when something is missing, with the fix a click
+              // away. The full check is extras/doctor.sh, under System.
+              SettingSection {
+                explorer: root
+                visible: root.healthIssues.length > 0
+                title: "Health"
+                description: "Something here keeps part of the plugin from working."
 
-                Repeater {
-                  model: root.healthIssues
-                  Rectangle {
-                    id: issueRow
-                    required property var modelData
-                    width: Math.min(parent.width, Style.space(720))
-                    height: issueLine.implicitHeight + Style.space(16)
-                    radius: root.cornerRadius
-                    color: Qt.rgba(root.danger.r, root.danger.g, root.danger.b, 0.12)
-                    border.width: 1
-                    border.color: Qt.rgba(root.danger.r, root.danger.g, root.danger.b, 0.45)
+                Column {
+                  width: parent.width
+                  spacing: Style.space(8)
 
-                    Text {
-                      id: issueLine
-                      anchors.left: parent.left
-                      anchors.right: installButton.visible ? installButton.left : parent.right
-                      anchors.leftMargin: Style.space(12)
-                      anchors.rightMargin: Style.space(12)
-                      anchors.verticalCenter: parent.verticalCenter
-                      text: issueRow.modelData.text
-                      textFormat: Text.PlainText
-                      wrapMode: Text.WordWrap
-                      color: root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                    }
-
+                  Repeater {
+                    model: root.healthIssues
                     Rectangle {
-                      id: installButton
-                      visible: issueRow.modelData.packages.length > 0 || !!issueRow.modelData.fix
-                      anchors.right: parent.right
-                      anchors.rightMargin: Style.space(8)
-                      anchors.verticalCenter: parent.verticalCenter
-                      width: installLabel.implicitWidth + Style.space(18)
-                      height: Style.space(26)
+                      id: issueRow
+                      required property var modelData
+                      width: parent.width
+                      height: issueLine.implicitHeight + Style.space(22)
                       radius: root.cornerRadius
-                      color: installArea.containsMouse ? Qt.lighter(root.accent, 1.15) : root.accent
+                      color: Qt.rgba(root.danger.r, root.danger.g, root.danger.b, 0.12)
+                      border.width: 1
+                      border.color: Qt.rgba(root.danger.r, root.danger.g, root.danger.b, 0.45)
+
                       Text {
-                        id: installLabel
-                        anchors.centerIn: parent
-                        text: issueRow.modelData.fix === "copies" ? (root.movingCopies ? "Moving…" : "Move it out") : "Install"
-                        color: Color.background
+                        id: issueLine
+                        anchors.left: parent.left
+                        anchors.right: installButton.visible ? installButton.left : parent.right
+                        anchors.leftMargin: Style.space(14)
+                        anchors.rightMargin: Style.space(14)
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: issueRow.modelData.text
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        color: root.foreground
                         font.family: root.fontFamily
-                        font.pixelSize: Style.font.caption
-                        font.weight: Font.DemiBold
+                        font.pixelSize: Style.font.bodySmall
                       }
-                      MouseArea {
-                        id: installArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                          if (issueRow.modelData.fix === "copies") root.moveCopies()
-                          else root.installPackages(issueRow.modelData.packages)
+
+                      Rectangle {
+                        id: installButton
+                        visible: issueRow.modelData.packages.length > 0 || !!issueRow.modelData.fix
+                        anchors.right: parent.right
+                        anchors.rightMargin: Style.space(10)
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: installLabel.implicitWidth + Style.space(26)
+                        height: Style.space(34)
+                        radius: root.cornerRadius
+                        color: installArea.containsMouse ? Qt.lighter(root.accent, 1.15) : root.accent
+                        Text {
+                          id: installLabel
+                          anchors.centerIn: parent
+                          text: issueRow.modelData.fix === "copies" ? (root.movingCopies ? "Moving…" : "Move it out") : "Install"
+                          color: Color.background
+                          font.family: root.fontFamily
+                          font.pixelSize: Style.font.bodySmall
+                          font.weight: Font.DemiBold
+                        }
+                        MouseArea {
+                          id: installArea
+                          anchors.fill: parent
+                          hoverEnabled: true
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: {
+                            if (issueRow.modelData.fix === "copies") root.moveCopies()
+                            else root.installPackages(issueRow.modelData.packages)
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+
+              SettingSection {
+                explorer: root
+                title: "Unlock"
+                description: "What happens once the password is right."
+
+                // The animation the lock screen leaves with.
+                SettingRow {
+                  explorer: root
+                  label: "Animation"
+                  help: root.unlockAnimation === "none" ? "" : "The lock screen stays up while it plays."
+
+                  Column {
+                    width: parent.width
+                    spacing: Style.space(2)
+                    Repeater {
+                      model: root.unlockOptions
+                      Rectangle {
+                        id: unlockOptionRow
+                        required property var modelData
+                        readonly property bool current: modelData.id === root.unlockAnimation
+                        width: Math.min(parent.width, Style.space(460))
+                        height: Style.space(50)
+                        radius: root.cornerRadius
+                        color: current ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
+                                       : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, unlockOptionArea.containsMouse ? 0.07 : 0.0)
+                        Behavior on color { ColorAnimation { duration: 100 } }
+
+                        Rectangle {
+                          id: unlockOptionRadio
+                          anchors.verticalCenter: parent.verticalCenter
+                          anchors.left: parent.left
+                          anchors.leftMargin: Style.space(12)
+                          width: Style.space(18)
+                          height: Style.space(18)
+                          radius: width / 2
+                          color: "transparent"
+                          border.width: Math.max(1, Style.space(2))
+                          border.color: unlockOptionRow.current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.4)
+
+                          Rectangle {
+                            anchors.centerIn: parent
+                            width: Style.space(9)
+                            height: Style.space(9)
+                            radius: width / 2
+                            color: root.accent
+                            visible: unlockOptionRow.current
+                          }
+                        }
+
+                        Column {
+                          anchors.verticalCenter: parent.verticalCenter
+                          anchors.left: unlockOptionRadio.right
+                          anchors.leftMargin: Style.space(12)
+                          spacing: 2
+
+                          Text {
+                            text: unlockOptionRow.modelData.name
+                            color: root.foreground
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.body
+                            font.weight: unlockOptionRow.current ? Font.DemiBold : Font.Normal
+                          }
+
+                          Text {
+                            text: unlockOptionRow.modelData.hint
+                            color: root.muted
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.bodySmall
+                          }
+                        }
+
+                        MouseArea {
+                          id: unlockOptionArea
+                          anchors.fill: parent
+                          hoverEnabled: true
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: root.setUnlock(unlockOptionRow.modelData.id)
                         }
                       }
                     }
                   }
                 }
 
-                Row {
-                  spacing: Style.space(8)
+                SettingRow {
+                  explorer: root
+                  visible: root.unlockAnimation !== "none"
+                  label: "Length"
+                  options: root.unlockDurations.map(function(ms) { return { id: ms, name: (ms / 1000).toFixed(1) + "s" } })
+                  current: root.unlockDuration
+                  onPicked: function(id) { root.setUnlockDuration(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: "Clip speed"
+                  help: "How fast the clip designs and the unlock clip play."
+                  options: root.clipSpeeds.map(function(v) { return { id: v, name: v + "x" } })
+                  current: {
+                    for (var i = 0; i < root.clipSpeeds.length; i++)
+                      if (Math.abs(root.clipSpeeds[i] - root.clipSpeed) < 0.01) return root.clipSpeeds[i]
+                    return undefined
+                  }
+                  onPicked: function(id) { root.setClipSpeed(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: "Video ends as wallpaper"
+                  help: root.clipWallpaper
+                        ? "The desktop opens on the frame the clip stopped on, set with omarchy-theme-bg-set."
+                        : "The desktop keeps its own wallpaper after a clip."
+                  options: root.onOffOptions
+                  current: root.clipWallpaper ? "on" : "off"
+                  onPicked: function(id) { if ((id === "on") !== root.clipWallpaper) root.toggleClipWallpaper() }
+                }
+              }
+
+              SettingSection {
+                explorer: root
+                title: "Look"
+                description: "How every design is drawn. The preview on the right follows along."
+
+                SettingRow {
+                  explorer: root
+                  label: "Clock"
+                  options: root.clockFormats
+                  current: root.twelveHour ? "12" : "24"
+                  onPicked: function(id) { root.setTwelveHour(id === "12") }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: "Language"
+                  help: "The lock screen's prompts, messages and dates. The explorer itself stays in English."
+                  options: root.languageChoices
+                  current: root.languageSetting
+                  onPicked: function(id) { root.setLanguage(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: "Wallpaper blur"
+                  options: root.wallpaperBlurChoices
+                  current: root.wallpaperBlur
+                  onPicked: function(id) { root.setWallpaperBlur(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: "Wallpaper dim"
+                  help: root.wallpaperBlur === "design" && root.wallpaperDim === "design"
+                        ? "Each design blurs and darkens the wallpaper its own way."
+                        : "Designs drawn over a solid color or their own art are not affected."
+                  options: root.wallpaperDimChoices
+                  current: root.wallpaperDim
+                  onPicked: function(id) { root.setWallpaperDim(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: "Size"
+                  help: "Draws the whole lock screen larger, so text, field and avatar grow together."
+                  options: root.uiScaleChoices
+                  current: root.uiScale
+                  onPicked: function(id) { root.setUiScale(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: "Reduce motion"
+                  help: root.reduceMotion === "off"
+                        ? "Animated designs move as they were made to."
+                        : "Designs hold still, changing only for what you type, a wrong password or the minute."
+                          + (root.reduceMotion === "battery" ? (root.motionReduced ? " On battery now." : " Moving now: on mains power.") : "")
+                  options: root.reduceMotionChoices
+                  current: root.reduceMotion
+                  onPicked: function(id) { root.setReduceMotion(id) }
+                }
+              }
+
+              SettingSection {
+                explorer: root
+                title: "Password field"
+                description: "What the field shows next to what you type, in the designs that use it."
+
+                SettingRow {
+                  explorer: root
+                  label: "Keyboard layout"
+                  help: "The layout code, such as DK or DE, shown when it is not US or when you have more than one. Click it to switch."
+                  options: root.shownHiddenOptions
+                  current: root.showLayoutBadge ? "show" : "hide"
+                  onPicked: function(id) { root.setFieldItem("layout", id === "show") }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: "Caps lock warning"
+                  help: "A CAPS badge while caps lock is on."
+                  options: root.shownHiddenOptions
+                  current: root.showCapsBadge ? "show" : "hide"
+                  onPicked: function(id) { root.setFieldItem("caps", id === "show") }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: "Show password button"
+                  help: "The eye that shows what you typed. Ctrl+E does the same either way."
+                  options: root.shownHiddenOptions
+                  current: root.allowPasswordToggle ? "show" : "hide"
+                  onPicked: function(id) { root.setFieldItem("reveal", id === "show") }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: "Sign-in icons"
+                  help: "The fingerprint, face and security key icons. Without them Tab still switches to the key and Enter on an empty field still starts face unlock."
+                  options: root.shownHiddenOptions
+                  current: root.showAuthIcons ? "show" : "hide"
+                  onPicked: function(id) { root.setFieldItem("icons", id === "show") }
+                }
+              }
+
+              SettingSection {
+                explorer: root
+                title: "Screen and power"
+                description: "How long the lock screen stays lit, and what it can do besides take a password."
+
+                // Never keeps it powered for the whole lock: video designs keep
+                // playing and slow monitors are never re-blanked mid-wake.
+                SettingRow {
+                  explorer: root
+                  label: "Blank the display after"
+                  help: root.keepDisplayOn
+                        ? "The lock screen stays lit for the whole lock: video designs keep playing."
+                        : "The lock screen stays lit, then the display powers down."
+                  options: [
+                    { id: 5000, name: "5s" }, { id: 15000, name: "15s" }, { id: 30000, name: "30s" },
+                    { id: 60000, name: "1m" }, { id: 300000, name: "5m" },
+                    { id: -1, name: root.blankDelayIsCustom ? "Custom (" + Math.round(root.blankDelay / 60000) + "m)" : "Custom" },
+                    { id: 0, name: "Never" }
+                  ]
+                  current: root.keepDisplayOn ? 0 : (root.blankDelayIsCustom ? -1 : root.blankDelay)
+                  onPicked: function(id) {
+                    if (id === -1) root.beginCustomDelay()
+                    else root.setBlankAfter(id)
+                  }
+
                   Rectangle {
-                    width: doctorLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
+                    visible: root.customDelayEditing
+                    width: Style.space(150)
+                    height: visible ? Style.space(34) : 0
                     radius: root.cornerRadius
-                    color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, doctorArea.containsMouse ? 0.12 : 0.06)
+                    color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06)
+                    border.width: Math.max(1, Style.space(2))
+                    border.color: root.accent
+
+                    // The unit hint lives inside the box, right-aligned, and the
+                    // input reserves its width so typed digits never run under it.
+                    Text {
+                      anchors.verticalCenter: parent.verticalCenter
+                      anchors.right: parent.right
+                      anchors.rightMargin: Style.space(10)
+                      text: "min, Enter"
+                      color: root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                    }
+
+                    TextInput {
+                      id: customDelayInput
+                      anchors.fill: parent
+                      anchors.leftMargin: Style.space(10)
+                      anchors.rightMargin: Style.space(80)
+                      verticalAlignment: TextInput.AlignVCenter
+                      color: root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                      text: root.customDelayText
+                      onTextEdited: root.customDelayText = text
+                      focus: root.customDelayEditing
+                      validator: IntValidator { bottom: 1; top: 60 }
+
+                      Keys.onEscapePressed: {
+                        root.customDelayEditing = false
+                        keyCatcher.forceActiveFocus()
+                      }
+                      Keys.onReturnPressed: root.commitCustomDelay()
+                    }
+                  }
+                }
+
+                // A key pressed into a blanked screen only wakes it. Nothing
+                // says when a panel is lit again, so this is how long the field
+                // keeps ignoring keys after the wake has run.
+                SettingRow {
+                  explorer: root
+                  visible: !root.keepDisplayOn
+                  label: "Ignore keys after waking"
+                  help: root.wakeGrace === 0
+                        ? "Only the keys pressed before the screen wakes are dropped."
+                        : "Keys keep waking the screen without typing until the panel has had "
+                          + (root.wakeGrace % 1000 === 0 ? root.wakeGrace / 1000 + "s" : root.wakeGrace + "ms") + " to light up."
+                  options: [{ id: 0, name: "Off" }, { id: 500, name: "0.5s" }, { id: 1000, name: "1s" }, { id: 2000, name: "2s" }]
+                  current: root.wakeGrace
+                  onPicked: function(id) { root.setWakeGrace(id) }
+                }
+
+                // Off by default: with it on, anyone at the machine can restart
+                // it without knowing the password.
+                SettingRow {
+                  explorer: root
+                  label: "Power buttons"
+                  help: root.powerActions
+                        ? "Sleep, restart and shut down sit in the corner. Each asks once more before it happens."
+                        : "The lock screen takes a password and nothing else."
+                  options: root.onOffOptions
+                  current: root.powerActions ? "on" : "off"
+                  onPicked: function(id) { root.setPowerActions(id === "on") }
+                }
+              }
+
+              SettingSection {
+                explorer: root
+                title: "Sign-in and security"
+
+                // Face unlock can look the moment the lock comes up, which
+                // recognises whoever locked the screen and lets them straight
+                // back in. Only shown when a face is enrolled.
+                SettingRow {
+                  explorer: root
+                  visible: root.faceConfigured
+                  label: "Face unlock starts"
+                  help: root.faceStart === "always"
+                        ? "The camera looks as soon as the screen locks. Locking while you sit in front of it can unlock it again."
+                        : root.faceStart === "off"
+                          ? "The camera only looks when you press Enter on an empty field or click the face button."
+                          : "The camera looks when the display wakes, or when you come back to a screen that stayed lit, and on Enter or the face button. It never looks at a blanked screen."
+                  options: [{ id: "wake", name: "On wake" }, { id: "always", name: "Always" }, { id: "off", name: "On request" }]
+                  current: root.faceStart
+                  onPicked: function(id) { root.setFaceStart(id) }
+                }
+
+                // Only once /etc/pam.d/omarchy-lock-fido2 is in place; off sends
+                // the lock screen back to the password without touching PAM, so
+                // the key still works everywhere else.
+                SettingRow {
+                  explorer: root
+                  visible: root.fido2Installed
+                  label: "Security key"
+                  help: "Off sends the lock screen back to the password; the key still works for sudo and the rest."
+                  options: root.fido2Options
+                  current: root.fido2Enabled ? "on" : "off"
+                  onPicked: function(id) { root.setFido2Enabled(id === "on") }
+                }
+
+                // Mistakes on your own way in are left out.
+                SettingRow {
+                  explorer: root
+                  label: "Report failed attempts"
+                  help: root.awayReport
+                        ? "After you unlock, a notification says if somebody got it wrong while you were away."
+                        : "Failed attempts are not reported."
+                  options: root.onOffOptions
+                  current: root.awayReport ? "on" : "off"
+                  onPicked: function(id) { root.setAwayReport(id === "on") }
+                }
+              }
+
+              SettingSection {
+                explorer: root
+                title: "System"
+
+                // An entry in the app launcher and under Style in the Omarchy
+                // menu. A plugin cannot add those on install, so it is a choice.
+                SettingRow {
+                  explorer: root
+                  label: "Omarchy menu"
+                  help: "An entry in the app launcher and under Style in the Omarchy menu."
+                  options: root.menuEntryOptions
+                  current: root.menuEntryInstalled ? "on" : "off"
+                  onPicked: function(id) { root.setMenuEntry(id === "on") }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: "Check this install"
+                  help: root.healthIssues.length === 0
+                        ? "Nothing missing that the explorer can see. The full check opens in a terminal, with a fix for anything it finds."
+                        : "Opens a terminal with every check and its fix."
+
+                  Rectangle {
+                    width: doctorLabel.implicitWidth + Style.space(26)
+                    height: Style.space(34)
+                    radius: root.cornerRadius
+                    color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, doctorArea.containsMouse ? 0.13 : 0.06)
+                    border.width: 1
+                    border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.10)
                     Text {
                       id: doctorLabel
                       anchors.centerIn: parent
-                      text: "Check this install"
+                      text: "Run the check"
                       color: root.foreground
                       font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
+                      font.pixelSize: Style.font.bodySmall
                     }
                     MouseArea {
                       id: doctorArea
                       anchors.fill: parent
                       hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
                       onClicked: root.runDoctor()
-                    }
-                  }
-                  Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: root.healthIssues.length === 0 ? "Nothing missing that the explorer can see." : "Opens a terminal with every check and its fix."
-                    color: root.muted
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                  }
-                }
-              }
-
-              Column {
-                spacing: Style.space(2)
-                Repeater {
-                  model: root.unlockOptions
-                  Rectangle {
-                    id: unlockOptionRow
-                    required property var modelData
-                    readonly property bool current: modelData.id === root.unlockAnimation
-                    width: Style.space(400)
-                    height: Style.space(42)
-                    radius: root.cornerRadius
-                    color: current ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
-                                   : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, unlockOptionArea.containsMouse ? 0.07 : 0.0)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Rectangle {
-                      id: unlockOptionRadio
-                      anchors.verticalCenter: parent.verticalCenter
-                      anchors.left: parent.left
-                      anchors.leftMargin: Style.space(10)
-                      width: Style.space(16)
-                      height: Style.space(16)
-                      radius: width / 2
-                      color: "transparent"
-                      border.width: Math.max(1, Style.space(2))
-                      border.color: unlockOptionRow.current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.4)
-
-                      Rectangle {
-                        anchors.centerIn: parent
-                        width: Style.space(8)
-                        height: Style.space(8)
-                        radius: width / 2
-                        color: root.accent
-                        visible: unlockOptionRow.current
-                      }
-                    }
-
-                    Column {
-                      anchors.verticalCenter: parent.verticalCenter
-                      anchors.left: unlockOptionRadio.right
-                      anchors.leftMargin: Style.space(10)
-                      spacing: 1
-
-                      Text {
-                        text: unlockOptionRow.modelData.name
-                        color: root.foreground
-                        font.family: root.fontFamily
-                        font.pixelSize: Style.font.bodySmall
-                        font.weight: unlockOptionRow.current ? Font.DemiBold : Font.Normal
-                      }
-
-                      Text {
-                        text: unlockOptionRow.modelData.hint
-                        color: root.muted
-                        font.family: root.fontFamily
-                        font.pixelSize: Style.font.caption
-                      }
-                    }
-
-                    MouseArea {
-                      id: unlockOptionArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setUnlock(unlockOptionRow.modelData.id)
-                    }
-                  }
-                }
-              }
-
-              Row {
-                visible: root.unlockAnimation !== "none"
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Length"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.unlockDurations
-                  Rectangle {
-                    id: speed
-                    required property int modelData
-                    readonly property bool current: modelData === root.unlockDuration
-                    width: speedLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, speedArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: speedLabel
-                      anchors.centerIn: parent
-                      text: (speed.modelData / 1000).toFixed(1) + "s"
-                      color: speed.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: speed.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: speedArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setUnlockDuration(speed.modelData)
-                    }
-                  }
-                }
-              }
-
-              Text {
-                text: "The lock screen stays up while it plays."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // Clip designs land on their own last frame as the wallpaper.
-              Rectangle {
-                width: clipWallRow.implicitWidth + Style.space(8)
-                height: Style.space(30)
-                color: "transparent"
-
-                Row {
-                  id: clipWallRow
-                  anchors.verticalCenter: parent.verticalCenter
-                  spacing: Style.space(8)
-
-                  Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Style.space(18)
-                    height: Style.space(18)
-                    radius: root.cornerRadius
-                    color: root.clipWallpaper ? root.accent : "transparent"
-                    border.width: Math.max(1, Style.space(2))
-                    border.color: root.clipWallpaper ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.4)
-
-                    Text {
-                      anchors.centerIn: parent
-                      visible: root.clipWallpaper
-                      text: "✓"
-                      color: Color.background
-                      font.pixelSize: Style.font.caption
-                      font.weight: Font.Bold
-                    }
-                  }
-
-                  Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Unlock video ends as your wallpaper"
-                    color: root.foreground
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                  }
-                }
-
-                MouseArea {
-                  anchors.fill: parent
-                  anchors.margins: -Style.space(4)
-                  onClicked: root.toggleClipWallpaper()
-                }
-              }
-
-              Text {
-                text: "The desktop opens on the frame the clip stopped on, set with omarchy-theme-bg-set."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // How long the lock screen stays lit before the display blanks.
-              // Never keeps it powered for the whole lock: video designs keep
-              // playing and slow monitors are never re-blanked mid-wake.
-              Row {
-                visible: true
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Blank the display after"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: [
-                    { ms: 5000, name: "5s" },
-                    { ms: 15000, name: "15s" },
-                    { ms: 30000, name: "30s" },
-                    { ms: 60000, name: "1m" },
-                    { ms: 300000, name: "5m" },
-                    { ms: -1, name: "Custom" },
-                    { ms: 0, name: "Never" }
-                  ]
-                  Rectangle {
-                    id: blankChip
-                    required property var modelData
-                    readonly property bool current: modelData.ms === 0 ? root.keepDisplayOn
-                                                                       : modelData.ms === -1 ? root.blankDelayIsCustom
-                                                                       : (!root.keepDisplayOn && root.blankDelay === modelData.ms)
-                    width: blankChipLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, blankChipArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: blankChipLabel
-                      anchors.centerIn: parent
-                      text: blankChip.modelData.ms === -1 && root.blankDelayIsCustom
-                            ? "Custom (" + Math.round(root.blankDelay / 60000) + "m)"
-                            : blankChip.modelData.name
-                      color: blankChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: blankChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: blankChipArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: {
-                        if (blankChip.modelData.ms === -1) root.beginCustomDelay()
-                        else root.setBlankAfter(blankChip.modelData.ms)
-                      }
-                    }
-                  }
-                }
-
-                Rectangle {
-                  visible: root.customDelayEditing
-                  width: Style.space(110)
-                  height: Style.space(26)
-                  radius: root.cornerRadius
-                  color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06)
-                  border.width: Math.max(1, Style.space(2))
-                  border.color: root.accent
-
-                  // The unit hint lives inside the box, right-aligned, and the
-                  // input reserves its width so typed digits never run under it.
-                  Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.right: parent.right
-                    anchors.rightMargin: Style.space(8)
-                    text: "m, Enter"
-                    color: root.muted
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                  }
-
-                  TextInput {
-                    id: customDelayInput
-                    anchors.fill: parent
-                    anchors.leftMargin: Style.space(8)
-                    anchors.rightMargin: Style.space(52)
-                    verticalAlignment: TextInput.AlignVCenter
-                    color: root.foreground
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                    text: root.customDelayText
-                    onTextEdited: root.customDelayText = text
-                    focus: root.customDelayEditing
-                    validator: IntValidator { bottom: 1; top: 60 }
-
-                    Keys.onEscapePressed: {
-                      root.customDelayEditing = false
-                      keyCatcher.forceActiveFocus()
-                    }
-                    Keys.onReturnPressed: root.commitCustomDelay()
-                  }
-                }
-              }
-
-              Text {
-                text: root.keepDisplayOn
-                      ? "The lock screen stays lit for the whole lock: video designs keep playing."
-                      : "The lock screen stays lit, then the display powers down."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // A key pressed into a blanked screen only wakes it. Nothing
-              // says when a panel is lit again, so this is how long the field
-              // keeps ignoring keys after the wake has run.
-              Row {
-                visible: !root.keepDisplayOn
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Ignore keys after waking for"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: [
-                    { ms: 0, name: "Off" },
-                    { ms: 500, name: "0.5s" },
-                    { ms: 1000, name: "1s" },
-                    { ms: 2000, name: "2s" }
-                  ]
-                  Rectangle {
-                    id: graceChip
-                    required property var modelData
-                    readonly property bool current: root.wakeGrace === modelData.ms
-                    width: graceChipLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, graceChipArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: graceChipLabel
-                      anchors.centerIn: parent
-                      text: graceChip.modelData.name
-                      color: graceChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: graceChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: graceChipArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setWakeGrace(graceChip.modelData.ms)
-                    }
-                  }
-                }
-              }
-
-              Text {
-                visible: !root.keepDisplayOn
-                text: root.wakeGrace === 0
-                      ? "Only the keys pressed before the screen wakes are dropped."
-                      : "Keys keep waking the screen without typing until the panel has had "
-                        + (root.wakeGrace % 1000 === 0 ? root.wakeGrace / 1000 + "s" : root.wakeGrace + "ms") + " to light up."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // Face unlock can look the moment the lock comes up, which
-              // recognises whoever locked the screen and lets them straight
-              // back in. Only shown when a face is enrolled.
-              Row {
-                visible: root.faceConfigured
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Face unlock starts"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: [
-                    { id: "wake", name: "On wake" },
-                    { id: "always", name: "Always" },
-                    { id: "off", name: "On request" }
-                  ]
-                  Rectangle {
-                    id: faceChip
-                    required property var modelData
-                    readonly property bool current: root.faceStart === modelData.id
-                    width: faceChipLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, faceChipArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: faceChipLabel
-                      anchors.centerIn: parent
-                      text: faceChip.modelData.name
-                      color: faceChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: faceChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: faceChipArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setFaceStart(faceChip.modelData.id)
-                    }
-                  }
-                }
-              }
-
-              Text {
-                visible: root.faceConfigured
-                width: parent.width
-                wrapMode: Text.WordWrap
-                text: root.faceStart === "always"
-                      ? "The camera looks as soon as the screen locks. Locking while you sit in front of it can unlock it again."
-                      : root.faceStart === "off"
-                        ? "The camera only looks when you press Enter on an empty field or click the face button."
-                        : "The camera looks when the display wakes, or when you come back to a screen that stayed lit, and on Enter or the face button. It never looks at a blanked screen."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // Playback rate for the clip designs and the separate unlock clip.
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Clip speed"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.clipSpeeds
-                  Rectangle {
-                    id: clipSpeedChip
-                    required property real modelData
-                    readonly property bool current: Math.abs(modelData - root.clipSpeed) < 0.01
-                    width: clipSpeedLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, clipSpeedArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: clipSpeedLabel
-                      anchors.centerIn: parent
-                      text: clipSpeedChip.modelData + "x"
-                      color: clipSpeedChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: clipSpeedChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: clipSpeedArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setClipSpeed(clipSpeedChip.modelData)
-                    }
-                  }
-                }
-              }
-
-              // 24-hour or 12-hour AM/PM, for the clock in every design. The
-              // preview on the right redraws as you press it.
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Clock"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.clockFormats
-                  Rectangle {
-                    id: clockFormatChip
-                    required property var modelData
-                    readonly property bool current: (modelData.id === "12") === root.twelveHour
-                    width: clockFormatLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, clockFormatArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: clockFormatLabel
-                      anchors.centerIn: parent
-                      text: clockFormatChip.modelData.name
-                      color: clockFormatChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: clockFormatChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: clockFormatArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setTwelveHour(clockFormatChip.modelData.id === "12")
-                    }
-                  }
-                }
-              }
-
-              // The wallpaper behind every design that shows one: blur in
-              // place of the design's own, dim moved up or down from it.
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Wallpaper blur"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.wallpaperBlurChoices
-                  Rectangle {
-                    id: wallBlurChip
-                    required property var modelData
-                    readonly property bool current: modelData.id === root.wallpaperBlur
-                    width: wallBlurLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, wallBlurArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: wallBlurLabel
-                      anchors.centerIn: parent
-                      text: wallBlurChip.modelData.name
-                      color: wallBlurChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: wallBlurChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: wallBlurArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setWallpaperBlur(wallBlurChip.modelData.id)
-                    }
-                  }
-                }
-              }
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Wallpaper dim"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.wallpaperDimChoices
-                  Rectangle {
-                    id: wallDimChip
-                    required property var modelData
-                    readonly property bool current: modelData.id === root.wallpaperDim
-                    width: wallDimLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, wallDimArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: wallDimLabel
-                      anchors.centerIn: parent
-                      text: wallDimChip.modelData.name
-                      color: wallDimChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: wallDimChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: wallDimArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setWallpaperDim(wallDimChip.modelData.id)
-                    }
-                  }
-                }
-              }
-
-              Text {
-                text: root.wallpaperBlur === "design" && root.wallpaperDim === "design"
-                      ? "Each design blurs and darkens the wallpaper its own way."
-                      : "Designs drawn over a solid color or their own art are not affected."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // The lock screen's own text and dates. System follows LANG
-              // when Strings.js has that language, English otherwise.
-              Flow {
-                width: Math.min(parent.width, Style.space(760))
-                spacing: Style.space(6)
-
-                Text {
-                  height: Style.space(26)
-                  verticalAlignment: Text.AlignVCenter
-                  text: "Language"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.languageChoices
-                  Rectangle {
-                    id: langChip
-                    required property var modelData
-                    readonly property bool current: modelData.id === root.languageSetting
-                    width: langLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, langArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: langLabel
-                      anchors.centerIn: parent
-                      text: langChip.modelData.name
-                      color: langChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: langChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: langArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setLanguage(langChip.modelData.id)
-                    }
-                  }
-                }
-              }
-
-              Text {
-                text: "The lock screen's prompts, messages and dates. The explorer itself stays in English."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // Reduce motion holds every design still; Size draws the whole
-              // lock screen larger. Both apply to every design, previews too.
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Reduce motion"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.reduceMotionChoices
-                  Rectangle {
-                    id: motionChip
-                    required property var modelData
-                    readonly property bool current: modelData.id === root.reduceMotion
-                    width: motionLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, motionArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: motionLabel
-                      anchors.centerIn: parent
-                      text: motionChip.modelData.name
-                      color: motionChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: motionChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: motionArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setReduceMotion(motionChip.modelData.id)
-                    }
-                  }
-                }
-              }
-
-              Text {
-                width: Math.min(parent.width, Style.space(720))
-                wrapMode: Text.WordWrap
-                text: root.reduceMotion === "off"
-                      ? "Animated designs move as they were made to."
-                      : "Designs hold still, changing only for what you type, a wrong password or the minute."
-                      + (root.reduceMotion === "battery" ? (root.motionReduced ? " On battery now." : " Moving now: on mains power.") : "")
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Size"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.uiScaleChoices
-                  Rectangle {
-                    id: scaleChip
-                    required property var modelData
-                    readonly property bool current: modelData.id === root.uiScale
-                    width: scaleLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, scaleArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: scaleLabel
-                      anchors.centerIn: parent
-                      text: scaleChip.modelData.name
-                      color: scaleChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: scaleChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: scaleArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setUiScale(scaleChip.modelData.id)
-                    }
-                  }
-                }
-              }
-
-              // An entry in the app launcher and under Style in the Omarchy
-              // menu. A plugin cannot add those on install, so it is a choice.
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Omarchy menu"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.menuEntryOptions
-                  Rectangle {
-                    id: menuEntryChip
-                    required property var modelData
-                    readonly property bool current: (modelData.id === "on") === root.menuEntryInstalled
-                    width: menuEntryLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, menuEntryArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: menuEntryLabel
-                      anchors.centerIn: parent
-                      text: menuEntryChip.modelData.name
-                      color: menuEntryChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: menuEntryChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: menuEntryArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setMenuEntry(menuEntryChip.modelData.id === "on")
-                    }
-                  }
-                }
-              }
-
-              // Sleep, restart and shut down in the corner of the lock
-              // screen. Off by default: with it on, anyone at the machine can
-              // restart it without knowing the password.
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Power buttons"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.onOffOptions
-                  Rectangle {
-                    id: powerChip
-                    required property var modelData
-                    readonly property bool current: (modelData.id === "on") === root.powerActions
-                    width: powerChipLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, powerChipArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: powerChipLabel
-                      anchors.centerIn: parent
-                      text: powerChip.modelData.name
-                      color: powerChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: powerChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: powerChipArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setPowerActions(powerChip.modelData.id === "on")
-                    }
-                  }
-                }
-              }
-
-              Text {
-                text: root.powerActions
-                      ? "Sleep, restart and shut down sit in the corner. Each asks once more before it happens."
-                      : "The lock screen takes a password and nothing else."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // A notification after the unlock when somebody got it wrong
-              // while you were away. Mistakes on your own way in are left out.
-              Row {
-                spacing: Style.space(6)
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Report failed attempts"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.onOffOptions
-                  Rectangle {
-                    id: awayChip
-                    required property var modelData
-                    readonly property bool current: (modelData.id === "on") === root.awayReport
-                    width: awayChipLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, awayChipArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: awayChipLabel
-                      anchors.centerIn: parent
-                      text: awayChip.modelData.name
-                      color: awayChip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: awayChip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: awayChipArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setAwayReport(awayChip.modelData.id === "on")
-                    }
-                  }
-                }
-              }
-
-              Text {
-                text: root.awayReport
-                      ? "After you unlock, a notification says if somebody got it wrong while you were away."
-                      : "Failed attempts are not reported."
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              // Only shown once /etc/pam.d/omarchy-lock-fido2 is in place; off
-              // sends the lock screen back to the password without touching
-              // PAM, so the key still works everywhere else.
-              Row {
-                spacing: Style.space(6)
-                visible: root.fido2Installed
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Security key"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-
-                Repeater {
-                  model: root.fido2Options
-                  Rectangle {
-                    id: fido2Chip
-                    required property var modelData
-                    readonly property bool current: (modelData.id === "on") === root.fido2Enabled
-                    width: fido2ChipLabel.implicitWidth + Style.space(18)
-                    height: Style.space(26)
-                    radius: root.cornerRadius
-                    color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, fido2ChipArea.containsMouse ? 0.12 : 0.06)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                      id: fido2ChipLabel
-                      anchors.centerIn: parent
-                      text: fido2Chip.modelData.name
-                      color: fido2Chip.current ? Color.background : root.foreground
-                      font.family: root.fontFamily
-                      font.pixelSize: Style.font.caption
-                      font.weight: fido2Chip.current ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                      id: fido2ChipArea
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      onClicked: root.setFido2Enabled(fido2Chip.modelData.id === "on")
                     }
                   }
                 }
@@ -3862,6 +3333,10 @@ Item {
               uiScale: root.uiScale
               holdStill: root.motionReduced
               language: root.lockLanguage
+              showLayoutBadge: root.showLayoutBadge
+              showCapsBadge: root.showCapsBadge
+              allowPasswordToggle: root.allowPasswordToggle
+              showAuthIcons: root.showAuthIcons
               backgroundPath: root.service ? root.service.backgroundPath : ""
               backgroundVersion: root.service ? root.service.backgroundVersion : 0
               avatarPath: root.service ? root.service.avatarPath : ""
@@ -4061,6 +3536,10 @@ Item {
                     uiScale: root.uiScale
                     holdStill: root.motionReduced
                     language: root.lockLanguage
+                    showLayoutBadge: root.showLayoutBadge
+                    showCapsBadge: root.showCapsBadge
+                    allowPasswordToggle: root.allowPasswordToggle
+                    showAuthIcons: root.showAuthIcons
                     backgroundPath: root.service ? root.service.backgroundPath : ""
                     backgroundVersion: root.service ? root.service.backgroundVersion : 0
                     avatarPath: root.service ? root.service.avatarPath : ""
@@ -4305,7 +3784,7 @@ Item {
           text: {
             if (root.mainTab === "editor") return "Changes save automatically   ·   Esc: back"
             if (root.mainTab === "boot") return "Click a card to pick it   ·   Apply writes it to the boot image   ·   B / Esc: back   ·   ?: all keys"
-            if (root.mainTab === "settings") return "U / Esc: back   ·   ?: all keys"
+            if (root.mainTab === "settings") return "Arrows / PgUp / PgDn: scroll   ·   U / Esc: back   ·   ?: all keys"
             return "Arrows: browse   Space: preview   Enter: select   /: search   F: favorite   D: designer   U: settings   ?: all keys   Esc: close"
           }
           color: root.muted
@@ -4485,6 +3964,10 @@ Item {
         uiScale: root.uiScale
         holdStill: root.motionReduced
         language: root.lockLanguage
+        showLayoutBadge: root.showLayoutBadge
+        showCapsBadge: root.showCapsBadge
+        allowPasswordToggle: root.allowPasswordToggle
+        showAuthIcons: root.showAuthIcons
         backgroundPath: root.service ? root.service.backgroundPath : ""
         backgroundVersion: root.service ? root.service.backgroundVersion : 0
         fingerprintConfigured: root.service ? root.service.fingerprintConfigured : false

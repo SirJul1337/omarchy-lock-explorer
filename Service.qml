@@ -982,11 +982,34 @@ Item {
 
   function shellQuote(text) { return "'" + String(text).replace(/'/g, "'\\''") + "'" }
 
+  // The terminal is Omarchy's floating one. Whether it came up is read off
+  // Hyprland's window list: a terminal that cannot start (Ghostty without
+  // OpenGL 4.3, a missing default) would otherwise close the explorer onto
+  // nothing at all, so then a notification gives the command to run by hand.
+  property string terminalFallback: ""
+  Process {
+    id: terminalProc
+    onExited: function(exitCode) {
+      if (exitCode === 0) return
+      root.logEvent("terminal-missing")
+      Quickshell.execDetached(["notify-send", "-a", "Lock Screen Explorer", "No terminal opened",
+                               "Run this in a terminal instead:\n" + root.terminalFallback])
+    }
+  }
+
+  function openInTerminal(command, fallback) {
+    if (terminalProc.running) return false
+    terminalFallback = fallback || command
+    terminalProc.command = ["bash", "-c", "count() { hyprctl clients -j 2>/dev/null | jq '[.[] | select(.class == \"org.omarchy.terminal\")] | length' 2>/dev/null; }; launch() { setsid -f omarchy-launch-floating-terminal-with-presentation \"$1\" >/dev/null 2>&1; }; if ! command -v hyprctl >/dev/null || ! command -v jq >/dev/null; then launch \"$1\"; exit 0; fi; before=$(count); before=${before:-0}; launch \"$1\"; for _ in $(seq 24); do sleep 0.25; now=$(count); (( ${now:-0} > before )) && exit 0; done; exit 1", "bash", command]
+    terminalProc.running = true
+    return true
+  }
+
   function installPackages(names) {
     var list = (names || []).map(String).filter(function(n) { return installablePackages.indexOf(n) !== -1 })
     if (list.length === 0) return false
-    Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation",
-                             "omarchy-pkg-add " + list.join(" ") + " && omarchy restart shell"])
+    openInTerminal("omarchy-pkg-add " + list.join(" ") + " && omarchy restart shell",
+                   "omarchy pkg add " + list.join(" ") + " && omarchy restart shell")
     logEvent("install " + list.join(" "))
     return true
   }
@@ -1012,7 +1035,7 @@ Item {
   }
 
   function runDoctor() {
-    Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation", "bash " + shellQuote(doctorPath)])
+    openInTerminal("bash " + shellQuote(doctorPath), "bash " + shellQuote(doctorPath))
     logEvent("doctor")
     return true
   }

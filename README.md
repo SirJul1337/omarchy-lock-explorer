@@ -525,7 +525,8 @@ out of the plugins folder (to `~/.local/share/omarchy/lock-explorer-backups`, no
 and switches Omarchy's own lock back on when neither lock screen is. The "Move it out" button next
 to that warning in Settings runs the same.
 
-"Check this install" at the top of Settings runs the same thing in a terminal, and Settings also
+"Check this install" in Settings runs the same thing in a terminal (when no terminal comes up,
+a notification gives the command to run instead), and Settings also
 lists what it can see is missing, such as `qt6-multimedia`, with an Install button that runs
 `omarchy pkg add` in a terminal and restarts the shell. If you open an issue, paste the doctor's
 output into it.

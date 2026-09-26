@@ -117,7 +117,7 @@ Item {
   implicitHeight: loader.item ? loader.item.implicitHeight : 0
   width: (fillParent && parent) ? parent.width : (fixedWidth > 0 ? fixedWidth : implicitWidth)
   height: (fillParent && parent) ? parent.height
-    : (kind === "avatar" ? width : (fixedHeight > 0 ? fixedHeight : implicitHeight))
+    : ((kind === "avatar" || kind === "art") ? width : (fixedHeight > 0 ? fixedHeight : implicitHeight))
 
   function roleColor(role) {
     var r = String(role || "text")

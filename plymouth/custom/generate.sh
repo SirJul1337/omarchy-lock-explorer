@@ -201,6 +201,7 @@ while (i < 8) {
   if (dw > 0) {
     Window.SetX(i, next_x);
     Window.SetY(i, 0);
+    dsp_i[display_count] = i;
     dsp_x[display_count] = next_x;
     dsp_y[display_count] = 0;
     dsp_w[display_count] = dw;
@@ -210,6 +211,7 @@ while (i < 8) {
   }
   i++;
 }
+moved_count = display_count;
 # An older plymouth that does not take a display index answers for the one
 # screen it has; that is the single-head case and it still works.
 if (display_count == 0) {
@@ -218,6 +220,19 @@ if (display_count == 0) {
   dsp_w[0] = Window.GetWidth();
   dsp_h[0] = Window.GetHeight();
   display_count = 1;
+}
+
+# Plymouth centres the heads on each other again after every prompt, message
+# and keystroke (script_lib_update_displays in plugin.c), which would pull the
+# layout above back into the overlap. The refresh puts each head back in its
+# slice; Window.SetX/SetY only redraw when a position actually changes.
+fun place_heads() {
+  d = 0;
+  while (d < moved_count) {
+    Window.SetX(dsp_i[d], dsp_x[d]);
+    Window.SetY(dsp_i[d], dsp_y[d]);
+    d++;
+  }
 }
 
 # The prompt, the logo and the hint live on the first head; the others carry
@@ -483,6 +498,7 @@ fun display_normal_callback() {
 }
 
 fun refresh_callback() {
+  place_heads();
   if (global.boot_wait == 1) {
     global.boot_frame = global.boot_frame + 1;
     k = Math.Int(global.boot_frame / 4);

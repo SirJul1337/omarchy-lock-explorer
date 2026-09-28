@@ -48,56 +48,98 @@ font.small = "$family 13";
 Window.SetBackgroundTopColor(bg.r, bg.g, bg.b);
 Window.SetBackgroundBottomColor(bg.r, bg.g, bg.b);
 
-screen.w = Window.GetWidth();
-screen.h = Window.GetHeight();
+# Every head measured on its own and moved to a slice of the canvas of its
+# own, as in the custom generator: Plymouth centres the heads on each other,
+# so a layout built from a single Window.GetWidth() starts off the left edge
+# of a narrower head (issue #38).
+display_count = 0;
+next_x = 0;
+i = 0;
+while (i < 8) {
+  dw = Window.GetWidth(i);
+  dh = Window.GetHeight(i);
+  if (dw > 0) {
+    Window.SetX(i, next_x);
+    Window.SetY(i, 0);
+    dsp_x[display_count] = next_x;
+    dsp_y[display_count] = 0;
+    dsp_w[display_count] = dw;
+    dsp_h[display_count] = dh;
+    display_count++;
+    next_x = next_x + dw;
+  }
+  i++;
+}
+# An older plymouth that does not take a display index answers for the one
+# screen it has; that is the single-head case and it still works.
+if (display_count == 0) {
+  dsp_x[0] = 0;
+  dsp_y[0] = 0;
+  dsp_w[0] = Window.GetWidth();
+  dsp_h[0] = Window.GetHeight();
+  display_count = 1;
+}
 
-scan.image = Image("scanline.png").Tile(screen.w, screen.h);
-scan.sprite = Sprite(scan.image);
-scan.sprite.SetPosition(0, 0, 1);
+# The login lines live on the first head; the others carry the scanlines
+# alone.
+screen.x = dsp_x[0];
+screen.y = dsp_y[0];
+screen.w = dsp_w[0];
+screen.h = dsp_h[0];
+
+scan.image = Image("scanline.png");
+i = 0;
+while (i < display_count) {
+  scan_sprites[i] = Sprite(scan.image.Tile(dsp_w[i], dsp_h[i]));
+  scan_sprites[i].SetPosition(dsp_x[i], dsp_y[i], 1);
+  i++;
+}
 
 pad = Math.Int(Math.Min(screen.w, screen.h) * 0.08);
+left = screen.x + pad;
+top = screen.y + pad;
 
 line1.image = Image.Text("Omarchy Linux ($host) (tty1)", fg.r, fg.g, fg.b, 1, font.main);
 line1.sprite = Sprite(line1.image);
-line1.sprite.SetPosition(pad, pad, 10);
+line1.sprite.SetPosition(left, top, 10);
 
 lh = Math.Int(line1.image.GetHeight() * 1.35);
 
 login.image = Image.Text("$host login: $user", fg.r, fg.g, fg.b, 1, font.main);
 login.sprite = Sprite(login.image);
-login.sprite.SetPosition(pad, pad + lh * 2, 10);
+login.sprite.SetPosition(left, top + lh * 2, 10);
 login.sprite.SetOpacity(0);
 
 prompt.image = Image.Text("Password: ", fg.r, fg.g, fg.b, 1, font.main);
 prompt.sprite = Sprite(prompt.image);
-prompt.sprite.SetPosition(pad, pad + lh * 3, 10);
+prompt.sprite.SetPosition(left, top + lh * 3, 10);
 prompt.sprite.SetOpacity(0);
 prompt.w = prompt.image.GetWidth();
 
 masked.sprite = Sprite();
-masked.sprite.SetPosition(pad + prompt.w, pad + lh * 3, 10);
+masked.sprite.SetPosition(left + prompt.w, top + lh * 3, 10);
 masked.sprite.SetOpacity(0);
 masked.w = 0;
 
 status.sprite = Sprite();
-status.sprite.SetPosition(pad, pad + lh * 4, 10);
+status.sprite.SetPosition(left, top + lh * 4, 10);
 status.sprite.SetOpacity(0);
 
 caps.image = Image.Text("(caps lock is on)", dim.r, dim.g, dim.b, 1, font.main);
 caps.sprite = Sprite(caps.image);
-caps.sprite.SetPosition(pad, pad + lh * 5, 10);
+caps.sprite.SetPosition(left, top + lh * 5, 10);
 caps.sprite.SetOpacity(0);
 
 cursor.h = line1.image.GetHeight();
 cursor.w = Math.Int(cursor.h * 0.55);
 cursor.image = Image("cursor.png").Scale(cursor.w, cursor.h);
 cursor.sprite = Sprite(cursor.image);
-cursor.sprite.SetPosition(pad + prompt.w + 2, pad + lh * 3, 11);
+cursor.sprite.SetPosition(left + prompt.w + 2, top + lh * 3, 11);
 cursor.sprite.SetOpacity(0);
 
 hint.image = Image.Text("encrypted disk  -  enter passphrase to boot", dim.r, dim.g, dim.b, 1, font.small);
 hint.sprite = Sprite(hint.image);
-hint.sprite.SetPosition(screen.w - pad - hint.image.GetWidth(), screen.h - pad - hint.image.GetHeight(), 10);
+hint.sprite.SetPosition(screen.x + screen.w - pad - hint.image.GetWidth(), screen.y + screen.h - pad - hint.image.GetHeight(), 10);
 # Hidden until a passphrase prompt actually fires: plymouthd runs this theme
 # for reboot/shutdown too, where "enter passphrase to boot" would mislead.
 hint.sprite.SetOpacity(0);
@@ -107,7 +149,7 @@ global.password_shown = 0;
 global.frame = 0;
 
 fun position_cursor() {
-  cursor.sprite.SetPosition(pad + prompt.w + masked.w + 2, pad + lh * 3, 11);
+  cursor.sprite.SetPosition(left + prompt.w + masked.w + 2, top + lh * 3, 11);
 }
 
 fun display_password_callback(prompt_text, bullets) {
@@ -168,7 +210,7 @@ fun refresh_callback() {
 }
 
 message_sprite = Sprite();
-message_sprite.SetPosition(pad, screen.h - pad, 10);
+message_sprite.SetPosition(left, screen.y + screen.h - pad, 10);
 
 fun display_message_callback(text) {
   message_sprite.SetImage(Image.Text(text, dim.r, dim.g, dim.b, 1, font.small));

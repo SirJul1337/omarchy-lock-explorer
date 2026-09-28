@@ -188,17 +188,25 @@ Window.SetBackgroundBottomColor(${bg_f});
 # different size: on a wider one it is cropped, on a narrower one it sits off
 # to the side (issue #38). Each head is measured separately here, and the
 # background below is drawn once per head, at that head's own origin.
+# Plymouth centres every head on the widest one, so their slices overlap and
+# any sprite shows on each head it touches: a copy sized for one head covered
+# the other's too. Each head is moved to a slice of its own, far enough apart
+# that a background filled past one head's edges never reaches the next.
 display_count = 0;
+next_x = 0;
 i = 0;
 while (i < 8) {
   dw = Window.GetWidth(i);
   dh = Window.GetHeight(i);
   if (dw > 0) {
-    dsp_x[display_count] = Window.GetX(i);
-    dsp_y[display_count] = Window.GetY(i);
+    Window.SetX(i, next_x);
+    Window.SetY(i, 0);
+    dsp_x[display_count] = next_x;
+    dsp_y[display_count] = 0;
     dsp_w[display_count] = dw;
     dsp_h[display_count] = dh;
     display_count++;
+    next_x = next_x + dw + 32768;
   }
   i++;
 }

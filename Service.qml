@@ -1121,6 +1121,26 @@ Item {
   // the Settings tab's "Omarchy menu" row and `omarchy-shell lock setMenuEntry`
   // run extras/install.sh, which also takes them out again.
   readonly property string menuInstallPath: pluginDir + "/extras/install.sh"
+  // The lock in the bar (BarWidget.qml), a custom module in the bar layout
+  // of shell.json put there by extras/bar-icon.sh: the Settings tab's "Bar
+  // icon" row and `omarchy-shell lock setBarIcon on`. Whether it is there is
+  // read off the file, which the shell rewrites when the layout changes.
+  readonly property string barIconPath: pluginDir + "/extras/bar-icon.sh"
+  readonly property bool barIconShown: localSettings.barHasWidget
+
+  function setBarIcon(v) {
+    var on = v === true || v === 1 || v === "true" || v === "on" || v === "1"
+    if (barIconApplyProc.running) return false
+    barIconApplyProc.command = on ? ["bash", barIconPath] : ["bash", barIconPath, "--remove"]
+    barIconApplyProc.running = true
+    logEvent("bar-icon=" + (on ? "on" : "off"))
+    return true
+  }
+
+  Process {
+    id: barIconApplyProc
+    onExited: localSettings.reload()
+  }
 
   // Every embedded script that writes a file of the user's sources this first
   // (it arrives as the script's $0): an owner-checked, symlink-free directory
@@ -3852,6 +3872,7 @@ echo "$out"
       readonly property bool powerActions: root.powerActions
       readonly property bool awayReport: root.awayReport
       readonly property string openAs: root.openAs
+      readonly property bool barIconShown: root.barIconShown
       readonly property var favorites: root.favorites
       readonly property bool showLayoutBadge: root.showLayoutBadge
       readonly property string accountName: root.accountName
@@ -3945,6 +3966,7 @@ echo "$out"
       function setPowerActions(value) { return root.setPowerActions(value) }
       function setAwayReport(value) { return root.setAwayReport(value) }
       function setOpenAs(value) { return root.setOpenAs(value) }
+      function setBarIcon(value) { return root.setBarIcon(value) }
       function toggleFavorite(id) { return root.toggleFavorite(id) }
       function setFieldItem(name, show) { return root.setFieldItem(name, show) }
       function installPackages(names) { return root.installPackages(names) }
@@ -4216,6 +4238,14 @@ echo "$out"
     // panel or full: what `explore` opens.
     function setOpenAs(value: string): string {
       return root.setOpenAs(value) ? "ok" : "invalid-value"
+    }
+
+    function barIcon(): string {
+      return root.barIconShown ? "on" : "off"
+    }
+
+    function setBarIcon(value: string): string {
+      return root.setBarIcon(value) ? "ok" : "invalid-value"
     }
 
     function favorites(): string {

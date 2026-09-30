@@ -20,6 +20,10 @@ Item {
   property string path: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
   property var entry: ({})
   property bool loaded: false
+  // Whether the bar layout in the file carries the plugin's lock icon, the
+  // custom module extras/bar-icon.sh puts there.
+  property string barModuleId: "lock-explorer"
+  property bool barHasWidget: false
   readonly property var config: ({ plugins: [entry] })
 
   function reload() { settingsFile.reload() }
@@ -37,6 +41,7 @@ Item {
     if (raw.trim().length === 0) {
       // A missing or empty file has no entry to keep; nothing to protect.
       root.entry = {}
+      root.barHasWidget = false
       root.loaded = true
       return
     }
@@ -51,11 +56,24 @@ Item {
         }
       }
       root.entry = selected
+      root.barHasWidget = root.layoutHasWidget(parsed)
       root.loaded = true
     } catch (e) {
       // A partial or invalid write must not reset the last known settings.
       console.warn("lock-explorer: cannot read saved plugin settings: " + e)
     }
+  }
+
+  function layoutHasWidget(parsed) {
+    var layout = parsed && parsed.bar && parsed.bar.layout ? parsed.bar.layout : null
+    if (!layout) return false
+    var sections = ["left", "center", "right"]
+    for (var s = 0; s < sections.length; s++) {
+      var items = Array.isArray(layout[sections[s]]) ? layout[sections[s]] : []
+      for (var i = 0; i < items.length; i++)
+        if (items[i] && String(items[i].id || "") === root.barModuleId) return true
+    }
+    return false
   }
 
   FileView {

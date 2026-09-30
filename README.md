@@ -76,8 +76,11 @@ makes the selected design the lock screen and keeps the panel up, Left and Right
 tab, `F` stars, `/` searches, and Esc closes. `O`, or the button at the bottom, opens the full
 explorer on the same design; `O` there goes back to the panel.
 
-*Opens as*, under System in Settings, picks which of the two `omarchy-shell lock explore` opens
-first. An install from before the side panel keeps opening the full explorer. `omarchy-shell lock
+*Bar icon*, under System in Settings, puts a lock in the bar: a click opens the same as
+`omarchy-shell lock explore`, a right click the full explorer. Like the menu entry it is a
+choice, since a plugin cannot change the bar when it is installed; it goes at the end of the
+right section, and `omarchy bar move lock-explorer` moves it. *Opens as*, in the same section, picks which of
+the two `omarchy-shell lock explore` opens first. An install from before the side panel keeps opening the full explorer. `omarchy-shell lock
 explorePanel` and `exploreFull` open one or the other whatever the setting says.
 
 In the full explorer: arrows (or H J K L) to browse, Tab to go through Styling, Animation and Favorites, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, and `B` the boot screen. `?` lists every key the explorer takes.
@@ -188,6 +191,8 @@ omarchy-shell lock explorePanel          # the side panel, whatever Opens as say
 omarchy-shell lock exploreFull           # the full explorer
 omarchy-shell lock openAs
 omarchy-shell lock setOpenAs panel       # or full: what `explore` opens first
+omarchy-shell lock barIcon
+omarchy-shell lock setBarIcon on         # the lock in the bar, or off
 omarchy-shell lock designs
 omarchy-shell lock design
 omarchy-shell lock setDesign zen

@@ -92,6 +92,11 @@ Item {
     return saved === "panel" || saved === "full" ? saved : "full"
   }
   readonly property var openAsOptions: [{ id: "panel", name: root.tr("Side panel") }, { id: "full", name: root.tr("Full explorer") }]
+  readonly property bool barIconShown: !!service && service.barIconShown === true
+  function setBarIcon(on) {
+    if (!root.service || typeof root.service.setBarIcon !== "function") return
+    root.service.setBarIcon(on)
+  }
   function setOpenAs(id) {
     if (!root.service || typeof root.service.setOpenAs !== "function") return
     root.service.setOpenAs(id)
@@ -2363,6 +2368,15 @@ Item {
                   options: root.openAsOptions
                   current: root.openAs
                   onPicked: function(id) { root.setOpenAs(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Bar icon")
+                  help: root.tr("A lock in the bar. A click opens the same as omarchy-shell lock explore, a right click the full explorer.")
+                  options: root.shownHiddenOptions
+                  current: root.barIconShown ? "show" : "hide"
+                  onPicked: function(id) { root.setBarIcon(id === "show") }
                 }
 
                 // An entry in the app launcher and under Style in the Omarchy

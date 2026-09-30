@@ -41,8 +41,8 @@ BorderSurface {
   borderSpec: explorer.borderSpec
   padding: Style.space(16)
 
-  readonly property int rowHeight: Style.space(60)
-  readonly property int rowThumbWidth: Style.space(88)
+  readonly property int rowHeight: Style.space(76)
+  readonly property int rowThumbWidth: Style.space(112)
   readonly property int rowThumbHeight: Math.round(rowThumbWidth * 9 / 16)
   readonly property var tabs: [
     { id: "favorites", name: "Favorites" },
@@ -530,7 +530,7 @@ BorderSurface {
           anchors.right: star.left
           anchors.rightMargin: Style.space(6)
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 2
+          spacing: 3
           Text {
             width: parent.width
             elide: Text.ElideRight
@@ -538,7 +538,7 @@ BorderSurface {
             textFormat: Text.PlainText
             color: row.selected ? side.fg : side.explorer.muted
             font.family: side.explorer.fontFamily
-            font.pixelSize: Style.font.body
+            font.pixelSize: Style.font.title
             font.weight: row.selected ? Font.DemiBold : Font.Normal
           }
           Text {
@@ -549,7 +549,7 @@ BorderSurface {
             textFormat: Text.PlainText
             color: row.active ? side.explorer.accent : side.explorer.muted
             font.family: side.explorer.fontFamily
-            font.pixelSize: Style.font.caption
+            font.pixelSize: Style.font.bodySmall
           }
         }
 
@@ -562,7 +562,7 @@ BorderSurface {
           text: row.starred ? "★" : "☆"
           color: row.starred ? side.explorer.accent : side.explorer.muted
           font.family: side.explorer.fontFamily
-          font.pixelSize: Style.font.body
+          font.pixelSize: Style.font.title
           MouseArea {
             anchors.fill: parent
             anchors.margins: -Style.space(6)

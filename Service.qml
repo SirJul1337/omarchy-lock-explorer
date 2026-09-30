@@ -361,6 +361,39 @@ Item {
     return true
   }
 
+  // What `omarchy-shell lock explore` opens: the side panel, which has a
+  // button for the full explorer, or the full explorer straight away. Saved on
+  // the plugin entry as `openAs`. An entry from before the side panel has
+  // settings on it and no `openAs`, and keeps opening the full explorer; a new
+  // install opens the panel. writeEntry() puts the answer on the entry with
+  // the first setting saved, so it does not flip once there is one.
+  property string openAsOverride: ""
+  readonly property string configuredOpenAs: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (!entry || String(entry.id || "") !== pluginId) continue
+      if (entry.openAs === "panel" || entry.openAs === "full") return entry.openAs
+      return settingKeys(entry).length > 0 ? "full" : "panel"
+    }
+    return "panel"
+  }
+  readonly property string openAs: openAsOverride.length > 0 ? openAsOverride : configuredOpenAs
+
+  function setOpenAs(value) {
+    var v = String(value || "")
+    if (v !== "panel" && v !== "full") return false
+    openAsOverride = v
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      current.openAs = v
+      writeEntry(current)
+    }
+    logEvent("open-as=" + v)
+    return true
+  }
+
   // After an unlock, a notification for the failed attempts made while you
   // were away. On by default: it says nothing unless somebody tried. Saved on
   // the plugin entry as `awayReportOff` only when it is turned off.
@@ -710,6 +743,7 @@ Item {
   // LocalSettings is what keeps two changes made back to back from clobbering
   // each other while the file watcher catches up.
   function writeEntry(entry) {
+    if (entry.openAs === undefined) entry.openAs = root.openAs
     localSettings.remember(entry)
     saveSettingsBackup(entry)
     return shell.updateEntryInline(pluginId, entry)
@@ -1905,6 +1939,7 @@ echo "$out"
   // fresh snapshot (which also carries the entry geometry).
   signal bootResnapshotRequested(string designId, bool persist)
   signal exploreTabRequested(string tab)
+  signal exploreViewRequested(string view)
 
   function maybeResyncBoot() {
     if (!bootResync || bootApplying || !bootResyncArmed) return
@@ -3816,6 +3851,7 @@ echo "$out"
       readonly property int defaultWakeGrace: root.defaultWakeGrace
       readonly property bool powerActions: root.powerActions
       readonly property bool awayReport: root.awayReport
+      readonly property string openAs: root.openAs
       readonly property var favorites: root.favorites
       readonly property bool showLayoutBadge: root.showLayoutBadge
       readonly property string accountName: root.accountName
@@ -3871,6 +3907,7 @@ echo "$out"
       signal clipDesignAdded(string id)
       signal bootResnapshotRequested(string designId, bool persist)
       signal exploreTabRequested(string tab)
+      signal exploreViewRequested(string view)
       signal bootDesignLoaded(string name, string content)
 
       function setDesign(id) { return root.setDesign(id) }
@@ -3907,6 +3944,7 @@ echo "$out"
       function setFaceStart(value) { return root.setFaceStart(value) }
       function setPowerActions(value) { return root.setPowerActions(value) }
       function setAwayReport(value) { return root.setAwayReport(value) }
+      function setOpenAs(value) { return root.setOpenAs(value) }
       function toggleFavorite(id) { return root.toggleFavorite(id) }
       function setFieldItem(name, show) { return root.setFieldItem(name, show) }
       function installPackages(names) { return root.installPackages(names) }
@@ -3953,6 +3991,7 @@ echo "$out"
     root.clipDesignAdded.connect(api.clipDesignAdded)
     root.bootResnapshotRequested.connect(api.bootResnapshotRequested)
     root.exploreTabRequested.connect(api.exploreTabRequested)
+    root.exploreViewRequested.connect(api.exploreViewRequested)
     root.bootDesignLoaded.connect(api.bootDesignLoaded)
     explorerApi = api
     Bridge.publish(api)
@@ -4024,6 +4063,15 @@ echo "$out"
     id: launchOsdClose
     interval: 2000
     onTriggered: Quickshell.execDetached(["omarchy-shell", "osd", "close"])
+  }
+
+  function summonExplorer(view) {
+    root.rescanUserDesigns()
+    root.watchLaunchOsd()
+    root.exploreViewRequested(view)
+    if (root.shell && typeof root.shell.summon === "function")
+      return root.shell.summon(root.pluginId, "{}") ? "ok" : "failed"
+    return "no-shell"
   }
 
   IpcHandler {
@@ -4159,6 +4207,15 @@ echo "$out"
 
     function setAwayReport(value: string): string {
       return root.setAwayReport(value) ? "ok" : "invalid-value"
+    }
+
+    function openAs(): string {
+      return root.openAs
+    }
+
+    // panel or full: what `explore` opens.
+    function setOpenAs(value: string): string {
+      return root.setOpenAs(value) ? "ok" : "invalid-value"
     }
 
     function favorites(): string {
@@ -4479,17 +4536,25 @@ echo "$out"
       return root.playSting() ? "ok" : "busy"
     }
 
+    // The side panel or the full explorer, whichever Settings > System >
+    // Opens as says.
     function explore(): string {
-      root.rescanUserDesigns()
-      root.watchLaunchOsd()
-      if (root.shell && typeof root.shell.summon === "function")
-        return root.shell.summon(root.pluginId, "{}") ? "ok" : "failed"
-      return "no-shell"
+      return root.summonExplorer(root.openAs)
+    }
+
+    // The same, whatever the setting says.
+    function explorePanel(): string {
+      return root.summonExplorer("panel")
+    }
+
+    function exploreFull(): string {
+      return root.summonExplorer("full")
     }
 
     // Open the built-in editor on a custom boot layout.
     function editBootLayout(name: string): string {
       root.loadBootDesign(String(name || ""))
+      root.exploreViewRequested("full")
       if (root.shell && typeof root.shell.summon === "function")
         return root.shell.summon(root.pluginId, "{}") ? "ok" : "failed"
       return "no-shell"
@@ -4500,6 +4565,7 @@ echo "$out"
     function exploreTab(tab: string): string {
       root.rescanUserDesigns()
       root.exploreTabRequested(String(tab || "styling"))
+      root.exploreViewRequested("full")
       if (root.shell && typeof root.shell.summon === "function")
         return root.shell.summon(root.pluginId, "{}") ? "ok" : "failed"
       return "no-shell"

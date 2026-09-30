@@ -69,7 +69,18 @@ stock lock screen, see [Remove](#remove): Omarchy does not always switch its own
 omarchy-shell lock explore
 ```
 
-Arrows (or H J K L) to browse, Tab to go through Styling, Animation and Favorites, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, and `B` the boot screen. `?` lists every key the explorer takes.
+On a new install this opens the side panel: the selected design drawn live at the top, Lock now
+and a full screen preview under it, then search and the designs as a list under Favorites,
+Styling and Animation. Up and Down (or J K) move through the list and the preview follows, Enter
+makes the selected design the lock screen and keeps the panel up, Left and Right (or Tab) change
+tab, `F` stars, `/` searches, and Esc closes. `O`, or the button at the bottom, opens the full
+explorer on the same design; `O` there goes back to the panel.
+
+*Opens as*, under System in Settings, picks which of the two `omarchy-shell lock explore` opens
+first. An install from before the side panel keeps opening the full explorer. `omarchy-shell lock
+explorePanel` and `exploreFull` open one or the other whatever the setting says.
+
+In the full explorer: arrows (or H J K L) to browse, Tab to go through Styling, Animation and Favorites, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, and `B` the boot screen. `?` lists every key the explorer takes.
 
 Settings is one page in sections -- Unlock, Look, Password field, Screen and power, Sign-in and
 security, System -- with a line of help under every choice. It scrolls with the mouse wheel, the
@@ -173,6 +184,10 @@ o.bind("SUPER + SHIFT + L", "Lock screen explorer", "omarchy-shell lock explore"
 Other commands:
 
 ```sh
+omarchy-shell lock explorePanel          # the side panel, whatever Opens as says
+omarchy-shell lock exploreFull           # the full explorer
+omarchy-shell lock openAs
+omarchy-shell lock setOpenAs panel       # or full: what `explore` opens first
 omarchy-shell lock designs
 omarchy-shell lock design
 omarchy-shell lock setDesign zen

@@ -78,6 +78,103 @@ Item {
   }
   property int selectedIndex: 0
   property bool fullPreview: false
+  // Which of the two this overlay is showing: the side panel (SidePanel.qml)
+  // or the full explorer. `omarchy-shell lock explore` asks for the one picked
+  // in Settings; a reopen nobody asked a view for, after a file dialog say,
+  // comes back to the one that was up.
+  property string view: "full"
+  readonly property bool sideView: view === "panel"
+  property string requestedView: ""
+  property bool everOpened: false
+  readonly property string openAs: {
+    if (service && service.openAs !== undefined) return String(service.openAs)
+    var saved = String(localSettings.entry.openAs || "")
+    return saved === "panel" || saved === "full" ? saved : "full"
+  }
+  readonly property var openAsOptions: [{ id: "panel", name: root.tr("Side panel") }, { id: "full", name: root.tr("Full explorer") }]
+  function setOpenAs(id) {
+    if (!root.service || typeof root.service.setOpenAs !== "function") return
+    root.service.setOpenAs(id)
+  }
+
+  // From the side panel into the full explorer, on the design that was
+  // selected there, and back.
+  function openFull(tab) {
+    root.view = "full"
+    if (tab && tab.length > 0) root.mainTab = tab
+    root.thumbSlots = 0
+    refocus()
+    revealTimer.restart()
+  }
+  function showPanel() {
+    if (!root.gridTab) root.mainTab = "styling"
+    root.fullPreview = false
+    root.view = "panel"
+    refocus()
+    Qt.callLater(function() { root.reveal(GridView.Contain) })
+  }
+
+  function lockNow() {
+    root.dismiss()
+    Quickshell.execDetached(["omarchy-shell", "lock", "lock"])
+  }
+
+  // Enter in the side panel: the design becomes the lock screen and the panel
+  // stays, since trying the next one is the likely next move.
+  function useSelected() {
+    if (selectedDesign) root.useDesign(selectedDesign.id, false)
+  }
+
+  // The side panel's keys. It has no pages of its own, so the ones that are
+  // pages in the full explorer open it there.
+  function sideKey(event) {
+    var tabs = ["favorites", "styling", "animation"]
+    function stepTab(step) {
+      root.searchText = ""
+      root.mainTab = tabs[(Math.max(0, tabs.indexOf(root.mainTab)) + step + tabs.length) % tabs.length]
+    }
+    event.accepted = true
+    if (event.text === "/" || (event.key === Qt.Key_F && (event.modifiers & Qt.ControlModifier))) {
+      root.fullPreview = false
+      root.focusSearch()
+    } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+      root.useSelected()
+      root.fullPreview = false
+    } else if (event.key === Qt.Key_Space || event.key === Qt.Key_P) {
+      root.fullPreview = !root.fullPreview
+    } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
+      root.move(-1)
+    } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
+      root.move(1)
+    } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
+      if (root.fullPreview) root.move(-1); else stepTab(-1)
+    } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
+      if (root.fullPreview) root.move(1); else stepTab(1)
+    } else if (event.key === Qt.Key_Tab) {
+      stepTab(1)
+    } else if (event.key === Qt.Key_Backtab) {
+      stepTab(-1)
+    } else if (event.key === Qt.Key_Home) {
+      root.selectedIndex = 0; root.reveal(GridView.Beginning)
+    } else if (event.key === Qt.Key_End) {
+      root.selectedIndex = Math.max(0, root.designs.length - 1); root.reveal(GridView.End)
+    } else if (event.key === Qt.Key_PageDown) {
+      sidePanel.page(1)
+    } else if (event.key === Qt.Key_PageUp) {
+      sidePanel.page(-1)
+    } else if (event.key === Qt.Key_F) {
+      if (root.selectedDesign && root.service && typeof root.service.toggleFavorite === "function")
+        root.service.toggleFavorite(root.selectedDesign.id)
+    } else if (event.key === Qt.Key_O) {
+      root.openFull("")
+    } else if (event.key === Qt.Key_U) {
+      root.openFull("settings")
+    } else if (event.key === Qt.Key_B) {
+      root.openFull("boot")
+    } else {
+      event.accepted = false
+    }
+  }
   // The ? sheet: every key the explorer takes, over whatever page is open.
   property bool showingKeys: false
   // Widest row of key caps, so every description starts on one line.
@@ -109,6 +206,7 @@ Item {
       { keys: ["Tab", "Shift+Tab"], text: "Styling, Animation, Favorites" },
       { keys: ["U"], text: "Settings" },
       { keys: ["B"], text: "Boot screen" },
+      { keys: ["O"], text: "Side panel" },
       { keys: ["?"], text: "This list" },
       { keys: ["Esc"], text: "Back, or close the explorer" }
     ] }
@@ -216,7 +314,7 @@ Item {
   Timer {
     interval: 40
     repeat: true
-    running: root.opened && root.gridTab && root.thumbSlots < root.columns * 5
+    running: root.opened && !root.sideView && root.gridTab && root.thumbSlots < root.columns * 5
     onTriggered: root.thumbSlots += 1
   }
   readonly property var designs: {
@@ -323,6 +421,7 @@ Item {
     if (editing) { closeEditor(); return }
     if (bootEditing.length > 0) { closeBootEditor(); return }
     if (fullPreview) { fullPreview = false; return }
+    if (sideView) { dismiss(); return }
     if (mainTab !== "styling") { mainTab = "styling"; refocus(); return }
     dismiss()
   }
@@ -356,6 +455,7 @@ Item {
 
   function focusSearch() {
     root.searching = true
+    if (root.sideView) { sidePanel.focusSearch(); return }
     Qt.callLater(function() { searchInput.forceActiveFocus(); searchInput.selectAll() })
   }
 
@@ -867,11 +967,27 @@ Item {
       Qt.callLater(function() { designerView.focusCanvas() })
       return
     }
-    root.mainTab = root.requestedTab.length > 0 ? root.requestedTab : "styling"
-    root.requestedTab = ""
+    var asked = root.requestedView === "panel" || root.requestedView === "full" ? root.requestedView
+      : (root.everOpened ? root.view : root.openAs)
+    // A tab asked for by name is a page of the full explorer.
+    if (root.requestedTab.length > 0) asked = "full"
+    root.requestedView = ""
+    root.everOpened = true
+    root.view = asked
     root.category = "all"
-    var idx = Designs.indexOf(root.activeDesignId)
-    root.selectedIndex = idx >= 0 ? idx : 0
+    if (root.sideView) {
+      // On the design in use, under Favorites when it is starred: those are
+      // the ones switched between.
+      var active = Designs.byId(root.activeDesignId)
+      root.mainTab = root.isFavorite(root.activeDesignId) ? "favorites"
+        : (active && Designs.isAnimated(active) ? "animation" : "styling")
+      if (!root.selectById(root.activeDesignId)) root.selectedIndex = 0
+    } else {
+      root.mainTab = root.requestedTab.length > 0 ? root.requestedTab : "styling"
+      var idx = Designs.indexOf(root.activeDesignId)
+      root.selectedIndex = idx >= 0 ? idx : 0
+    }
+    root.requestedTab = ""
     if (root.service) {
       if (typeof root.service.rescanUserDesigns === "function") root.service.rescanUserDesigns()
       if (typeof root.service.refreshBackground === "function") root.service.refreshBackground()
@@ -917,6 +1033,7 @@ Item {
   }
 
   function positionAtSelected(mode) {
+    if (root.sideView) { sidePanel.reveal(); return }
     grid.positionViewAtIndex(root.selectedIndex, mode)
     var minY = grid.originY - grid.topMargin
     var maxY = Math.max(minY, grid.originY + grid.contentHeight - grid.height + grid.bottomMargin)
@@ -1212,6 +1329,10 @@ Item {
       root.requestedTab = tab
       if (root.opened) root.mainTab = tab
     }
+    // Which of the two `omarchy-shell lock explore` wants; open() runs next.
+    function onExploreViewRequested(view) {
+      root.requestedView = view
+    }
     // Theme changed under an applied snapshot: retake it under the new theme.
     function onBootResnapshotRequested(designId, persist) {
       if (root.service) root.service.logEvent("resnapshot-request " + designId)
@@ -1317,7 +1438,8 @@ Item {
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore
 
-    Rectangle { anchors.fill: parent; color: root.scrim }
+    // The side panel leaves the desktop as it is; the full explorer dims it.
+    Rectangle { anchors.fill: parent; color: root.scrim; visible: !root.sideView || root.fullPreview }
     MouseArea { anchors.fill: parent; onClicked: root.dismiss() }
 
     Item {
@@ -1342,6 +1464,7 @@ Item {
         if (root.editing) return
         if (root.bootEditing.length > 0) return
         if (root.customDelayEditing) return
+        if (root.sideView) { root.sideKey(event); return }
         // event.text as well, since ? sits on a different key per layout.
         var question = event.key === Qt.Key_Question || event.text === "?"
         if (root.showingKeys) {
@@ -1415,6 +1538,9 @@ Item {
         } else if (event.key === Qt.Key_B) {
           root.toggleSettings("boot")
           event.accepted = true
+        } else if (event.key === Qt.Key_O) {
+          root.showPanel()
+          event.accepted = true
         } else if (event.key === Qt.Key_F) {
           if (root.selectedDesign && root.service && typeof root.service.toggleFavorite === "function")
             root.service.toggleFavorite(root.selectedDesign.id)
@@ -1449,7 +1575,7 @@ Item {
 
     BorderSurface {
       id: card
-      visible: !root.fullPreview && !root.editing
+      visible: !root.fullPreview && !root.editing && !root.sideView
       width: root.cardWidth
       height: root.cardHeight
       radius: root.cornerRadius
@@ -1596,6 +1722,34 @@ Item {
               anchors.rightMargin: searchHint.width + Style.space(14)
               z: -1
               onClicked: root.focusSearch()
+            }
+          }
+
+          // Back to the side panel, on the design selected here.
+          Rectangle {
+            visible: root.gridTab
+            height: Style.space(28)
+            width: sidePanelLabel.implicitWidth + Style.space(20)
+            radius: root.cornerRadius
+            color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, sidePanelArea.containsMouse ? 0.14 : 0.07)
+            border.width: 1
+            border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.15)
+            Behavior on color { ColorAnimation { duration: 100 } }
+            Text {
+              id: sidePanelLabel
+              anchors.centerIn: parent
+              text: root.tr("Side panel") + " · O"
+              textFormat: Text.PlainText
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+            }
+            MouseArea {
+              id: sidePanelArea
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.showPanel()
             }
           }
 
@@ -2201,6 +2355,15 @@ Item {
               SettingSection {
                 explorer: root
                 title: root.tr("System")
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Opens as")
+                  help: root.tr("What omarchy-shell lock explore opens first. The side panel has a button for the full explorer.")
+                  options: root.openAsOptions
+                  current: root.openAs
+                  onPicked: function(id) { root.setOpenAs(id) }
+                }
 
                 // An entry in the app launcher and under Style in the Omarchy
                 // menu. A plugin cannot add those on install, so it is a choice.
@@ -3407,10 +3570,10 @@ Item {
               avatarPath: root.service ? root.service.avatarPath : ""
               avatarVersion: root.service ? root.service.avatarVersion : 0
               inputEnabled: false
-              loadBackground: root.opened
+              loadBackground: root.opened && !root.sideView
               passwordText: "omarchy"
               videoPath: root.service ? root.service.videoPath : ""
-              videoPlaying: root.opened
+              videoPlaying: root.opened && !root.sideView
             }
           }
         }
@@ -3584,11 +3747,11 @@ Item {
           onDesignUpChanged: {
             if (!designUp) return
             if (cachedThumb.length === 0) liveShown = true
-            else revealTimer.restart()
+            else liveTimer.restart()
             if (cachedThumb.length === 0) grabTimer.restart()
           }
           onCachedThumbChanged: if (cachedThumb.length === 0 && designUp) grabTimer.restart()
-          Timer { id: revealTimer; interval: 700; onTriggered: cell.liveShown = true }
+          Timer { id: liveTimer; interval: 700; onTriggered: cell.liveShown = true }
           // A first picture soon, so a quick change of tab already has one,
           // and a second once slow wallpapers and intros have finished.
           Timer { id: grabTimer; interval: 1200; onTriggered: { cell.grabThumb(false); regrabTimer.restart() } }
@@ -4060,6 +4223,17 @@ Item {
           root.openEditor(root.designingDesign)
         }
       }
+    }
+
+    SidePanel {
+      id: sidePanel
+      explorer: root
+      screenWidth: panel.width
+      screenHeight: panel.height
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.right: parent.right
+      anchors.margins: Style.gapsOut
     }
 
     Item {

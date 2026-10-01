@@ -35,6 +35,7 @@ Item {
   property bool capsLock: false
   signal capsProbeRequested()
   property bool powerActions: false
+  property bool mediaControls: false
   signal powerActionRequested(string action)
   property bool loadBackground: true
   property string passwordText: ""
@@ -136,6 +137,7 @@ Item {
     if (it.batteryPercent !== undefined) it.batteryPercent = Qt.binding(function() { return host.batteryPercent })
     if (it.capsLock !== undefined) it.capsLock = Qt.binding(function() { return host.capsLock })
     if (it.powerActions !== undefined) it.powerActions = Qt.binding(function() { return host.powerActions })
+    if (it.mediaControls !== undefined) it.mediaControls = Qt.binding(function() { return host.mediaControls })
     it.loadBackground = Qt.binding(function() { return host.loadBackground })
     it.passwordText = Qt.binding(function() { return host.passwordText })
     if (it.videoPath !== undefined) it.videoPath = Qt.binding(function() { return host.videoPath })

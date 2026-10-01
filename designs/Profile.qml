@@ -3,6 +3,8 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  // The clock sits top centre, where the media strip would.
+  mediaStripAtBottom: true
   inputItem: field.input
 
   Wallpaper { anchors.fill: parent; lock: lock; blur: 1.0; dim: 0.2 }

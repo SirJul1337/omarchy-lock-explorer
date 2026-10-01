@@ -915,6 +915,38 @@ Item {
     return true
   }
 
+  // Previous, play or pause, and next on the lock screen for whatever is
+  // playing, with its title. Off by default: a locked screen says nothing
+  // about what is playing unless asked to. Saved on the plugin entry as
+  // `mediaControls`, and only on the screen the password goes in.
+  property int mediaControlsOverride: -1
+  readonly property bool configuredMediaControls: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId) return entry.mediaControls === true
+    }
+    return false
+  }
+  readonly property bool mediaControls: mediaControlsOverride >= 0 ? mediaControlsOverride === 1 : configuredMediaControls
+
+  function setMediaControls(value) {
+    var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
+    var off = value === false || value === "false" || value === 0 || value === "0" || value === "off"
+    if (!on && !off) return false
+
+    mediaControlsOverride = on ? 1 : 0
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (on) current.mediaControls = true
+      else delete current.mediaControls
+      writeEntry(current)
+    }
+    logEvent("media-controls=" + (on ? "on" : "off"))
+    return true
+  }
+
   function setPowerActions(value) {
     var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
     var off = value === false || value === "false" || value === 0 || value === "0" || value === "off"
@@ -3267,6 +3299,7 @@ echo "$out"
           capsLock: root.capsLock
           onCapsProbeRequested: root.probeCapsLock()
           powerActions: root.powerActions
+          mediaControls: root.mediaControls && root.showsInput(lockSurface.screen)
           onPowerActionRequested: function(action) { root.runPowerAction(action) }
           faceConfigured: root.faceConfigured
           fido2Configured: root.fido2Configured
@@ -3931,6 +3964,7 @@ echo "$out"
       readonly property int wakeGrace: root.wakeInputGrace
       readonly property int defaultWakeGrace: root.defaultWakeGrace
       readonly property bool powerActions: root.powerActions
+      readonly property bool mediaControls: root.mediaControls
       readonly property bool awayReport: root.awayReport
       readonly property string openAs: root.openAs
       readonly property bool barIconShown: root.barIconShown
@@ -4026,6 +4060,7 @@ echo "$out"
       function setWakeGrace(ms) { return root.setWakeGrace(ms) }
       function setFaceStart(value) { return root.setFaceStart(value) }
       function setPowerActions(value) { return root.setPowerActions(value) }
+      function setMediaControls(value) { return root.setMediaControls(value) }
       function setAwayReport(value) { return root.setAwayReport(value) }
       function setOpenAs(value) { return root.setOpenAs(value) }
       function setBarIcon(value) { return root.setBarIcon(value) }
@@ -4213,6 +4248,7 @@ echo "$out"
         wakeGraceMs: root.wakeInputGrace,
         faceStart: root.faceStart,
         powerActions: root.powerActions,
+        mediaControls: root.mediaControls,
         awayReport: root.awayReport,
         wallpaperBlur: root.wallpaperBlur,
         wallpaperDim: root.wallpaperDim,
@@ -4284,6 +4320,14 @@ echo "$out"
 
     function setPowerActions(value: string): string {
       return root.setPowerActions(value) ? "ok" : "invalid-value"
+    }
+
+    function mediaControls(): string {
+      return root.mediaControls ? "on" : "off"
+    }
+
+    function setMediaControls(value: string): string {
+      return root.setMediaControls(value) ? "ok" : "invalid-value"
     }
 
     function awayReport(): string {

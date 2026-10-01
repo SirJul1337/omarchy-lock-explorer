@@ -4,6 +4,8 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  // The island is top centre, where the media strip would be.
+  mediaStripAtBottom: true
   inputItem: field.input
 
   Wallpaper { anchors.fill: parent; lock: lock; blur: 0.0; dim: 0.1; vignetteTop: 0.4; vignetteMiddle: 0.05; vignetteBottom: 0.25 }

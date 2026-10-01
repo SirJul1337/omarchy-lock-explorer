@@ -63,6 +63,29 @@ Item {
   // before it happens.
   property bool powerActions: false
   signal powerActionRequested(string action)
+
+  // Previous, play or pause, and next for whatever is playing, with its
+  // title, off unless the owner turned it on (Settings > Screen and power >
+  // Media controls). Every design gets the strip from here, top centre. A
+  // design that draws controls of its own turns the strip off with
+  // showMediaStrip and calls mediaAct(); one with something of its own at the
+  // top moves it down with mediaStripAtBottom.
+  property bool mediaControls: false
+  property bool showMediaStrip: true
+  property bool mediaStripAtBottom: false
+  readonly property alias lockMedia: lockMediaSource
+  LiveMedia { id: lockMediaSource }
+  // "previous", "toggle" or "next". A click on a blanked screen only wakes it.
+  function mediaAct(action) {
+    var blanked = base.inputBlocked
+    base.wakeRequested()
+    if (blanked || !base.mediaControls) return
+    var p = lockMediaSource.player
+    if (!p) return
+    if (action === "previous") { if (p.canGoPrevious) p.previous() }
+    else if (action === "next") { if (p.canGoNext) p.next() }
+    else if (p.canTogglePlaying) p.togglePlaying()
+  }
   property bool loadBackground: true
   property string passwordText: ""
 
@@ -241,6 +264,99 @@ Item {
     PowerButton { action: "suspend"; glyph: "󰤄"; label: base.tr("Sleep") }
     PowerButton { action: "reboot"; glyph: "󰜉"; label: base.tr("Restart") }
     PowerButton { action: "shutdown"; glyph: "󰐥"; label: base.tr("Shut down") }
+  }
+
+  // The media strip, above the design like the power row and gone from boot
+  // snapshots with the rest of the chrome.
+  Rectangle {
+    id: mediaStrip
+    z: 900
+    visible: base.mediaControls && base.showMediaStrip && lockMediaSource.hasMedia && !base.snapshotMode
+    anchors.horizontalCenter: parent.horizontalCenter
+    y: base.mediaStripAtBottom ? parent.height - height - 64 : 24
+    width: mediaRow.implicitWidth + 20
+    height: 40
+    radius: 20
+    color: withAlpha(Color.background, 0.72)
+    border.width: 1
+    border.color: withAlpha(Color.lock.text, 0.12)
+
+    component MediaButton: Rectangle {
+      id: mediaButton
+      required property string action
+      required property string glyph
+      property bool available: true
+      width: 30
+      height: 30
+      radius: 15
+      anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+      opacity: available ? 1 : 0.35
+      color: base.withAlpha(Color.lock.text, mediaArea.containsMouse && available ? 0.18 : 0.08)
+      Behavior on color { ColorAnimation { duration: 120 } }
+      Text {
+        anchors.centerIn: parent
+        text: mediaButton.glyph
+        color: base.withAlpha(Color.lock.text, 0.85)
+        font.family: Style.font.family
+        font.pixelSize: 16
+      }
+      MouseArea {
+        id: mediaArea
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: base.mediaAct(mediaButton.action)
+      }
+    }
+
+    Row {
+      id: mediaRow
+      anchors.centerIn: parent
+      spacing: 8
+
+      Rectangle {
+        width: 26
+        height: 26
+        radius: 6
+        anchors.verticalCenter: parent.verticalCenter
+        visible: lockMediaSource.artUrl.length > 0 && mediaArt.status === Image.Ready
+        color: "transparent"
+        clip: true
+        Image {
+          id: mediaArt
+          anchors.fill: parent
+          source: base.mediaControls ? lockMediaSource.artUrl : ""
+          fillMode: Image.PreserveAspectCrop
+          asynchronous: true
+          sourceSize.width: 64
+          sourceSize.height: 64
+        }
+      }
+
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        width: Math.min(implicitWidth, 320)
+        elide: Text.ElideRight
+        text: lockMediaSource.title + (lockMediaSource.artist.length > 0 ? "  ·  " + lockMediaSource.artist : "")
+        textFormat: Text.PlainText
+        color: Color.lock.text
+        font.family: Style.font.family
+        font.pixelSize: 13
+      }
+
+      MediaButton {
+        action: "previous"; glyph: "󰒮"
+        available: !!lockMediaSource.player && lockMediaSource.player.canGoPrevious
+      }
+      MediaButton {
+        action: "toggle"; glyph: lockMediaSource.playing ? "󰏤" : "󰐊"
+        available: !!lockMediaSource.player && lockMediaSource.player.canTogglePlaying
+      }
+      MediaButton {
+        action: "next"; glyph: "󰒭"
+        available: !!lockMediaSource.player && lockMediaSource.player.canGoNext
+      }
+    }
   }
 
   Rectangle {

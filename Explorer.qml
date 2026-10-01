@@ -1181,6 +1181,12 @@ Item {
   // keys that lit the panel stay out of the password.
   // Sleep, restart and shut down on the lock screen. Off by default: with it
   // on, anyone at the machine can restart it without the password.
+  readonly property bool mediaControls: service && service.mediaControls === true
+  function setMediaControls(on) {
+    if (!root.service || typeof root.service.setMediaControls !== "function") return
+    root.service.setMediaControls(on)
+  }
+
   function setPowerActions(on) {
     if (!root.service || typeof root.service.setPowerActions !== "function") return
     root.service.setPowerActions(on)
@@ -2344,6 +2350,18 @@ Item {
                   options: root.onOffOptions
                   current: root.powerActions ? "on" : "off"
                   onPicked: function(id) { root.setPowerActions(id === "on") }
+                }
+
+                // Off by default too: on, the lock screen says what is playing.
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Media controls")
+                  help: root.mediaControls
+                        ? root.tr("While something plays, its title sits at the top of the lock screen with previous, play or pause, and next.")
+                        : root.tr("The lock screen leaves what is playing alone, and does not say what it is.")
+                  options: root.onOffOptions
+                  current: root.mediaControls ? "on" : "off"
+                  onPicked: function(id) { root.setMediaControls(id === "on") }
                 }
               }
 

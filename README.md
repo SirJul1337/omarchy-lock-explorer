@@ -335,6 +335,12 @@ happens — handy on a machine that otherwise can only be powered off by holding
 and worth leaving off anywhere a locked screen should do nothing but take a password.
 By hand: `omarchy-shell lock setPowerActions on`.
 
+"Media controls", off by default as well, puts what is playing at the top of the lock screen
+with previous, play or pause, and next, on the screen the password goes in. It shows only while
+a player has a track, the Music design carries the buttons on its own card, and a click on a
+blanked screen wakes it without touching the music. By hand:
+`omarchy-shell lock setMediaControls on`.
+
 "Report failed attempts", on by default, sends a notification after you unlock when somebody got
 the password or the security key wrong while you were away: how many times, and when the last one
 was. Wrong attempts that run straight into your own unlock, each within 30 seconds of the next,

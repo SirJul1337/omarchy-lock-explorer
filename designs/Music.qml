@@ -6,6 +6,8 @@ import qs.Commons
 DesignBase {
   id: lock
   inputItem: field.input
+  // The card is the player here, so the controls go on it.
+  showMediaStrip: false
 
   readonly property var players: Mpris.players ? Mpris.players.values : []
   readonly property var player: {
@@ -159,6 +161,40 @@ DesignBase {
             color: lock.withAlpha(Color.lock.text, 0.45)
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
+          }
+          Row {
+            visible: lock.mediaControls && lock.hasMedia
+            topPadding: 8
+            spacing: 10
+            Repeater {
+              model: [
+                { action: "previous", glyph: "󰒮", can: lock.player && lock.player.canGoPrevious },
+                { action: "toggle", glyph: lock.playing ? "󰏤" : "󰐊", can: lock.player && lock.player.canTogglePlaying },
+                { action: "next", glyph: "󰒭", can: lock.player && lock.player.canGoNext }
+              ]
+              Rectangle {
+                id: control
+                required property var modelData
+                width: 42; height: 42; radius: 21
+                opacity: modelData.can ? 1 : 0.35
+                color: lock.withAlpha(Color.lock.text, controlArea.containsMouse && modelData.can ? 0.2 : 0.1)
+                Behavior on color { ColorAnimation { duration: 120 } }
+                Text {
+                  anchors.centerIn: parent
+                  text: control.modelData.glyph
+                  color: Color.lock.text
+                  font.family: Style.font.family
+                  font.pixelSize: 20
+                }
+                MouseArea {
+                  id: controlArea
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: lock.mediaAct(control.modelData.action)
+                }
+              }
+            }
           }
         }
       }

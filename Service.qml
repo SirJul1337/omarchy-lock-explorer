@@ -760,11 +760,17 @@ Item {
   // Keys Omarchy keeps on the entry for itself.
   readonly property var hostEntryKeys: ["id", "enabled"]
   property bool settingsRestoreChecked: false
+  // The copy is a few hundred bytes of settings; anything bigger is not it.
+  readonly property int settingsCopyMaxBytes: 65536
 
+  // Writes only. The file is the user's to edit or replace with anything, and
+  // a FileView loads whatever sits at its path: a FIFO would stall the shell
+  // and an oversized file would sit in its memory. Reads go through
+  // settingsCopyRead, which checks the file before handing it over.
   FileView {
     id: settingsBackup
     path: root.settingsBackupPath
-    blockLoading: true
+    preload: false
     atomicWrites: true
     printErrors: false
   }
@@ -779,10 +785,21 @@ Item {
     settingsBackup.setText(JSON.stringify(copy, null, 2) + "\n")
   }
 
-  function savedSettings() {
-    var saved = null
-    try { saved = JSON.parse(String(settingsBackup.text() || "")) } catch (e) { saved = null }
-    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : null
+  // Exit 0 with the file on stdout, 1 when there is nothing at the path,
+  // 2 when what is there is not a plain file (a symlink or FIFO included),
+  // 3 when it is over the cap. The cap bounds the read as well as the
+  // check, so a file growing in between still cannot get past it.
+  Process {
+    id: settingsCopyRead
+    command: ["bash", "-c",
+      "f=$1; max=$2; " +
+      "[ -e \"$f\" ] || [ -L \"$f\" ] || exit 1; " +
+      "[ -f \"$f\" ] && [ ! -L \"$f\" ] || exit 2; " +
+      "[ \"$(stat -c %s -- \"$f\")\" -le \"$max\" ] || exit 3; " +
+      "head -c \"$max\" -- \"$f\"",
+      "bash", root.settingsBackupPath, String(root.settingsCopyMaxBytes)]
+    stdout: StdioCollector { id: settingsCopyOut; waitForEnd: true }
+    onExited: function(exitCode) { root.applySettingsCopy(exitCode, String(settingsCopyOut.text || "")) }
   }
 
   function restoreSettings() {
@@ -790,14 +807,30 @@ Item {
     settingsRestoreChecked = true
     if (!shell || typeof shell.updateEntryInline !== "function") return
     var current = pluginEntry()
-    var saved = savedSettings()
     if (settingKeys(current).length > 0) {
-      // An install from before the copy existed gets one now.
-      if (!saved) saveSettingsBackup(current)
+      // The entry is the settings; the copy only has to match it. Writing it
+      // here, without reading it first, is also what gives an install from
+      // before the copy existed one.
+      saveSettingsBackup(current)
       return
     }
-    if (!saved || settingKeys(saved).length === 0) return
+    settingsCopyRead.running = true
+  }
+
+  function applySettingsCopy(exitCode, text) {
+    if (exitCode === 1) return
+    if (exitCode !== 0) {
+      logEvent("settings-copy-skipped: " + (exitCode === 2 ? "not a plain file" : "over " + settingsCopyMaxBytes + " bytes"))
+      return
+    }
+    var saved = null
+    try { saved = JSON.parse(text) } catch (e) { saved = null }
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return
     var keys = settingKeys(saved)
+    if (keys.length === 0) return
+    // A setting saved while the copy was being read is newer than the copy.
+    var current = pluginEntry()
+    if (settingKeys(current).length > 0) return
     keys.forEach(function(k) { current[k] = saved[k] })
     writeEntry(current)
     logEvent("settings-restored " + keys.join(","))

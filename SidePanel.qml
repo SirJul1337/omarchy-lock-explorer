@@ -274,6 +274,7 @@ BorderSurface {
       // Search over every design, whichever tab is picked. The list keys stay
       // the list's: the field only takes the keyboard while it has focus.
       Rectangle {
+        id: searchBox
         width: parent.width
         height: Style.space(30)
         radius: side.explorer.cornerRadius
@@ -345,6 +346,7 @@ BorderSurface {
       }
 
       Row {
+        id: tabsRow
         spacing: Style.space(16)
         opacity: side.filtering ? 0.45 : 1
         Repeater {
@@ -614,6 +616,112 @@ BorderSurface {
       primary: true
       label: side.explorer.tr("Open full explorer") + " · O"
       onClicked: side.explorer.openFull("")
+    }
+
+    // The first-open tour: three hints, each beside the part of the panel it
+    // is about. The explorer holds the step and takes the keys; this draws
+    // the frame around the part and the card to the left of the panel.
+    Item {
+      id: tour
+      anchors.fill: parent
+      visible: side.shown && side.explorer.tourStep >= 0
+      z: 50
+
+      readonly property var steps: [
+        { title: "Browse", top: list.y, bottom: list.y + list.height,
+          text: "Up and Down move through the designs and the preview above follows. Enter makes the selected one your lock screen." },
+        { title: "Find", top: head.y + searchBox.y, bottom: head.y + tabsRow.y + tabsRow.height,
+          text: "/ searches every design. Left and Right switch between Favorites, Styling and Animation, and F stars the selected design." },
+        { title: "Everything else", top: fullButton.y, bottom: fullButton.y + fullButton.height,
+          text: "O opens the full explorer: settings, the boot screen and the designer. Opens as, in Settings, picks which of the two opens first." }
+      ]
+      readonly property var step: steps[Math.max(0, Math.min(steps.length - 1, side.explorer.tourStep))]
+      readonly property bool last: side.explorer.tourStep >= steps.length - 1
+
+      MouseArea { anchors.fill: parent; anchors.margins: -side.padding; onClicked: {} }
+
+      Rectangle {
+        id: tourFrame
+        x: -Style.space(6)
+        y: tour.step.top - Style.space(6)
+        width: parent.width + Style.space(12)
+        height: tour.step.bottom - tour.step.top + Style.space(12)
+        color: "transparent"
+        border.width: Math.max(2, Style.space(2))
+        border.color: side.explorer.accent
+        Behavior on y { NumberAnimation { duration: side.explorer.motionReduced ? 0 : 160; easing.type: Easing.OutCubic } }
+        Behavior on height { NumberAnimation { duration: side.explorer.motionReduced ? 0 : 160; easing.type: Easing.OutCubic } }
+      }
+
+      BorderSurface {
+        id: tourCard
+        width: Style.space(320)
+        height: tourBody.implicitHeight + contentTopInset + contentBottomInset
+        x: -width - side.contentLeftInset - Style.space(14)
+        y: Math.max(0, Math.min(parent.height - height, tourFrame.y + (tourFrame.height - height) / 2))
+        radius: side.explorer.cornerRadius
+        color: side.explorer.background
+        borderSpec: side.explorer.borderSpec
+        padding: Style.space(16)
+        Behavior on y { NumberAnimation { duration: side.explorer.motionReduced ? 0 : 160; easing.type: Easing.OutCubic } }
+
+        Column {
+          id: tourBody
+          x: tourCard.contentLeftInset
+          y: tourCard.contentTopInset
+          width: tourCard.width - tourCard.contentLeftInset - tourCard.contentRightInset
+          spacing: Style.space(10)
+
+          Item {
+            width: parent.width
+            height: tourTitle.implicitHeight
+            Text {
+              id: tourTitle
+              text: side.explorer.tr(tour.step.title)
+              textFormat: Text.PlainText
+              color: side.fg
+              font.family: side.explorer.fontFamily
+              font.pixelSize: Style.font.title
+              font.weight: Font.Bold
+            }
+            Text {
+              anchors.right: parent.right
+              anchors.verticalCenter: tourTitle.verticalCenter
+              text: (side.explorer.tourStep + 1) + " / " + tour.steps.length
+              color: side.explorer.muted
+              font.family: side.explorer.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+          }
+
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: side.explorer.tr(tour.step.text)
+            textFormat: Text.PlainText
+            color: side.fg
+            font.family: side.explorer.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            lineHeight: 1.25
+          }
+
+          Row {
+            width: parent.width
+            spacing: Style.space(8)
+            PanelButton {
+              width: (parent.width - parent.spacing) / 2
+              label: side.explorer.tr("Skip") + " · Esc"
+              onClicked: side.explorer.endTour()
+            }
+            PanelButton {
+              width: (parent.width - parent.spacing) / 2
+              primary: true
+              label: side.explorer.tr(tour.last ? "Done" : "Next") + " · ⏎"
+              onClicked: side.explorer.nextTourStep()
+            }
+          }
+        }
+      }
     }
   }
 }

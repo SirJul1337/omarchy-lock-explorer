@@ -76,6 +76,9 @@ makes the selected design the lock screen and keeps the panel up, Left and Right
 tab, `F` stars, `/` searches, and Esc closes. `O`, or the button at the bottom, opens the full
 explorer on the same design; `O` there goes back to the panel.
 
+The first time the panel opens it walks through three hints (Enter for the next, Esc to skip);
+*Side panel tour* in Settings, or `omarchy-shell lock tour`, shows them again.
+
 *Bar icon*, under System in Settings, puts a lock in the bar: a click opens the same as
 `omarchy-shell lock explore`, a right click the full explorer. Like the menu entry it is a
 choice, since a plugin cannot change the bar when it is installed; it goes at the end of the

@@ -93,6 +93,29 @@ Item {
   }
   readonly property var openAsOptions: [{ id: "panel", name: root.tr("Side panel") }, { id: "full", name: root.tr("Full explorer") }]
   readonly property bool barIconShown: !!service && service.barIconShown === true
+
+  // The side panel's first-open tour (drawn in SidePanel.qml): -1 is off.
+  // It runs once, the first time the panel opens, and again from Settings.
+  property int tourStep: -1
+  readonly property int tourSteps: 3
+  // Kept here as well, for a session where nothing can be saved.
+  property bool tourDone: false
+  readonly property bool tourSeen: service && service.tourSeen !== undefined ? service.tourSeen === true : tourDone
+  function nextTourStep() {
+    if (tourStep >= tourSteps - 1) endTour()
+    else tourStep += 1
+  }
+  function endTour() {
+    tourStep = -1
+    tourDone = true
+    if (root.service && typeof root.service.setTourSeen === "function") root.service.setTourSeen(true)
+    refocus()
+  }
+  function replayTour() {
+    root.tourDone = false
+    root.showPanel()
+    root.tourStep = 0
+  }
   function setBarIcon(on) {
     if (!root.service || typeof root.service.setBarIcon !== "function") return
     root.service.setBarIcon(on)
@@ -105,6 +128,7 @@ Item {
   // From the side panel into the full explorer, on the design that was
   // selected there, and back.
   function openFull(tab) {
+    if (root.tourStep >= 0) root.endTour()
     root.view = "full"
     if (tab && tab.length > 0) root.mainTab = tab
     root.thumbSlots = 0
@@ -133,6 +157,16 @@ Item {
   // The side panel's keys. It has no pages of its own, so the ones that are
   // pages in the full explorer open it there.
   function sideKey(event) {
+    if (root.tourStep >= 0) {
+      // The tour takes the keys until it is done; Esc is handled before this.
+      if (event.key === Qt.Key_Left || event.key === Qt.Key_Up || event.key === Qt.Key_Backspace)
+        root.tourStep = Math.max(0, root.tourStep - 1)
+      else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space
+               || event.key === Qt.Key_Right || event.key === Qt.Key_Down)
+        root.nextTourStep()
+      event.accepted = true
+      return
+    }
     var tabs = ["favorites", "styling", "animation"]
     function stepTab(step) {
       root.searchText = ""
@@ -426,6 +460,7 @@ Item {
     if (editing) { closeEditor(); return }
     if (bootEditing.length > 0) { closeBootEditor(); return }
     if (fullPreview) { fullPreview = false; return }
+    if (sideView && tourStep >= 0) { endTour(); return }
     if (sideView) { dismiss(); return }
     if (mainTab !== "styling") { mainTab = "styling"; refocus(); return }
     dismiss()
@@ -987,7 +1022,9 @@ Item {
       root.mainTab = root.isFavorite(root.activeDesignId) ? "favorites"
         : (active && Designs.isAnimated(active) ? "animation" : "styling")
       if (!root.selectById(root.activeDesignId)) root.selectedIndex = 0
+      root.tourStep = root.tourSeen ? -1 : 0
     } else {
+      root.tourStep = -1
       root.mainTab = root.requestedTab.length > 0 ? root.requestedTab : "styling"
       var idx = Designs.indexOf(root.activeDesignId)
       root.selectedIndex = idx >= 0 ? idx : 0
@@ -2368,6 +2405,36 @@ Item {
                   options: root.openAsOptions
                   current: root.openAs
                   onPicked: function(id) { root.setOpenAs(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  label: root.tr("Side panel tour")
+                  help: root.tr("The three hints from the first time the side panel opened.")
+
+                  Rectangle {
+                    width: tourLabel.implicitWidth + Style.space(26)
+                    height: Style.space(34)
+                    radius: root.cornerRadius
+                    color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, tourArea.containsMouse ? 0.13 : 0.06)
+                    border.width: 1
+                    border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.10)
+                    Text {
+                      id: tourLabel
+                      anchors.centerIn: parent
+                      text: root.tr("Show the tour")
+                      color: root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                    }
+                    MouseArea {
+                      id: tourArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.replayTour()
+                    }
+                  }
                 }
 
                 SettingRow {

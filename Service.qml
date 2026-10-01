@@ -394,6 +394,34 @@ Item {
     return true
   }
 
+  // The side panel's first-open tour has been through, or skipped. Saved on
+  // the plugin entry as `tourSeen`, so it shows once per install.
+  property int tourSeenOverride: -1
+  readonly property bool configuredTourSeen: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.tourSeen !== undefined)
+        return entry.tourSeen === true || String(entry.tourSeen) === "true"
+    }
+    return false
+  }
+  readonly property bool tourSeen: tourSeenOverride >= 0 ? tourSeenOverride === 1 : configuredTourSeen
+
+  function setTourSeen(value) {
+    var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
+    if (on === tourSeen) return true
+    tourSeenOverride = on ? 1 : 0
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (on) current.tourSeen = true
+      else delete current.tourSeen
+      writeEntry(current)
+    }
+    return true
+  }
+
   // After an unlock, a notification for the failed attempts made while you
   // were away. On by default: it says nothing unless somebody tried. Saved on
   // the plugin entry as `awayReportOff` only when it is turned off.
@@ -3906,6 +3934,7 @@ echo "$out"
       readonly property bool awayReport: root.awayReport
       readonly property string openAs: root.openAs
       readonly property bool barIconShown: root.barIconShown
+      readonly property bool tourSeen: root.tourSeen
       readonly property var favorites: root.favorites
       readonly property bool showLayoutBadge: root.showLayoutBadge
       readonly property string accountName: root.accountName
@@ -4000,6 +4029,7 @@ echo "$out"
       function setAwayReport(value) { return root.setAwayReport(value) }
       function setOpenAs(value) { return root.setOpenAs(value) }
       function setBarIcon(value) { return root.setBarIcon(value) }
+      function setTourSeen(value) { return root.setTourSeen(value) }
       function toggleFavorite(id) { return root.toggleFavorite(id) }
       function setFieldItem(name, show) { return root.setFieldItem(name, show) }
       function installPackages(names) { return root.installPackages(names) }
@@ -4271,6 +4301,12 @@ echo "$out"
     // panel or full: what `explore` opens.
     function setOpenAs(value: string): string {
       return root.setOpenAs(value) ? "ok" : "invalid-value"
+    }
+
+    // The side panel with its first-open tour, again.
+    function tour(): string {
+      root.setTourSeen(false)
+      return root.summonExplorer("panel")
     }
 
     function barIcon(): string {

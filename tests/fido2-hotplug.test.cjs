@@ -21,10 +21,10 @@ function context(extra={}) {
     fido2TokenPresent:true, fido2FailurePending:false, fido2FailureElapsed:0, fido2TouchMisses:0, failedAttempts:0,
     fido2PinAttempts:0, fido2NoTouchMs:20000, fido2TouchRetryLimit:3,
     authMode:'fido2', fido2Configured:true, authenticatingPassword:false,
-    failureMessage:'', fido2Status:'', retries:0, probes:0, unlocked:false,
+    failureTimes:[], failureMessage:'', fido2Status:'', retries:0, probes:0, unlocked:false,
     PamResult:{Success:0,Failed:1,Error:2}, sessionLock:{secure:true},
     fido2Pam:{active:false,start(){throw Error('unexpected PAM start')}},
-    setAuthMode(mode){c.authMode=mode}, settleAuthMode(){},
+    setAuthMode(mode){c.authMode=mode;c.failureMessage='';c.fido2FailurePending=false}, settleAuthMode(){},
     finishUnlock(){c.unlocked=true}, logEvent(){}, runWake(){},
     refreshFido2Status(){c.probes++}, ...extra};
   Object.defineProperty(c,'fido2Active',{get:()=>c.authMode==='fido2'});
@@ -32,12 +32,13 @@ function context(extra={}) {
   c.fido2RetryTimer={restart(){c.retries++}};
   c.fido2FailureSettle={running:false,restart(){this.running=true},stop(){this.running=false}}; c.root=c;
   vm.createContext(c);
+  vm.runInContext('function t(text) { return text; }; String.prototype.arg = function(value) { return this.replace("%1", value); };',c);
   for (const name of ['handleFido2Finished','finishFido2Failure','startFido2','retryFido2'])
     vm.runInContext(`function ${name}(${name==='handleFido2Finished'?'result':name==='finishFido2Failure'?'elapsed':''}) {${bodyAfter('function '+name+'(')}}`,c);
   return c;
 }
 test('three immediate no-device errors do not consume fingerprint retries',()=>{
- const c=context(); for(let i=0;i<3;i++){c.fido2Authenticating=true;fail(c)}
+ const c=context(); for(let i=0;i<3;i++){c.authMode='fido2';c.fido2Authenticating=true;fail(c)}
  assert.equal(c.failedAttempts,0);assert.equal(c.fido2TouchMisses,0);
  assert.equal(c.retries,0);assert.equal(c.fido2TokenPresent,false);
 });
@@ -91,7 +92,7 @@ test('PAM failure before USB remove waits and does not charge an unplug',()=>{
  // No udev event is needed: a fresh probe independently confirms removal.
  resolveFailure(c,false);
  assert.equal(c.failedAttempts,0);assert.equal(c.fido2TouchMisses,0);
- assert.equal(c.failureMessage,'');assert.equal(c.fido2Status,'Plug in your security key');
+ assert.equal(c.failureMessage,'');assert.equal(c.fido2Status,'');assert.equal(c.authMode,'password');
 });
 test('an old probe cannot resolve a pending failure before the settle timer',()=>{
  const c=context({fido2Cue:'Touch your security key'});

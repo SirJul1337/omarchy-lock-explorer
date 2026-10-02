@@ -2983,7 +2983,8 @@ echo "$out"
     if (fido2Pam.active || fido2Authenticating || fido2FailurePending) return
     if (screenBlanked || authenticatingPassword || enteredPassword.length > 0) return
     if (!fido2TokenPresent) {
-      fido2Status = t("No security key found")
+      setAuthMode("password")
+      fido2Status = ""
       return
     }
 
@@ -3100,7 +3101,8 @@ echo "$out"
     // Do not abort/restart a live assertion: its child still owns the key.
     if (!fido2PinSubmitted && (fido2Cue.length === 0 || fido2DeviceChanged || !fido2TokenPresent)) {
       fido2TokenPresent = false
-      fido2Status = "Plug in your security key"
+      setAuthMode("password")
+      fido2Status = ""
       failureMessage = ""
       logEvent("fido2-device unavailable; waiting for reconnect")
       // A reconnect may already have happened while PAM was finishing.

@@ -53,7 +53,7 @@ DesignBase {
         showLockGlyph: false
         shakeOnFail: false
         textAlignment: TextInput.AlignLeft
-        placeholder: lock.greeting() + ", " + lock.displayName
+        placeholder: lock.tr("Hello, %1").arg(lock.displayName)
         color: lock.withAlpha(Color.background, 0.5)
       }
 

@@ -2419,6 +2419,7 @@ echo "$out"
   // no PIN retry, no on-key biometric retry. Anything shorter had a user in it.
   readonly property int fido2NoTouchMs: 20000
   property real fido2RoundStarted: 0
+  property bool fido2DeviceChanged: false
   // A touch that did not verify costs one of the key's own UV retries, not a
   // PIN retry, and the key caps those itself and resets them on a match. The
   // round is offered again rather than the user having to Tab back, and this
@@ -2887,7 +2888,7 @@ echo "$out"
 
   function retryFido2() {
     fido2TouchMisses = 0
-    startFido2()
+    refreshFido2Status()
   }
 
   function retryFace() {
@@ -2978,7 +2979,7 @@ echo "$out"
     if (!lockRequested || !sessionLock.secure) return
     if (!fido2Active || !fido2Configured || fido2Exhausted) return
     if (fido2Pam.active || fido2Authenticating) return
-    if (screenBlanked) return
+    if (screenBlanked || authenticatingPassword || enteredPassword.length > 0) return
     if (!fido2TokenPresent) {
       fido2Status = t("No security key found")
       return
@@ -2992,6 +2993,7 @@ echo "$out"
     fido2Cue = ""
     fido2Status = t("Waiting for your key…")
     fido2Authenticating = true
+    fido2DeviceChanged = false
     fido2RoundStarted = Date.now()
     if (!fido2Pam.start()) {
       fido2Authenticating = false
@@ -3071,6 +3073,20 @@ echo "$out"
     if (screenBlanked) {
       fido2Status = ""
       logEvent("fido2-round dropped, screen dark")
+      return
+    }
+
+    // A missing/unready device can fail immediately, without asking for a
+    // touch. USB loss during an assertion is not a fingerprint mismatch
+    // either. Never spend the touch retry budget on either case.
+    // Do not abort/restart a live assertion: its child still owns the key.
+    if (!fido2PinSubmitted && (fido2Cue.length === 0 || fido2DeviceChanged)) {
+      fido2TokenPresent = false
+      fido2Status = "Plug in your security key"
+      failureMessage = ""
+      logEvent("fido2-device unavailable; waiting for reconnect")
+      // A reconnect may already have happened while PAM was finishing.
+      if (fido2DeviceChanged) fido2RetryTimer.restart()
       return
     }
 
@@ -3429,7 +3445,7 @@ echo "$out"
     id: fido2RetryTimer
     interval: 500
     repeat: false
-    onTriggered: root.startFido2()
+    onTriggered: root.refreshFido2Status()
   }
 
   Timer {
@@ -3439,26 +3455,20 @@ echo "$out"
     onTriggered: root.startFace()
   }
 
-  // A key plugged in after the lock came up has to be noticed, and polling for
-  // it would mean spawning a probe every couple of seconds for as long as the
-  // screen is locked. This sleeps on the udev netlink socket instead and wakes
-  // only when a hidraw device actually appears. It exists in one state only:
-  // locked, a key enrolled, none attached, nothing in flight, and the user is
-  // not already on the password. A key arriving mid-password changes nothing
-  // (settleAuthMode leaves half-typed input alone), so the process would be
-  // kept alive for an answer nobody acts on.
+  // Watch throughout the lock, including while a key/PAM round is present.
+  // Otherwise removal leaves a stale presence flag and disables hotplug.
+  // Probes never interrupt a live assertion or a partially typed password.
   Process {
     id: fido2HotplugWatch
-    running: root.lockRequested && root.fido2Configured && !root.fido2TokenPresent
-      && !root.fido2Exhausted
-      && !root.fido2Authenticating && !root.authenticatingPassword
-      && root.enteredPassword.length === 0
-      && (!root.authModeSettled || root.fido2Active)
+    running: root.lockRequested && root.fido2Configured && !root.fido2Exhausted
     command: ["udevadm", "monitor", "--udev", "--subsystem-match=hidraw"]
     stdout: SplitParser {
       // "UDEV  [123.4] add  /devices/.../hidraw/hidraw0 (hidraw)"
       onRead: function(line) {
-        if (String(line).indexOf(" add ") >= 0) fido2HotplugSettle.restart()
+        var event = String(line)
+        if (event.indexOf(" add ") < 0 && event.indexOf(" remove ") < 0) return
+        if (root.fido2Authenticating) root.fido2DeviceChanged = true
+        fido2HotplugSettle.restart()
       }
     }
   }
@@ -3623,6 +3633,7 @@ echo "$out"
     stdout: StdioCollector { id: fido2CheckStdout; waitForEnd: true }
     onExited: {
       var answer = String(fido2CheckStdout.text || "").trim().split(/\s+/)
+      var wasPresent = root.fido2TokenPresent
       root.fido2Installed = answer[0] === "yes"
       root.fido2TokenPresent = answer[1] === "present"
 
@@ -3632,6 +3643,13 @@ echo "$out"
       }
 
       if (!root.lockRequested) return
+      // A fresh insertion can offer the key after a password prompt, but
+      // must never clear typed input, interrupt a check, or reset PIN limits.
+      if (!wasPresent && root.fido2TokenPresent && !root.fido2Exhausted
+          && !root.authenticatingPassword && root.enteredPassword.length === 0) {
+        root.fido2TouchMisses = 0
+        root.setAuthMode("fido2")
+      }
       if (!root.fido2Active) root.settleAuthMode()
       if (root.fido2Active) root.startFido2()
     }

@@ -51,7 +51,8 @@ Window.SetBackgroundBottomColor(bg.r, bg.g, bg.b);
 # Every head measured on its own and moved to a slice of the canvas of its
 # own, as in the custom generator: Plymouth centres the heads on each other,
 # so a layout built from a single Window.GetWidth() starts off the left edge
-# of a narrower head (issue #38).
+# of a narrower head (issue #38). The room between the slices keeps a long
+# boot message, which starts at the first head's left, off the next.
 display_count = 0;
 next_x = 0;
 i = 0;
@@ -67,7 +68,7 @@ while (i < 8) {
     dsp_w[display_count] = dw;
     dsp_h[display_count] = dh;
     display_count++;
-    next_x = next_x + dw;
+    next_x = next_x + dw + 32768;
   }
   i++;
 }

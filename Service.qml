@@ -2420,6 +2420,8 @@ echo "$out"
   readonly property int fido2NoTouchMs: 20000
   property real fido2RoundStarted: 0
   property bool fido2DeviceChanged: false
+  property bool fido2FailurePending: false
+  property real fido2FailureElapsed: 0
   // A touch that did not verify costs one of the key's own UV retries, not a
   // PIN retry, and the key caps those itself and resets them on a match. The
   // round is offered again rather than the user having to Tab back, and this
@@ -2978,7 +2980,7 @@ echo "$out"
     // would unlock a lock that never took.
     if (!lockRequested || !sessionLock.secure) return
     if (!fido2Active || !fido2Configured || fido2Exhausted) return
-    if (fido2Pam.active || fido2Authenticating) return
+    if (fido2Pam.active || fido2Authenticating || fido2FailurePending) return
     if (screenBlanked || authenticatingPassword || enteredPassword.length > 0) return
     if (!fido2TokenPresent) {
       fido2Status = t("No security key found")
@@ -3002,6 +3004,8 @@ echo "$out"
   }
 
   function abortFido2() {
+    fido2FailurePending = false
+    fido2FailureSettle.stop()
     // Cleared before abort(): whatever completed/error the abort emits is
     // then ignored by handleFido2Finished instead of counted as a failure.
     fido2Authenticating = false
@@ -3067,6 +3071,20 @@ echo "$out"
       return
     }
 
+    // PAM can report USB loss before udev delivers the remove event. Wait
+    // for the topology to settle and probe before charging a touch failure.
+    // PIN submissions still consume their budget immediately.
+    if (!fido2PinSubmitted) {
+      fido2FailureElapsed = elapsed
+      fido2FailurePending = true
+      fido2FailureSettle.restart()
+      return
+    }
+    finishFido2Failure(elapsed)
+  }
+
+  function finishFido2Failure(elapsed) {
+    if (!lockRequested || !fido2Active) return
     // A result from a round the blanking cut short says nothing about who is
     // in front of the screen now, and waking the panel to report it would
     // light the lock up for no one.
@@ -3080,7 +3098,7 @@ echo "$out"
     // touch. USB loss during an assertion is not a fingerprint mismatch
     // either. Never spend the touch retry budget on either case.
     // Do not abort/restart a live assertion: its child still owns the key.
-    if (!fido2PinSubmitted && (fido2Cue.length === 0 || fido2DeviceChanged)) {
+    if (!fido2PinSubmitted && (fido2Cue.length === 0 || fido2DeviceChanged || !fido2TokenPresent)) {
       fido2TokenPresent = false
       fido2Status = "Plug in your security key"
       failureMessage = ""
@@ -3439,6 +3457,13 @@ echo "$out"
     }
   }
 
+  Timer {
+    id: fido2FailureSettle
+    interval: 400
+    repeat: false
+    onTriggered: root.refreshFido2Status()
+  }
+
   // Longer than faceRetryTimer: a round that ends the instant it starts would
   // otherwise spin, and nothing here is racing a camera frame.
   Timer {
@@ -3467,7 +3492,7 @@ echo "$out"
       onRead: function(line) {
         var event = String(line)
         if (event.indexOf(" add ") < 0 && event.indexOf(" remove ") < 0) return
-        if (root.fido2Authenticating) root.fido2DeviceChanged = true
+        if (root.fido2Authenticating || root.fido2FailurePending) root.fido2DeviceChanged = true
         fido2HotplugSettle.restart()
       }
     }
@@ -3643,6 +3668,13 @@ echo "$out"
       }
 
       if (!root.lockRequested) return
+      if (root.fido2FailurePending) {
+        // A probe already in flight at PAM completion is not fresh enough.
+        if (fido2FailureSettle.running) return
+        root.fido2FailurePending = false
+        root.finishFido2Failure(root.fido2FailureElapsed)
+        return
+      }
       // A fresh insertion can offer the key after a password prompt, but
       // must never clear typed input, interrupt a check, or reset PIN limits.
       if (!wasPresent && root.fido2TokenPresent && !root.fido2Exhausted

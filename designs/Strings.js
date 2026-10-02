@@ -30,6 +30,7 @@ var LANGUAGES = [
 
 var TEXT = {
   da: {
+    "Hello, %1": "Hej, %1",
     "Password": "Adgangskode",
     "Type password": "Skriv adgangskode",
     "Enter password": "Indtast adgangskode",
@@ -101,6 +102,7 @@ var TEXT = {
     "While the screen was locked, the last at %1": "Mens skærmen var låst, det seneste kl. %1"
   },
   de: {
+    "Hello, %1": "Hallo, %1",
     "Password": "Passwort",
     "Type password": "Passwort eingeben",
     "Enter password": "Passwort eingeben",
@@ -172,6 +174,7 @@ var TEXT = {
     "While the screen was locked, the last at %1": "Während der Bildschirm gesperrt war, zuletzt um %1"
   },
   es: {
+    "Hello, %1": "Hola, %1",
     "Password": "Contraseña",
     "Type password": "Escribe la contraseña",
     "Enter password": "Introduce la contraseña",
@@ -243,6 +246,7 @@ var TEXT = {
     "While the screen was locked, the last at %1": "Mientras la pantalla estaba bloqueada, el último a las %1"
   },
   fr: {
+    "Hello, %1": "Bonjour, %1",
     "Password": "Mot de passe",
     "Type password": "Saisissez le mot de passe",
     "Enter password": "Saisissez le mot de passe",
@@ -314,6 +318,7 @@ var TEXT = {
     "While the screen was locked, the last at %1": "Pendant que l’écran était verrouillé, la dernière à %1"
   },
   it: {
+    "Hello, %1": "Ciao, %1",
     "Password": "Password",
     "Type password": "Digita la password",
     "Enter password": "Inserisci la password",
@@ -385,6 +390,7 @@ var TEXT = {
     "While the screen was locked, the last at %1": "Mentre lo schermo era bloccato, l’ultimo alle %1"
   },
   nl: {
+    "Hello, %1": "Hallo, %1",
     "Password": "Wachtwoord",
     "Type password": "Typ wachtwoord",
     "Enter password": "Voer wachtwoord in",
@@ -456,6 +462,7 @@ var TEXT = {
     "While the screen was locked, the last at %1": "Terwijl het scherm vergrendeld was, de laatste om %1"
   },
   nb: {
+    "Hello, %1": "Hei, %1",
     "Password": "Passord",
     "Type password": "Skriv passord",
     "Enter password": "Skriv inn passord",
@@ -527,6 +534,7 @@ var TEXT = {
     "While the screen was locked, the last at %1": "Mens skjermen var låst, det siste kl. %1"
   },
   pl: {
+    "Hello, %1": "Cześć, %1",
     "Password": "Hasło",
     "Type password": "Wpisz hasło",
     "Enter password": "Wpisz hasło",
@@ -598,6 +606,7 @@ var TEXT = {
     "While the screen was locked, the last at %1": "Gdy ekran był zablokowany, ostatnia o %1"
   },
   pt: {
+    "Hello, %1": "Olá, %1",
     "Password": "Palavra-passe",
     "Type password": "Escreva a palavra-passe",
     "Enter password": "Introduza a palavra-passe",
@@ -669,6 +678,7 @@ var TEXT = {
     "While the screen was locked, the last at %1": "Enquanto o ecrã estava bloqueado, a última às %1"
   },
   sv: {
+    "Hello, %1": "Hej, %1",
     "Password": "Lösenord",
     "Type password": "Skriv lösenord",
     "Enter password": "Ange lösenord",

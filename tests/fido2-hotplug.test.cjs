@@ -18,11 +18,11 @@ function context(extra={}) {
   const c = {fido2Authenticating:true, fido2NeedsPin:false, enteredPassword:'',
     fido2RoundStarted:Date.now()-100, lockRequested:true, screenBlanked:false,
     fido2PinSubmitted:false, fido2Cue:'', fido2DeviceChanged:false,
-    fido2TokenPresent:true, fido2FailurePending:false, fido2FailureElapsed:0, fido2TouchMisses:0, failedAttempts:0,
+    fido2TokenPresent:true, fido2FailurePending:false, fido2ProbeForFailure:false, fido2FailureElapsed:0, fido2TouchMisses:0, failedAttempts:0,
     fido2PinAttempts:0, fido2NoTouchMs:20000, fido2TouchRetryLimit:3,
     authMode:'fido2', fido2Configured:true, authenticatingPassword:false,
     failureTimes:[], failureMessage:'', fido2Status:'', retries:0, probes:0, unlocked:false,
-    PamResult:{Success:0,Failed:1,Error:2}, sessionLock:{secure:true},
+    Qt:{callLater(fn){fn()}}, PamResult:{Success:0,Failed:1,Error:2}, sessionLock:{secure:true},
     fido2Pam:{active:false,start(){throw Error('unexpected PAM start')}},
     setAuthMode(mode){c.authMode=mode;c.failureMessage='';c.fido2FailurePending=false}, settleAuthMode(){},
     finishUnlock(){c.unlocked=true}, logEvent(){}, runWake(){},
@@ -77,7 +77,7 @@ test('PAM success remains required to unlock, including during unplug',()=>{
 });
 
 function resolveFailure(c, present=true) {
- c.fido2FailureSettle.running=false;
+ c.fido2FailureSettle.running=false; c.fido2ProbeForFailure=true;
  c.fido2CheckStdout={text:'yes '+(present?'present':'absent')};
  vm.runInContext('(function(){'+probe+'})()',c);
 }
@@ -104,4 +104,14 @@ test('an old probe cannot resolve a pending failure before the settle timer',()=
 test('a new assertion cannot start while removal classification is pending',()=>{
  const c=context({fido2Authenticating:false,fido2FailurePending:true});c.startFido2();
  assert.equal(c.fido2Authenticating,false);
+});
+
+test('a slow pre-failure probe cannot classify removal after the timer expires',()=>{
+ const c=context({fido2Cue:'Touch your security key'});
+ c.handleFido2Finished(1);c.fido2FailureSettle.running=false;
+ c.fido2CheckStdout={text:'yes present'};
+ vm.runInContext('(function(){'+probe+'})()',c);
+ assert.equal(c.fido2FailurePending,true);assert.equal(c.failedAttempts,0);
+ assert.equal(c.probes,1);
+ resolveFailure(c,false);assert.equal(c.failedAttempts,0);
 });

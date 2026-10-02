@@ -2421,6 +2421,7 @@ echo "$out"
   property real fido2RoundStarted: 0
   property bool fido2DeviceChanged: false
   property bool fido2FailurePending: false
+  property bool fido2ProbeForFailure: false
   property real fido2FailureElapsed: 0
   // A touch that did not verify costs one of the key's own UV retries, not a
   // PIN retry, and the key caps those itself and resets them on a match. The
@@ -2636,7 +2637,9 @@ echo "$out"
   }
 
   function refreshFido2Status() {
-    if (!fido2CheckProc.running) fido2CheckProc.running = true
+    if (fido2CheckProc.running) return
+    fido2ProbeForFailure = fido2FailurePending && !fido2FailureSettle.running
+    fido2CheckProc.running = true
   }
 
   function refreshSessionLockXray() {
@@ -2949,10 +2952,8 @@ echo "$out"
       pendingPassword = ""
       logEvent("auth-mode=" + mode)
     }
-    // Settled last: the hotplug watcher runs on (!settled || fido2Active),
-    // and settling before the switch would stop and respawn it on every Tab.
-    // A request for a mode that cannot be entered still settles, so a later
-    // probe does not override what the user asked for.
+    // An explicit mode choice settles initial selection. A later physical
+    // insertion can still offer the key if the password field is empty.
     authModeSettled = true
   }
 
@@ -3673,6 +3674,10 @@ echo "$out"
       if (root.fido2FailurePending) {
         // A probe already in flight at PAM completion is not fresh enough.
         if (fido2FailureSettle.running) return
+        if (!root.fido2ProbeForFailure) {
+          Qt.callLater(root.refreshFido2Status)
+          return
+        }
         root.fido2FailurePending = false
         root.finishFido2Failure(root.fido2FailureElapsed)
         return

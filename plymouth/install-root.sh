@@ -29,6 +29,12 @@ if [[ -n $bg_hex && ! ${bg_hex#\#} =~ ^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$ ]]; then
   exit 1
 fi
 
+# The account that authenticated to pkexec (or sudo, when testing). Everything
+# this script reads from the unprivileged side has to belong to it.
+caller_uid=${PKEXEC_UID:-${SUDO_UID:-}}
+[[ $caller_uid =~ ^[0-9]+$ && $caller_uid != 0 ]] ||
+  { echo "Cannot tell which account asked for this (no PKEXEC_UID)" >&2; exit 1; }
+
 theme_root=/usr/share/plymouth/themes
 quit_dropin=/etc/systemd/system/plymouth-quit.service.d/omarchy-lock-explorer.conf
 limine_conf=/boot/limine.conf
@@ -91,6 +97,44 @@ restore_limine_backdrop() {
   rm -f "$limine_colors_save"
 }
 
+# Root reads from the unprivileged side through handles it has already
+# checked, never through a path a second time. Between the password dialog
+# and the copy, anything running as that account could swap the path for a
+# symlink into a root-only directory, and the copies below make their
+# contents world-readable.
+
+# open_caller_file <path>: open fd 3 on a regular file owned by the caller.
+# Reads then go through /dev/fd/3, the file already open, whatever the path
+# turns into afterwards.
+open_caller_file() {
+  exec 3<"$1" || return 1
+  [[ -f /dev/fd/3 && $(stat -L -c %u /dev/fd/3) == "$caller_uid" ]]
+}
+
+# copy_caller_tree <dir> <marker> <dest> <replace|merge>: copy a theme
+# directory named by the caller under $theme_root. The directory is entered
+# once; every check and the copy itself then go through the directory that
+# was entered, not the path. Only plain files and directories pass, owned by
+# the caller or, like the stock theme under /usr/share/omarchy, by root and
+# readable by everyone already. So nothing a symlink or hardlink points at is
+# copied, and nothing root keeps to itself is published.
+copy_caller_tree() {
+  local dir="$1" marker="$2" dest="$3" how="$4"
+  (
+    cd -- "$dir" 2>/dev/null || exit 1
+    [[ -f $marker && ! -L $marker ]] || exit 1
+    [[ -z $(find . \( \( ! -type f -a ! -type d \) \
+                    -o \( ! -user "$caller_uid" -a ! -user 0 \) \
+                    -o \( -user 0 -a -type f -a ! -perm -o=r \) \
+                    -o \( -user 0 -a -type d -a ! -perm -o=rx \) \) \
+                 -print -quit) ]] || exit 1
+    [[ $how == merge ]] || rm -rf "$dest"
+    mkdir -p "$dest"
+    cp -r --no-preserve=mode,ownership . "$dest/"
+  ) || { echo "Refusing $dir: not a plain directory tree owned by the caller" >&2; exit 1; }
+  find "$dest" -type d -exec chmod 0755 {} + -o -type f -exec chmod 0644 {} +
+}
+
 # Keep the last frame on screen until the compositor's first frame takes
 # over, instead of dropping to black between plymouth and the session.
 install_quit_dropin() {
@@ -101,11 +145,11 @@ install_quit_dropin() {
 
 case $mode in
   addon)
-    [[ -f $src ]] || { echo "Not an addon file: $src" >&2; exit 1; }
+    open_caller_file "$src" || { echo "Not an addon file owned by the caller: $src" >&2; exit 1; }
     installed=0
     while IFS= read -r extra_dir; do
       [[ -n $extra_dir ]] || continue
-      install -Dm644 "$src" "$extra_dir/$addon_name"
+      install -Dm644 /dev/fd/3 "$extra_dir/$addon_name"
       rm -f "$extra_dir/lock-explorer.addon.efi"   # pre-release test name
       installed=1
     done < <(extra_dirs)
@@ -120,35 +164,25 @@ case $mode in
     # too and becomes the default. plymouthd reads it directly -- no rebuild.
     # (This replaces the old reset-to-stock cleanup: the root copy is now
     # refreshed on every apply, so nothing baked can go stale.)
-    if [[ -n $staging_dir && -f $staging_dir/omarchy-boot.plymouth ]]; then
-      rm -rf "$theme_root/omarchy-boot"
-      mkdir -p "$theme_root/omarchy-boot"
-      cp -r --no-preserve=mode,ownership "$staging_dir/." "$theme_root/omarchy-boot/"
-      chmod -R a+rX "$theme_root/omarchy-boot"
+    if [[ -n $staging_dir ]]; then
+      copy_caller_tree "$staging_dir" omarchy-boot.plymouth "$theme_root/omarchy-boot" replace
       plymouth-set-default-theme omarchy-boot
     fi
     ;;
   theme)
-    [[ -f $src/omarchy-boot.plymouth ]] || { echo "Not a staged boot theme: $src" >&2; exit 1; }
-    rm -rf "$theme_root/omarchy-boot"
-    mkdir -p "$theme_root/omarchy-boot"
-    cp -r --no-preserve=mode,ownership "$src/." "$theme_root/omarchy-boot/"
-    chmod -R a+rX "$theme_root/omarchy-boot"
+    copy_caller_tree "$src" omarchy-boot.plymouth "$theme_root/omarchy-boot" replace
     plymouth-set-default-theme omarchy-boot
     install_quit_dropin
     [[ -n $bg_hex ]] && sync_limine_backdrop "${bg_hex#\#}"
     need_rebuild=1
     ;;
   stock)
-    [[ -f $src/omarchy.plymouth ]] || { echo "Not the stock plymouth theme: $src" >&2; exit 1; }
     while IFS= read -r extra_dir; do
       [[ -n $extra_dir ]] || continue
       rm -f "$extra_dir/$addon_name" "$extra_dir/lock-explorer.addon.efi"
       rmdir "$extra_dir" 2>/dev/null || true
     done < <(stale_extra_dirs)
-    mkdir -p "$theme_root/omarchy"
-    cp -r --no-preserve=mode,ownership "$src/." "$theme_root/omarchy/"
-    chmod -R a+rX "$theme_root/omarchy"
+    copy_caller_tree "$src" omarchy.plymouth "$theme_root/omarchy" merge
     plymouth-set-default-theme omarchy
     # Only rebuild when a theme was actually baked in by the old flow;
     # removing the addon alone restores stock instantly.

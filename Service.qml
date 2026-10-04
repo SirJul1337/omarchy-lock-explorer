@@ -2658,6 +2658,7 @@ echo "$out"
     failureMessage = ""
     failedAttempts = 0
     failureTimes = []
+    fido2FailurePending = false
     authenticatingPassword = false
     fingerprintAuthenticating = false
     fingerprintRetryTimer.stop()
@@ -3123,6 +3124,33 @@ echo "$out"
       return
     }
 
+    // A key pulled out mid-round fails it at once, and so does every retry
+    // after it: counted as misses, three of those arrive within a second and
+    // a half, park the lock on the password, stop the hotplug watcher, and
+    // report three failed attempts when nobody tried anything. A round with
+    // no PIN in it asks the probe first; see fido2FailureChecked.
+    // Non-PIN failures arrive here only after our settled, fresh probe.
+    countFido2Failure()
+  }
+
+  // The probe answered for a round that failed without a PIN. Gone: say so,
+  // stay on the key, and let the hotplug watcher (which runs while the key is
+  // absent in key mode) start the next round when it is back. Still there:
+  // it was a real miss.
+  function fido2FailureChecked() {
+    fido2FailurePending = false
+    if (!lockRequested) return
+    if (!fido2TokenPresent) {
+      fido2Status = t("No security key found")
+      failureMessage = ""
+      logEvent("fido2-round ended, key removed")
+      runWake()
+      return
+    }
+    countFido2Failure()
+  }
+
+  function countFido2Failure() {
     // A PIN that went to the key is still the user's to spend again.
     var pinWasSubmitted = fido2PinSubmitted
     failedAttempts += 1
@@ -3665,7 +3693,11 @@ echo "$out"
       root.fido2Installed = answer[0] === "yes"
       root.fido2TokenPresent = answer[1] === "present"
 
+      // Not configured any more wins over a pending failure: the round is
+      // moot, and the lock goes back to the password rather than waiting on
+      // a key it will not use.
       if (!root.fido2Configured) {
+        root.fido2FailurePending = false
         if (root.fido2Active) root.setAuthMode("password")
         return
       }

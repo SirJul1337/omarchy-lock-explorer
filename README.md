@@ -248,7 +248,7 @@ go back. They are saved on the plugin entry as `wallpaperBlur` and `wallpaperDim
 ### Language
 
 The lock screen speaks your system's language when it has it: Danish, Dutch, English, French,
-German, Italian, Norwegian, Polish, Portuguese, Spanish and Swedish so far. Prompts, greetings,
+German, Italian, Korean, Norwegian, Polish, Portuguese, Spanish and Swedish so far. Prompts, greetings,
 failure messages and the failed-attempt notification are translated, and dates use that
 language's day and month names. The Settings tab has a "Language" row to pick one instead of
 following `LANG`; by hand, `omarchy-shell lock setLanguage de` (`auto` to follow the system

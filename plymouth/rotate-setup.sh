@@ -70,19 +70,22 @@ EOF
 [[ -f $req ]] || exit 0
 rm -f "$req"
 
-# The staged theme is written by an unprivileged account, so it is checked
-# before root copies it anywhere: the real directory that account owns, and
-# nothing in it but plain files and directories. A symlink in the tree would
-# otherwise survive the copy and have its target's mode changed below.
-[[ -d $spool && ! -L $spool ]] || exit 1
-[[ $(stat -c %u "$spool") == "$owner_uid" ]] || exit 1
-[[ -f $spool/omarchy-boot.plymouth ]] || exit 1
-[[ -z $(find "$spool" -mindepth 1 ! -type f ! -type d -print -quit) ]] || exit 1
-
+# The staged theme is written by an unprivileged account, so root reads it
+# through the directory it has entered, never through the path a second
+# time: between a check and the copy, that account could swap the path for a
+# symlink into a root-only directory, and the copy makes its contents
+# world-readable. Only plain files and directories owned by that account
+# pass, so nothing a symlink or hardlink points at is copied.
 theme_root=/usr/share/plymouth/themes
-rm -rf "$theme_root/omarchy-boot"
-mkdir -p "$theme_root/omarchy-boot"
-cp -r --no-preserve=mode,ownership "$spool/." "$theme_root/omarchy-boot/"
+(
+  cd -- "$spool" 2>/dev/null || exit 1
+  [[ $(stat -c %u .) == "$owner_uid" ]] || exit 1
+  [[ -f omarchy-boot.plymouth && ! -L omarchy-boot.plymouth ]] || exit 1
+  [[ -z $(find . -mindepth 1 \( \( ! -type f -a ! -type d \) -o ! -user "$owner_uid" \) -print -quit) ]] || exit 1
+  rm -rf "$theme_root/omarchy-boot"
+  mkdir -p "$theme_root/omarchy-boot"
+  cp -r --no-preserve=mode,ownership . "$theme_root/omarchy-boot/"
+) || exit 1
 find "$theme_root/omarchy-boot" -type d -exec chmod 0755 {} + \
   -o -type f -exec chmod 0644 {} +
 plymouth-set-default-theme omarchy-boot

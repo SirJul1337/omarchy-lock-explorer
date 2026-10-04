@@ -33,7 +33,7 @@ function context(extra={}) {
   c.fido2FailureSettle={running:false,restart(){this.running=true},stop(){this.running=false}}; c.root=c;
   vm.createContext(c);
   vm.runInContext('function t(text) { return text; }; String.prototype.arg = function(value) { return this.replace("%1", value); };',c);
-  for (const name of ['handleFido2Finished','finishFido2Failure','startFido2','retryFido2'])
+  for (const name of ['handleFido2Finished','finishFido2Failure','fido2FailureChecked','countFido2Failure','startFido2','retryFido2'])
     vm.runInContext(`function ${name}(${name==='handleFido2Finished'?'result':name==='finishFido2Failure'?'elapsed':''}) {${bodyAfter('function '+name+'(')}}`,c);
   return c;
 }

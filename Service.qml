@@ -2233,7 +2233,10 @@ echo "$out"
 
   Process {
     id: bootRotateCheckProc
-    command: ["bash", "-c", "[ -f /etc/systemd/system/omarchy-lock-explorer-boot.path ] && echo yes || echo no"]
+    // The helper rotate-setup.sh wrote has to be one that takes the spooled
+    // theme as a tar file; an older one that walked a directory is not used,
+    // so rotation falls back to the prompt until it is set up again.
+    command: ["bash", "-c", "[ -f /etc/systemd/system/omarchy-lock-explorer-boot.path ] && grep -q lock-explorer-boot-spool.tar /usr/local/lib/omarchy-lock-explorer-rotate.sh 2>/dev/null && echo yes || echo no"]
     stdout: StdioCollector {
       id: bootRotateCheckOut
       waitForEnd: true

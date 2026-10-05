@@ -225,3 +225,27 @@ test('the removal watcher only runs unlocked, so the two never overlap', () => {
   assert.equal(binding('keyEventWatch', { ...locked, lockRequested: false }), true);
   assert.equal(binding('keyEventWatch', { ...locked, lockRequested: false, lockOnKeyRemoval: false }), false);
 });
+
+test('wake-on-insert ignores other HID devices while the key is already in', () => {
+  const c = context({ fido2Authenticating: false, screenBlanked: true, wakeOnKeyInsert: true, keyInsertProbe: true, fido2TokenPresent: true });
+  probeAnswers(c, true);
+  assert.equal(c.wakes, 0);
+  const d = context({ fido2Authenticating: false, screenBlanked: true, wakeOnKeyInsert: true, keyInsertProbe: true, fido2TokenPresent: false });
+  probeAnswers(d, true);
+  assert.equal(d.wakes, 1);
+});
+
+test('a flapping device cannot keep every probe answer discarded', () => {
+  const c = context({ fido2Cue: 'Touch your security key', fido2ProbeReruns: 0, fido2ProbeRerunLimit: 2 });
+  c.handleFido2Finished(1);
+  c.fido2FailureSettle.running = false;
+  let reruns = 0;
+  c.fido2CheckProc = { set running(v) { if (v) reruns++ } };
+  for (let i = 0; i < 5 && c.fido2FailurePending; i++) {
+    c.fido2ProbeQueued = true;
+    probeAnswers(c, false);
+  }
+  assert.equal(reruns, 2);
+  assert.equal(c.fido2FailurePending, false);
+  assert.equal(c.fido2ProbeReruns, 0);
+});

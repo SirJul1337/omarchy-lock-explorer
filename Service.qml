@@ -2680,7 +2680,12 @@ echo "$out"
 
   // A probe already running is not an answer to a request made after it
   // started, so the request is queued and the probe runs once more.
+  // Capped: a flapping hidraw device (a bad cable, a receiver reconnecting)
+  // could otherwise keep every answer discarded and a pending failure or the
+  // next round waiting on it for good.
   property bool fido2ProbeQueued: false
+  property int fido2ProbeReruns: 0
+  readonly property int fido2ProbeRerunLimit: 2
   function refreshFido2Status() {
     if (fido2CheckProc.running) fido2ProbeQueued = true
     else fido2CheckProc.running = true
@@ -3776,11 +3781,14 @@ echo "$out"
       // A request that arrived while this probe ran may be about a change
       // this probe started too early to see -- a key pulled after it had
       // already listed the devices. Its answer is not acted on; the next one is.
-      if (root.fido2ProbeQueued) {
+      if (root.fido2ProbeQueued && root.fido2ProbeReruns < root.fido2ProbeRerunLimit) {
         root.fido2ProbeQueued = false
+        root.fido2ProbeReruns += 1
         Qt.callLater(function() { fido2CheckProc.running = true })
         return
       }
+      root.fido2ProbeQueued = false
+      root.fido2ProbeReruns = 0
 
       var answer = String(fido2CheckStdout.text || "").trim().split(/\s+/)
       var wasPresent = root.fido2TokenPresent
@@ -3811,9 +3819,13 @@ echo "$out"
         return
       }
 
-      // The device that went in while the screen was dark was the key.
+      // The device that went in while the screen was dark was the key: it was
+      // not there before and is now. With the key left in, a mouse or headset
+      // reconnecting would otherwise light the lock for nobody. The watcher
+      // sees removals while dark too, so a key that left is known as gone.
       // runWake clears screenBlanked, so the round below can start.
-      if (keyInsert && root.lockRequested && root.screenBlanked && root.fido2TokenPresent) {
+      if (keyInsert && root.lockRequested && root.screenBlanked
+          && !wasPresent && root.fido2TokenPresent) {
         root.logEvent("wake-on-key-insert")
         root.runWake()
       }

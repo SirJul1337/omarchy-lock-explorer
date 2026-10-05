@@ -188,20 +188,30 @@ Window.SetBackgroundBottomColor(${bg_f});
 # different size: on a wider one it is cropped, on a narrower one it sits off
 # to the side (issue #38). Each head is measured separately here, and the
 # background below is drawn once per head, at that head's own origin.
+# Plymouth centres every head on the widest one, so their slices overlap and
+# any sprite shows on each head it touches: a copy sized for one head covered
+# the other's too. Each head is moved to a slice of its own, far enough apart
+# that a background filled past one head's edges never reaches the next.
 display_count = 0;
+next_x = 0;
 i = 0;
 while (i < 8) {
   dw = Window.GetWidth(i);
   dh = Window.GetHeight(i);
   if (dw > 0) {
-    dsp_x[display_count] = Window.GetX(i);
-    dsp_y[display_count] = Window.GetY(i);
+    Window.SetX(i, next_x);
+    Window.SetY(i, 0);
+    dsp_i[display_count] = i;
+    dsp_x[display_count] = next_x;
+    dsp_y[display_count] = 0;
     dsp_w[display_count] = dw;
     dsp_h[display_count] = dh;
     display_count++;
+    next_x = next_x + dw + 32768;
   }
   i++;
 }
+moved_count = display_count;
 # An older plymouth that does not take a display index answers for the one
 # screen it has; that is the single-head case and it still works.
 if (display_count == 0) {
@@ -210,6 +220,19 @@ if (display_count == 0) {
   dsp_w[0] = Window.GetWidth();
   dsp_h[0] = Window.GetHeight();
   display_count = 1;
+}
+
+# Plymouth centres the heads on each other again after every prompt, message
+# and keystroke (script_lib_update_displays in plugin.c), which would pull the
+# layout above back into the overlap. The refresh puts each head back in its
+# slice; Window.SetX/SetY only redraw when a position actually changes.
+fun place_heads() {
+  d = 0;
+  while (d < moved_count) {
+    Window.SetX(dsp_i[d], dsp_x[d]);
+    Window.SetY(dsp_i[d], dsp_y[d]);
+    d++;
+  }
 }
 
 # The prompt, the logo and the hint live on the first head; the others carry
@@ -475,6 +498,7 @@ fun display_normal_callback() {
 }
 
 fun refresh_callback() {
+  place_heads();
   if (global.boot_wait == 1) {
     global.boot_frame = global.boot_frame + 1;
     k = Math.Int(global.boot_frame / 4);

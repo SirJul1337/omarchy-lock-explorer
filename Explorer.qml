@@ -3584,11 +3584,11 @@ Item {
           onDesignUpChanged: {
             if (!designUp) return
             if (cachedThumb.length === 0) liveShown = true
-            else revealTimer.restart()
+            else thumbnailRevealTimer.restart()
             if (cachedThumb.length === 0) grabTimer.restart()
           }
           onCachedThumbChanged: if (cachedThumb.length === 0 && designUp) grabTimer.restart()
-          Timer { id: revealTimer; interval: 700; onTriggered: cell.liveShown = true }
+          Timer { id: thumbnailRevealTimer; interval: 700; onTriggered: cell.liveShown = true }
           // A first picture soon, so a quick change of tab already has one,
           // and a second once slow wallpapers and intros have finished.
           Timer { id: grabTimer; interval: 1200; onTriggered: { cell.grabThumb(false); regrabTimer.restart() } }

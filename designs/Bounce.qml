@@ -6,6 +6,7 @@ import "Ttfx.js" as Ttfx
 // minute pours in from above, and a wrong password crumbles it.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   shakeOnFail: true
   flashOnFail: false
@@ -51,6 +52,13 @@ DesignBase {
     showLockGlyph: false
     shakeOnFail: false
     color: lock.withAlpha(Color.lock.background, 0.6)
+  }
+
+  FaceStatus {
+    lock: lock
+    x: lock.itemRect(field).x
+    y: lock.itemRect(field).y + field.height + 12
+    width: field.width
   }
 
   Connections {

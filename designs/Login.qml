@@ -7,6 +7,7 @@ import "Ttfx.js" as Ttfx
 // out of place until they correct themselves.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: input
   flashOnFail: false
 
@@ -106,6 +107,13 @@ DesignBase {
           + (lock.fido2Configured ? " · tab for your key" : "")
         color: lock.withAlpha(Color.lock.text, 0.3)
         font.pixelSize: Math.round(lock.fs * 0.8)
+      }
+      FaceStatus {
+        lock: lock
+        width: parent.width
+        centered: false
+        compact: true
+        pixelSize: lock.fs
       }
     }
   }

@@ -7,6 +7,7 @@ import "Ttfx.js" as Ttfx
 // show; a wrong password crumbles the digits.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   shakeOnFail: true
   flashOnFail: false
@@ -61,6 +62,12 @@ DesignBase {
       showLockGlyph: false
       shakeOnFail: false
       color: lock.withAlpha(Color.lock.background, 0.6)
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

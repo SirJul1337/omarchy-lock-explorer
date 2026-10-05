@@ -4,6 +4,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   Wallpaper { anchors.fill: parent; lock: lock; blur: 0.0; dim: 0.1; vignetteTop: 0.4; vignetteMiddle: 0.05; vignetteBottom: 0.25 }
@@ -95,4 +96,13 @@ DesignBase {
     font.pixelSize: Style.font.bodySmall
     font.letterSpacing: 2
   }
+
+  FaceStatus {
+    lock: lock
+    anchors.top: island.bottom
+    anchors.topMargin: 42
+    anchors.horizontalCenter: parent.horizontalCenter
+    width: field.width
+  }
+
 }

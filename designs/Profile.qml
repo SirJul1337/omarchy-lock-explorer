@@ -3,6 +3,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   Wallpaper { anchors.fill: parent; lock: lock; blur: 1.0; dim: 0.2 }
@@ -79,6 +80,12 @@ DesignBase {
       showLockGlyph: false
       placeholder: lock.tr("Password")
       color: lock.withAlpha(Color.lock.background, 0.6)
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

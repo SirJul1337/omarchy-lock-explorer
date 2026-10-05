@@ -2329,6 +2329,46 @@ echo "$out"
   property bool authenticatingPassword: false
   property bool fingerprintAuthenticating: false
   property bool faceAuthenticating: false
+  property bool faceRecognized: false
+  property double faceRecognizedAt: 0
+  property int faceConfirmOverride: -1
+  readonly property bool faceConfirm: {
+    if (faceConfirmOverride >= 0) return faceConfirmOverride === 1
+    var list = root.settingsConfig && Array.isArray(root.settingsConfig.plugins) ? root.settingsConfig.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && list[i].id === pluginId) return list[i].faceConfirm === true
+    }
+    return false
+  }
+  readonly property bool faceConfirmationEnabled: faceConfirm
+
+  function setFaceConfirm(value) {
+    if (["on", "off"].indexOf(value) === -1) return false
+    faceConfirmOverride = value === "on" ? 1 : 0
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var entry = pluginEntry()
+      if (value === "on") entry.faceConfirm = true
+      else delete entry.faceConfirm
+      writeEntry(entry)
+    }
+    if (faceRecognized) stopFace()
+    return true
+  }
+
+  Timer {
+    id: faceConfirmationExpiry
+    interval: 15000
+    onTriggered: root.faceRecognized = false
+  }
+
+  function requestFaceUnlock() {
+    if (faceRecognized && Date.now() - faceRecognizedAt < 15000 && lockRequested && sessionLock.secure && !screenBlanked && !inputBlocked) {
+      finishUnlock()
+      return
+    }
+    if (faceRecognized) stopFace()
+    retryFace()
+  }
   // Face retries on its own after a miss, but not forever: a camera that
   // errors out at once would otherwise spin the PAM stack four times a
   // second for as long as the screen stays locked. Enter on an empty field
@@ -2338,6 +2378,7 @@ echo "$out"
   property bool passwordPamConfigured: false
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
+  onFaceConfiguredChanged: if (!faceConfigured) stopFace()
   // Security-key unlock is a mode the user is in. It does not run alongside
   // the password: pam_u2f gets its own PAM service and its own context, since
   // sharing omarchy-lock-password would send every mistyped password to the
@@ -2650,6 +2691,8 @@ echo "$out"
   }
 
   function resetAuthenticationState() {
+    faceRecognized = false
+    faceConfirmationExpiry.stop()
     enteredPassword = ""
     pendingPassword = ""
     failureMessage = ""
@@ -2658,6 +2701,7 @@ echo "$out"
     fido2FailurePending = false
     authenticatingPassword = false
     fingerprintAuthenticating = false
+    faceAuthenticating = false
     fingerprintRetryTimer.stop()
     clearFingerprintStatus()
     faceMisses = 0
@@ -2819,7 +2863,7 @@ echo "$out"
     // is a password: leave key mode first so it never meets fido2Pam.
     if (password.length > 0 && fido2Active) setAuthMode("password")
     if (!lockRequested || authenticatingPassword || password.length === 0) {
-      if (password.length === 0 && faceConfigured) root.retryFace()
+      if (password.length === 0 && faceConfigured) root.requestFaceUnlock()
       return
     }
 
@@ -2882,7 +2926,7 @@ echo "$out"
     // "off" stops the automatic rounds, not the face button or Enter on an
     // empty field, which come through retryFace.
     if (screenBlanked) return
-    if (facePam.active || faceAuthenticating) return
+    if (faceRecognized || facePam.active || faceAuthenticating) return
 
     faceAuthenticating = true
     lastFaceRound = Date.now()
@@ -2900,6 +2944,8 @@ echo "$out"
   }
 
   function stopFace() {
+    faceRecognized = false
+    faceConfirmationExpiry.stop()
     faceRetryTimer.stop()
     faceMisses = 0
     if (facePam.active) facePam.abort()
@@ -2914,7 +2960,12 @@ echo "$out"
     // in front of the screen now.
     if (screenBlanked) return
     if (result === PamResult.Success) {
-      finishUnlock()
+      if (!faceConfirmationEnabled) { finishUnlock(); return }
+      faceRetryTimer.stop()
+      faceRecognizedAt = Date.now()
+      faceRecognized = true
+      faceConfirmationExpiry.restart()
+      logEvent("face-recognized awaiting-key")
     } else {
       faceMissed()
     }
@@ -3221,6 +3272,8 @@ echo "$out"
           powerActions: root.powerActions
           onPowerActionRequested: function(action) { root.runPowerAction(action) }
           faceConfigured: root.faceConfigured
+          faceAuthenticating: root.faceAuthenticating
+          faceRecognized: root.faceRecognized
           fido2Configured: root.fido2Configured
           fido2Active: root.fido2Active
           fido2Authenticating: root.fido2Authenticating
@@ -3256,7 +3309,7 @@ echo "$out"
           onSubmitPassword: function(password) { root.submitPassword(password) }
           onClearFailureRequested: root.failureMessage = ""
           onWakeRequested: root.runWake()
-          onFaceRequested: root.retryFace()
+          onFaceRequested: root.requestFaceUnlock()
           onFido2Requested: root.requestFido2()
           onPasswordRequested: root.setAuthMode("password")
           onSubmitFido2Pin: function(pin) { root.submitFido2Pin(pin) }
@@ -3918,6 +3971,7 @@ echo "$out"
       readonly property bool fingerprintConfigured: root.fingerprintConfigured
       readonly property bool faceConfigured: root.faceConfigured
       readonly property string faceStart: root.faceStart
+      readonly property bool faceConfirm: root.faceConfirm
       readonly property bool fido2Configured: root.fido2Configured
       readonly property bool fido2Installed: root.fido2Installed
       readonly property bool fido2Enabled: root.fido2Enabled
@@ -3982,6 +4036,7 @@ echo "$out"
       function setBlankDelay(ms) { return root.setBlankDelay(ms) }
       function setWakeGrace(ms) { return root.setWakeGrace(ms) }
       function setFaceStart(value) { return root.setFaceStart(value) }
+      function setFaceConfirm(value) { return root.setFaceConfirm(value) }
       function setPowerActions(value) { return root.setPowerActions(value) }
       function setAwayReport(value) { return root.setAwayReport(value) }
       function toggleFavorite(id) { return root.toggleFavorite(id) }
@@ -4130,6 +4185,8 @@ echo "$out"
         fingerprintConfigured: root.fingerprintConfigured,
         faceConfigured: root.faceConfigured,
         faceAuthenticating: root.faceAuthenticating,
+        faceRecognized: root.faceRecognized,
+        faceConfirm: root.faceConfirm,
         fido2Configured: root.fido2Configured,
         fido2Installed: root.fido2Installed,
         fido2Enabled: root.fido2Enabled,
@@ -4302,6 +4359,12 @@ echo "$out"
 
     function setWakeGrace(value: string): string {
       return root.setWakeGrace(value) ? "ok" : "invalid-value"
+    }
+
+    function faceConfirm(): string { return root.faceConfirm ? "on" : "off" }
+
+    function setFaceConfirm(value: string): string {
+      return root.setFaceConfirm(value) ? "ok" : "invalid-value (on, off)"
     }
 
     function faceStart(): string {

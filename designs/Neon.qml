@@ -4,6 +4,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property color glow: errorState ? Color.lock.textError : Color.lock.borderActive
@@ -96,6 +97,12 @@ DesignBase {
         color: Qt.rgba(0, 0, 0, 0.55)
         placeholder: lock.displayName
       }
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

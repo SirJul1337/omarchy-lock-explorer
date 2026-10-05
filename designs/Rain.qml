@@ -3,6 +3,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property int cellSize: 20
@@ -104,6 +105,12 @@ DesignBase {
         outlineThickness: 1
         color: Qt.rgba(0, 0, 0, 0.6)
         placeholder: "follow the white rabbit"
+      }
+
+      FaceStatus {
+        lock: lock
+        width: field.width
+        anchors.horizontalCenter: parent.horizontalCenter
       }
     }
   }

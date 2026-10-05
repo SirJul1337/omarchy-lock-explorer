@@ -5,6 +5,7 @@ import qs.Commons
 // input so typing works wherever focus lands.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: input
   shakeOnFail: true
 
@@ -59,6 +60,11 @@ DesignBase {
         font.letterSpacing: lock.passwordVisible ? 1 : 4
       }
       EyeButton { lock: lock; anchors.verticalCenter: parent.verticalCenter; visible: lock.passwordText.length > 0 && lock.showPasswordToggle }
+    }
+    FaceStatus {
+      lock: lock
+      width: 360
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 }

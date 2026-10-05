@@ -3,6 +3,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property int tileW: 118
@@ -89,6 +90,12 @@ DesignBase {
       height: 54
       radius: 14
       placeholder: lock.tr("Password")
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 }

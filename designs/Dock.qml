@@ -3,6 +3,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property int barHeight: 72
@@ -102,4 +103,13 @@ DesignBase {
       }
     }
   }
+
+  FaceStatus {
+    lock: lock
+    x: lock.itemRect(field).x
+    y: bar.y - height - 12
+    width: field.width
+    centered: false
+  }
+
 }

@@ -7,6 +7,7 @@ import "Ttfx.js" as Ttfx
 // effects. The logo comes from OmarchyLogo, so it follows the branding.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   flashOnFail: false
 
@@ -109,6 +110,12 @@ DesignBase {
       showLockGlyph: false
       color: Color.lock.background
       placeholder: lock.tr(lock.placeholder)
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

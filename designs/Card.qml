@@ -4,6 +4,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property int fieldWidth: 400
@@ -103,6 +104,12 @@ DesignBase {
         lock: lock
         width: lock.fieldWidth
         height: 60
+      }
+
+      FaceStatus {
+        lock: lock
+        width: field.width
+        anchors.horizontalCenter: parent.horizontalCenter
       }
     }
   }

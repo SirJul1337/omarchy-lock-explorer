@@ -3,6 +3,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property int lineWidth: 640
@@ -103,6 +104,12 @@ DesignBase {
       width: 380
       height: 54
       placeholder: lock.displayName
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 }

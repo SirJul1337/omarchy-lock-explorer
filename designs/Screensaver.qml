@@ -9,6 +9,7 @@ import "Ttfx.js" as Ttfx
 // another across the whole screen, with the clock and field tucked underneath.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   property string logo: "omarchy"
@@ -94,6 +95,12 @@ DesignBase {
       outlineThickness: 1
       showLockGlyph: false
       color: lock.withAlpha(Color.lock.background, 0.7)
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 }

@@ -7,6 +7,7 @@ import "Ttfx.js" as Ttfx
 // around until they correct themselves.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   flashOnFail: false
 
@@ -64,6 +65,12 @@ DesignBase {
       showLockGlyph: false
       color: Color.lock.background
       placeholder: "access code"
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

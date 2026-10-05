@@ -3,6 +3,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: input
   shakeOnFail: true
 
@@ -100,6 +101,13 @@ DesignBase {
       visible: lock.fingerprintConfigured
       text: "(fingerprint reader ready, touch to authenticate)"
       color: lock.dimFg; font.family: Style.font.family; font.pixelSize: lock.fontSize
+    }
+    FaceStatus {
+      lock: lock
+      width: Math.min(lock.width - lock.pad * 2, lock.fontSize * 38)
+      centered: false
+      compact: true
+      pixelSize: lock.fontSize
     }
   }
 

@@ -7,6 +7,7 @@ import "Ttfx.js" as Ttfx
 // cells red, shakes them and blows the logo apart.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: input
   flashOnFail: false
 
@@ -132,6 +133,11 @@ DesignBase {
       font.pixelSize: Style.font.heading
       font.letterSpacing: 2
       textFormat: Text.PlainText
+    }
+    FaceStatus {
+      lock: lock
+      width: Math.max(320, cells.width)
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

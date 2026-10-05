@@ -4,6 +4,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: input
   shakeOnFail: true
 
@@ -132,6 +133,11 @@ DesignBase {
       font.pixelSize: Style.font.body
       font.letterSpacing: 2
       font.italic: lock.errorState
+    }
+    FaceStatus {
+      lock: lock
+      width: dotsArea.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 }

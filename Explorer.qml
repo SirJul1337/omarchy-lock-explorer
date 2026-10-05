@@ -283,6 +283,7 @@ Item {
     { id: "lighter", name: root.tr("Lighter") }, { id: "design", name: root.tr("As designed") }, { id: "darker", name: root.tr("Darker") }
   ]
   readonly property bool faceConfigured: service && service.faceConfigured === true
+  readonly property bool faceConfirm: service && service.faceConfirm === true
   readonly property string faceStart: service && service.faceStart !== undefined ? String(service.faceStart) : "wake"
   readonly property var onOffOptions: [{ id: "on", name: root.tr("On") }, { id: "off", name: root.tr("Off") }]
   readonly property var shownHiddenOptions: [{ id: "show", name: root.tr("Show") }, { id: "hide", name: root.tr("Hide") }]
@@ -1060,6 +1061,11 @@ Item {
   function setWakeGrace(ms) {
     if (!root.service || typeof root.service.setWakeGrace !== "function") return
     root.service.setWakeGrace(ms)
+  }
+
+  function setFaceConfirm(value) {
+    if (!root.service || typeof root.service.setFaceConfirm !== "function") return
+    root.service.setFaceConfirm(value)
   }
 
   function setFaceStart(value) {
@@ -2170,6 +2176,16 @@ Item {
                   options: [{ id: "wake", name: root.tr("On wake") }, { id: "always", name: root.tr("Always") }, { id: "off", name: root.tr("On request") }]
                   current: root.faceStart
                   onPicked: function(id) { root.setFaceStart(id) }
+                }
+
+                SettingRow {
+                  explorer: root
+                  visible: root.faceConfigured
+                  label: root.tr("Face confirmation")
+                  help: root.tr("Wait for Enter or Space after recognizing your face. Confirmation expires after 15 seconds or when the screen blanks.")
+                  options: [{ id: "off", name: root.tr("Instant") }, { id: "on", name: root.tr("Press a key") }]
+                  current: root.faceConfirm ? "on" : "off"
+                  onPicked: function(id) { root.setFaceConfirm(id) }
                 }
 
                 // Only once /etc/pam.d/omarchy-lock-fido2 is in place; off sends

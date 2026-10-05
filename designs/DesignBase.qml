@@ -13,6 +13,35 @@ Item {
   property int avatarVersion: 0
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
+  property bool faceRecognized: false
+  property bool faceAuthenticating: false
+  property bool motionReduced: false
+  // Built-ins place FaceStatus in their own layout. Custom designs get a
+  // fallback unless they opt out and position the shared component themselves.
+  property bool faceStatusProvided: false
+  readonly property string faceStatusHint: faceRecognized ? tr("Enter / Space to unlock")
+    : faceAuthenticating ? tr("Look at the camera") : tr("Enter to scan your face")
+
+  function itemRect(item) {
+    // Read ancestor geometry so layout changes invalidate this binding.
+    var ancestor = item
+    var geometry = 0
+    while (ancestor && ancestor !== base) {
+      geometry += ancestor.x + ancestor.y + ancestor.width + ancestor.height + ancestor.scale
+      ancestor = ancestor.parent
+    }
+    return item ? item.mapToItem(base, 0, 0, item.width, item.height) : Qt.rect(0, 0, 0, 0)
+  }
+
+  FaceStatus {
+    lock: base
+    visible: available && !base.faceStatusProvided
+    width: Math.min(380, Math.max(0, base.width - 48))
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.bottom: parent.bottom
+    anchors.bottomMargin: 60
+    z: 910
+  }
   property bool fido2Configured: false
   property bool fido2Active: false
   // True only while pam_u2f has an assertion open. The field is inert then,

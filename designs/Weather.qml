@@ -5,6 +5,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   property string locationQuery: ""
@@ -229,5 +230,12 @@ DesignBase {
     width: 400
     height: 54
     placeholder: lock.greeting() + ", " + lock.displayName
+  }
+
+  FaceStatus {
+    lock: lock
+    x: lock.itemRect(field).x
+    y: lock.itemRect(field).y + field.height + 12
+    width: field.width
   }
 }

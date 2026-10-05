@@ -8,6 +8,7 @@ import "Ttfx.js" as Ttfx
 // password crumbles it to dust and back.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   shakeOnFail: false
   flashOnFail: false
@@ -62,6 +63,12 @@ DesignBase {
       outlineThickness: 1
       showLockGlyph: false
       color: Color.lock.background
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

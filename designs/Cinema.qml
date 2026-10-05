@@ -3,6 +3,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property int barHeight: Math.round(height * 0.14)
@@ -80,6 +81,12 @@ DesignBase {
         showLockGlyph: false
         color: "#161616"
         placeholder: lock.tr("Password")
+      }
+
+      FaceStatus {
+        lock: lock
+        width: field.width
+        anchors.horizontalCenter: parent.horizontalCenter
       }
     }
   }

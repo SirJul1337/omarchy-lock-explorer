@@ -7,6 +7,7 @@ import "Ttfx.js" as Ttfx
 // password blows the digits out to the edges of the grid.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   flashOnFail: false
 
@@ -69,6 +70,12 @@ DesignBase {
       showLockGlyph: false
       shakeOnFail: false
       color: Color.lock.background
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

@@ -6,6 +6,7 @@ import "Ttfx.js" as Ttfx
 // hole and burst back out into the time. A wrong password flings them apart.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   flashOnFail: false
 
@@ -61,6 +62,12 @@ DesignBase {
       outlineThickness: 1
       showLockGlyph: false
       color: Color.lock.background
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

@@ -7,6 +7,7 @@ import "Ttfx.js" as Ttfx
 // settle back.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   flashOnFail: false
 
@@ -53,6 +54,13 @@ DesignBase {
     outlineThickness: 1
     showLockGlyph: false
     color: lock.withAlpha(Color.lock.background, 0.55)
+  }
+
+  FaceStatus {
+    lock: lock
+    x: lock.itemRect(field).x
+    y: lock.itemRect(field).y + field.height + 12
+    width: field.width
   }
 
   Connections {

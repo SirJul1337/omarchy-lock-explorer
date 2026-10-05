@@ -3,6 +3,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property int cell: 40
@@ -122,6 +123,12 @@ DesignBase {
         height: 54
         textAlignment: TextInput.AlignLeft
         placeholder: lock.greeting() + ", " + lock.displayName
+      }
+
+      FaceStatus {
+        lock: lock
+        width: field.width
+        x: field.x
       }
       Text {
         opacity: lock.snapshotMode ? 0 : 1

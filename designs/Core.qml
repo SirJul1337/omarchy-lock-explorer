@@ -7,6 +7,7 @@ import "Ttfx.js" as Ttfx
 // around them and sweeps it back.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: input
   flashOnFail: false
 
@@ -106,6 +107,11 @@ DesignBase {
         font.pixelSize: Style.font.body
       }
       EyeButton { lock: lock; anchors.verticalCenter: parent.verticalCenter; size: Style.font.body }
+    }
+    FaceStatus {
+      lock: lock
+      width: parent.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

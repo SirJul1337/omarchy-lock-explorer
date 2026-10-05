@@ -7,6 +7,7 @@ import "Ttfx.js" as Ttfx
 // scatters the words and lets them fall back into line.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   flashOnFail: false
 
@@ -20,6 +21,7 @@ DesignBase {
   }
 
   Column {
+    id: etchLayout
     anchors.left: parent.left
     anchors.bottom: parent.bottom
     anchors.leftMargin: Math.round(lock.width * 0.07)
@@ -56,6 +58,15 @@ DesignBase {
       color: lock.withAlpha(Color.lock.background, 0.5)
     }
   }
+
+  FaceStatus {
+    lock: lock
+    x: etchLayout.x + field.x
+    y: etchLayout.y + field.y + field.height + 12
+    width: field.width
+    centered: false
+  }
+
 
   Connections {
     target: lock

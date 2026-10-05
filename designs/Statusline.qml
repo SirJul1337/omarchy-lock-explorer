@@ -8,6 +8,7 @@ import "Ttfx.js" as Ttfx
 // error there and scrambles the logo.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: input
   flashOnFail: false
 
@@ -156,6 +157,14 @@ DesignBase {
         anchors.verticalCenter: parent.verticalCenter
         size: lock.fs
       }
+    }
+    FaceStatus {
+      lock: lock
+      width: Math.max(0, parent.width - 24)
+      x: 12
+      centered: false
+      compact: true
+      pixelSize: lock.fs
     }
   }
 

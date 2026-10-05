@@ -3,6 +3,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property int inset: 56
@@ -95,4 +96,13 @@ DesignBase {
       }
     }
   }
+
+  FaceStatus {
+    lock: lock
+    x: lock.itemRect(field).x
+    y: lock.itemRect(field).y + field.height + 10
+    width: field.width
+    compact: true
+  }
+
 }

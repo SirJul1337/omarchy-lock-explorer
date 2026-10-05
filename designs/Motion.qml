@@ -6,6 +6,7 @@ import qs.Commons
 // the wallpaper instead, so the design still stands on its own.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property int margin: Math.round(Math.min(width, height) * 0.08)
@@ -80,6 +81,12 @@ DesignBase {
       showLockGlyph: false
       placeholder: lock.tr("Password")
       color: lock.withAlpha(Color.lock.background, 0.55)
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
 
     Text {

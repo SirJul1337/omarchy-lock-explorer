@@ -7,6 +7,7 @@ import "Ttfx.js" as Ttfx
 // comes apart on a wrong password.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   shakeOnFail: true
   flashOnFail: false
@@ -63,6 +64,12 @@ DesignBase {
       showLockGlyph: false
       color: Color.lock.background
       placeholder: "passphrase"
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

@@ -5,6 +5,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   property real uptimeSeconds: 0
@@ -160,6 +161,12 @@ DesignBase {
       width: 400
       height: 54
       placeholder: lock.tr("Password")
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 }

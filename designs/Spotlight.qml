@@ -6,6 +6,7 @@ import "Ttfx.js" as Ttfx
 // light it up. A wrong password sends out a single quick searchlight.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   shakeOnFail: true
   flashOnFail: false
@@ -59,6 +60,12 @@ DesignBase {
       showLockGlyph: false
       shakeOnFail: false
       color: Qt.rgba(1, 1, 1, 0.04)
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

@@ -5,6 +5,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property var players: Mpris.players ? Mpris.players.values : []
@@ -173,6 +174,12 @@ DesignBase {
       radius: 27
       placeholder: lock.tr("Password")
       color: lock.withAlpha(Color.lock.background, 0.7)
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 }

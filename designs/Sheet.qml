@@ -4,6 +4,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property int sheetHeight: Math.round(height * 0.36)
@@ -104,6 +105,12 @@ DesignBase {
         height: 56
         placeholder: lock.tr("Password")
         color: lock.withAlpha(Color.background, 0.6)
+      }
+
+      FaceStatus {
+        lock: lock
+        width: field.width
+        anchors.horizontalCenter: parent.horizontalCenter
       }
 
       Text {

@@ -7,6 +7,7 @@ import qs.Commons
 // different files from ~/.config/omarchy/lock-videos.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   shakeOnFail: true
 
@@ -103,6 +104,12 @@ DesignBase {
         shakeOnFail: false
         placeholder: lock.tr("Password")
         color: lock.withAlpha(Color.lock.background, 0.55)
+      }
+
+      FaceStatus {
+        lock: lock
+        width: field.width
+        anchors.horizontalCenter: parent.horizontalCenter
       }
 
       Text {

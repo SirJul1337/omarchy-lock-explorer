@@ -4,6 +4,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property int margin: Math.round(Math.min(width, height) * 0.09)
@@ -104,6 +105,12 @@ DesignBase {
       textAlignment: TextInput.AlignLeft
       placeholder: lock.tr("Password")
       color: lock.withAlpha(Color.lock.background, 0.75)
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      x: field.x
     }
 
     Text {

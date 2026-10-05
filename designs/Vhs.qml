@@ -7,6 +7,7 @@ import "Ttfx.js" as Ttfx
 // wrong password rewinds with red tracking lines.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   flashOnFail: false
 
@@ -116,6 +117,12 @@ DesignBase {
       showLockGlyph: false
       color: Color.lock.background
       placeholder: "PASSWORD"
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

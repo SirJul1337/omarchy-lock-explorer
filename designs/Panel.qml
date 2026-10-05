@@ -8,6 +8,7 @@ import "Ttfx.js" as Ttfx
 // apart.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field
   flashOnFail: false
 
@@ -190,6 +191,11 @@ DesignBase {
         font.family: Style.font.family
         font.pixelSize: Style.font.body
         font.letterSpacing: 1
+      }
+      FaceStatus {
+        lock: lock
+        width: box.width
+        centered: false
       }
     }
   }

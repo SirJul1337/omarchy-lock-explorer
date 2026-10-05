@@ -3,6 +3,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: input
   shakeOnFail: true
 
@@ -151,6 +152,11 @@ DesignBase {
         font.italic: lock.errorState
       }
       EyeButton { lock: lock; anchors.verticalCenter: parent.verticalCenter; size: Style.font.title }
+    }
+    FaceStatus {
+      lock: lock
+      width: 380
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 }

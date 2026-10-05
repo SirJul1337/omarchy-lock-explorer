@@ -4,6 +4,7 @@ import qs.Commons
 
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
 
   readonly property color c1: Color.lock.borderActive
@@ -112,6 +113,12 @@ DesignBase {
       showLockGlyph: false
       color: lock.withAlpha(Color.lock.background, 0.4)
       placeholder: lock.greeting() + ", " + lock.displayName
+    }
+
+    FaceStatus {
+      lock: lock
+      width: field.width
+      anchors.horizontalCenter: parent.horizontalCenter
     }
   }
 

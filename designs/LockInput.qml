@@ -82,6 +82,14 @@ TextInput {
       return
     }
 
+    if (lock.faceRecognized === true
+        && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space)) {
+      // A held key must not confirm a face recognized after the keypress.
+      if (!event.isAutoRepeat) lock.faceRequested()
+      event.accepted = true
+      return
+    }
+
     if (lock.fido2Configured && (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab)) {
       if (lock.fido2Active) lock.passwordRequested()
       else lock.fido2Requested()

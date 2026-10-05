@@ -5,6 +5,7 @@ import qs.Commons
 // throws one big red wave, and the surface never sits completely still.
 DesignBase {
   id: lock
+  faceStatusProvided: true
   inputItem: field.input
   shakeOnFail: true
   flashOnFail: false
@@ -143,5 +144,12 @@ DesignBase {
     shakeOnFail: false
     placeholder: lock.tr("Password")
     color: lock.withAlpha(Color.lock.background, 0.6)
+  }
+
+  FaceStatus {
+    lock: lock
+    x: lock.itemRect(field).x
+    y: lock.itemRect(field).y + field.height + 12
+    width: field.width
   }
 }

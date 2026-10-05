@@ -377,6 +377,46 @@ Item {
   }
   readonly property bool awayReport: awayReportOverride >= 0 ? awayReportOverride === 1 : configuredAwayReport
 
+  // Both off by default. Pulling the security key out locks the session, and
+  // plugging it in lights a blanked lock screen ready for a touch. Saved on
+  // the plugin entry as `lockOnKeyRemoval` and `wakeOnKeyInsert`, only when on.
+  property int lockOnKeyRemovalOverride: -1
+  readonly property bool configuredLockOnKeyRemoval: pluginFlag("lockOnKeyRemoval")
+  readonly property bool lockOnKeyRemoval: lockOnKeyRemovalOverride >= 0 ? lockOnKeyRemovalOverride === 1 : configuredLockOnKeyRemoval
+  property int wakeOnKeyInsertOverride: -1
+  readonly property bool configuredWakeOnKeyInsert: pluginFlag("wakeOnKeyInsert")
+  readonly property bool wakeOnKeyInsert: wakeOnKeyInsertOverride >= 0 ? wakeOnKeyInsertOverride === 1 : configuredWakeOnKeyInsert
+
+  function pluginFlag(name) {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId) return entry[name] === true
+    }
+    return false
+  }
+
+  function setPluginFlag(name, value) {
+    var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
+    var off = value === false || value === "false" || value === 0 || value === "0" || value === "off"
+    if (!on && !off) return false
+    if (name === "lockOnKeyRemoval") lockOnKeyRemovalOverride = on ? 1 : 0
+    else if (name === "wakeOnKeyInsert") wakeOnKeyInsertOverride = on ? 1 : 0
+    else return false
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (on) current[name] = true
+      else delete current[name]
+      writeEntry(current)
+    }
+    logEvent(name + "=" + (on ? "on" : "off"))
+    return true
+  }
+
+  function setLockOnKeyRemoval(value) { return setPluginFlag("lockOnKeyRemoval", value) }
+  function setWakeOnKeyInsert(value) { return setPluginFlag("wakeOnKeyInsert", value) }
+
   function setAwayReport(value) {
     var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
     var off = value === false || value === "false" || value === 0 || value === "0" || value === "off"
@@ -2638,8 +2678,17 @@ echo "$out"
     if (!faceCheckProc.running) faceCheckProc.running = true
   }
 
+  // A probe already running is not an answer to a request made after it
+  // started, so the request is queued and the probe runs once more.
+  // Capped: a flapping hidraw device (a bad cable, a receiver reconnecting)
+  // could otherwise keep every answer discarded and a pending failure or the
+  // next round waiting on it for good.
+  property bool fido2ProbeQueued: false
+  property int fido2ProbeReruns: 0
+  readonly property int fido2ProbeRerunLimit: 2
   function refreshFido2Status() {
-    if (!fido2CheckProc.running) fido2CheckProc.running = true
+    if (fido2CheckProc.running) fido2ProbeQueued = true
+    else fido2CheckProc.running = true
   }
 
   function refreshSessionLockXray() {
@@ -2892,9 +2941,12 @@ echo "$out"
     if (!facePam.start()) faceAuthenticating = false
   }
 
+  // Wake and retry ask the probe rather than trusting the last answer: a key
+  // that left while the session slept is otherwise still "present", and the
+  // first round after wake is charged for it. The probe starts the round.
   function retryFido2() {
     fido2TouchMisses = 0
-    startFido2()
+    refreshFido2Status()
   }
 
   function retryFace() {
@@ -2953,10 +3005,9 @@ echo "$out"
       pendingPassword = ""
       logEvent("auth-mode=" + mode)
     }
-    // Settled last: the hotplug watcher runs on (!settled || fido2Active),
-    // and settling before the switch would stop and respawn it on every Tab.
     // A request for a mode that cannot be entered still settles, so a later
-    // probe does not override what the user asked for.
+    // probe does not override what the user asked for. A key plugged in
+    // afterwards is still offered to an empty field; see fido2CheckProc.
     authModeSettled = true
   }
 
@@ -3098,9 +3149,12 @@ echo "$out"
     // a half, park the lock on the password, stop the hotplug watcher, and
     // report three failed attempts when nobody tried anything. A round with
     // no PIN in it asks the probe first; see fido2FailureChecked.
+    // PAM can see the USB loss before udev removes the node, so a probe sent
+    // at once can still find the key and charge a miss for an unplug. Give
+    // it the same settle the hotplug path uses before asking.
     if (!fido2PinSubmitted) {
       fido2FailurePending = true
-      refreshFido2Status()
+      fido2FailureSettle.restart()
       return
     }
     countFido2Failure()
@@ -3467,7 +3521,15 @@ echo "$out"
     id: fido2RetryTimer
     interval: 500
     repeat: false
-    onTriggered: root.startFido2()
+    onTriggered: root.refreshFido2Status()
+  }
+
+  // See handleFido2Finished: the probe for a failed round without a PIN.
+  Timer {
+    id: fido2FailureSettle
+    interval: 400
+    repeat: false
+    onTriggered: root.refreshFido2Status()
   }
 
   Timer {
@@ -3477,26 +3539,29 @@ echo "$out"
     onTriggered: root.startFace()
   }
 
-  // A key plugged in after the lock came up has to be noticed, and polling for
-  // it would mean spawning a probe every couple of seconds for as long as the
-  // screen is locked. This sleeps on the udev netlink socket instead and wakes
-  // only when a hidraw device actually appears. It exists in one state only:
-  // locked, a key enrolled, none attached, nothing in flight, and the user is
-  // not already on the password. A key arriving mid-password changes nothing
-  // (settleAuthMode leaves half-typed input alone), so the process would be
-  // kept alive for an answer nobody acts on.
+  // A key plugged in or pulled out while locked has to be noticed, and polling
+  // for it would mean spawning a probe every couple of seconds for as long as
+  // the screen is locked. This sleeps on the udev netlink socket instead and
+  // wakes only when a hidraw device comes or goes. It runs for the whole lock,
+  // a round in flight included: watching only while no key was attached left
+  // a key pulled mid-round or during sleep cached as present. The probe it
+  // asks for never interrupts a running round or half-typed input; see
+  // startFido2 and fido2CheckProc. With wakeOnKeyInsert on, an add while the
+  // screen is dark goes through keyInsertSettle instead, which wakes the
+  // display only when the probe finds the key.
   Process {
     id: fido2HotplugWatch
-    running: root.lockRequested && root.fido2Configured && !root.fido2TokenPresent
-      && !root.fido2Exhausted
-      && !root.fido2Authenticating && !root.authenticatingPassword
-      && root.enteredPassword.length === 0
-      && (!root.authModeSettled || root.fido2Active)
+    running: root.lockRequested && root.fido2Configured
+      && (!root.fido2Exhausted || root.wakeOnKeyInsert)
     command: ["udevadm", "monitor", "--udev", "--subsystem-match=hidraw"]
     stdout: SplitParser {
       // "UDEV  [123.4] add  /devices/.../hidraw/hidraw0 (hidraw)"
       onRead: function(line) {
-        if (String(line).indexOf(" add ") >= 0) fido2HotplugSettle.restart()
+        var text = String(line)
+        var added = text.indexOf(" add ") >= 0
+        if (!added && text.indexOf(" remove ") < 0) return
+        if (added && root.wakeOnKeyInsert && root.screenBlanked) keyInsertSettle.restart()
+        else fido2HotplugSettle.restart()
       }
     }
   }
@@ -3509,6 +3574,59 @@ echo "$out"
     interval: 400
     repeat: false
     onTriggered: root.refreshFido2Status()
+  }
+
+  // Lock-on-removal, while unlocked. Wake-on-insert rides on
+  // fido2HotplugWatch, which already runs for the whole lock, so the two never
+  // run side by side. Any hidraw device comes and goes here -- a mouse
+  // receiver, a game pad -- so a removal is only acted on once the probe says
+  // the key itself is gone.
+  property bool keyEventProbe: false
+  property bool keyInsertProbe: false
+  Process {
+    id: keyEventWatch
+    running: root.fido2Configured && root.lockOnKeyRemoval && !root.lockRequested
+    command: ["udevadm", "monitor", "--udev", "--subsystem-match=hidraw"]
+    // Lock-on-removal compares against the last answer, so that answer has
+    // to be current from the moment the watch starts -- after an unlock the
+    // key may have come or gone while the lock was up.
+    onRunningChanged: if (running && !root.lockRequested) root.refreshFido2Status()
+    stdout: SplitParser {
+      onRead: function(line) {
+        var text = String(line)
+        var added = text.indexOf(" add ") >= 0
+        var removed = text.indexOf(" remove ") >= 0
+        // Unlocked, both directions keep the presence current: a key plugged
+        // in after a password unlock has to be known before it can be missed.
+        if ((added || removed) && !root.lockRequested) keyEventSettle.restart()
+      }
+    }
+  }
+
+  // Same settle as fido2HotplugSettle: collapses the burst of events one plug
+  // produces, and gives the node time to get its permissions.
+  Timer {
+    id: keyEventSettle
+    interval: 400
+    repeat: false
+    onTriggered: {
+      root.keyEventProbe = true
+      root.refreshFido2Status()
+    }
+  }
+
+  // Any HID device can be what went in, so the probe decides: the display
+  // wakes only when the key is there (see fido2CheckProc), and the same
+  // answer starts the round.
+  Timer {
+    id: keyInsertSettle
+    interval: 400
+    repeat: false
+    onTriggered: {
+      if (!root.lockRequested || !root.screenBlanked) return
+      root.keyInsertProbe = true
+      root.refreshFido2Status()
+    }
   }
 
   Process {
@@ -3660,9 +3778,26 @@ echo "$out"
     command: [root.checkFido2AuthPath]
     stdout: StdioCollector { id: fido2CheckStdout; waitForEnd: true }
     onExited: {
+      // A request that arrived while this probe ran may be about a change
+      // this probe started too early to see -- a key pulled after it had
+      // already listed the devices. Its answer is not acted on; the next one is.
+      if (root.fido2ProbeQueued && root.fido2ProbeReruns < root.fido2ProbeRerunLimit) {
+        root.fido2ProbeQueued = false
+        root.fido2ProbeReruns += 1
+        Qt.callLater(function() { fido2CheckProc.running = true })
+        return
+      }
+      root.fido2ProbeQueued = false
+      root.fido2ProbeReruns = 0
+
       var answer = String(fido2CheckStdout.text || "").trim().split(/\s+/)
+      var wasPresent = root.fido2TokenPresent
       root.fido2Installed = answer[0] === "yes"
       root.fido2TokenPresent = answer[1] === "present"
+      var keyEvent = root.keyEventProbe
+      var keyInsert = root.keyInsertProbe
+      root.keyEventProbe = false
+      root.keyInsertProbe = false
 
       // Not configured any more wins over a pending failure: the round is
       // moot, and the lock goes back to the password rather than waiting on
@@ -3673,12 +3808,46 @@ echo "$out"
         return
       }
 
+      // Only a probe a hidraw event asked for can lock: a settings refresh
+      // that happens to find no key is not somebody walking away with it.
+      if (keyEvent && !root.lockRequested && root.lockOnKeyRemoval
+          && wasPresent && !root.fido2TokenPresent) {
+        if (root.passwordPamConfigured && !root.locked) {
+          root.logEvent("lock-on-key-removal")
+          root.beginLock()
+        }
+        return
+      }
+
+      // The device that went in while the screen was dark was the key: it was
+      // not there before and is now. With the key left in, a mouse or headset
+      // reconnecting would otherwise light the lock for nobody. The watcher
+      // sees removals while dark too, so a key that left is known as gone.
+      // runWake clears screenBlanked, so the round below can start.
+      if (keyInsert && root.lockRequested && root.screenBlanked
+          && !wasPresent && root.fido2TokenPresent) {
+        root.logEvent("wake-on-key-insert")
+        root.runWake()
+      }
+
       if (root.fido2FailurePending) {
+        // A probe that finished inside the failure's settle window (one the
+        // hotplug watcher asked for, say) may predate the node going away.
+        // The one fido2FailureSettle sends decides.
+        if (fido2FailureSettle.running) return
         root.fido2FailureChecked()
         return
       }
 
       if (!root.lockRequested) return
+      // A key plugged back in is offered again, even after the user went to
+      // the password, but only to an empty field: typed input, a check in
+      // flight and a key at its PIN limit are left alone.
+      if (!wasPresent && root.fido2TokenPresent && !root.fido2Active && !root.fido2Exhausted
+          && !root.authenticatingPassword && root.enteredPassword.length === 0) {
+        root.fido2TouchMisses = 0
+        root.setAuthMode("fido2")
+      }
       if (!root.fido2Active) root.settleAuthMode()
       if (root.fido2Active) root.startFido2()
     }
@@ -3896,6 +4065,8 @@ echo "$out"
       readonly property int defaultWakeGrace: root.defaultWakeGrace
       readonly property bool powerActions: root.powerActions
       readonly property bool awayReport: root.awayReport
+      readonly property bool lockOnKeyRemoval: root.lockOnKeyRemoval
+      readonly property bool wakeOnKeyInsert: root.wakeOnKeyInsert
       readonly property var favorites: root.favorites
       readonly property bool showLayoutBadge: root.showLayoutBadge
       readonly property string accountName: root.accountName
@@ -3987,6 +4158,8 @@ echo "$out"
       function setFaceStart(value) { return root.setFaceStart(value) }
       function setPowerActions(value) { return root.setPowerActions(value) }
       function setAwayReport(value) { return root.setAwayReport(value) }
+      function setLockOnKeyRemoval(value) { return root.setLockOnKeyRemoval(value) }
+      function setWakeOnKeyInsert(value) { return root.setWakeOnKeyInsert(value) }
       function toggleFavorite(id) { return root.toggleFavorite(id) }
       function setFieldItem(name, show) { return root.setFieldItem(name, show) }
       function installPackages(names) { return root.installPackages(names) }
@@ -4239,6 +4412,22 @@ echo "$out"
 
     function setAwayReport(value: string): string {
       return root.setAwayReport(value) ? "ok" : "invalid-value"
+    }
+
+    function lockOnKeyRemoval(): string {
+      return root.lockOnKeyRemoval ? "on" : "off"
+    }
+
+    function setLockOnKeyRemoval(value: string): string {
+      return root.setLockOnKeyRemoval(value) ? "ok" : "invalid-value"
+    }
+
+    function wakeOnKeyInsert(): string {
+      return root.wakeOnKeyInsert ? "on" : "off"
+    }
+
+    function setWakeOnKeyInsert(value: string): string {
+      return root.setWakeOnKeyInsert(value) ? "ok" : "invalid-value"
     }
 
     function favorites(): string {

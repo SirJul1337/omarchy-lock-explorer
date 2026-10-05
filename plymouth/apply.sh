@@ -12,7 +12,8 @@
 # stub concatenates after the baked-in initrd, so later cpio entries win and
 # the theme applies with NO initramfs rebuild (proven on real hardware
 # 2026-08-24, see extras/no-rebuild-boot-theme.md). Systems without a UKI
-# or the addon stub fall back to the old bake-and-rebuild path.
+# or the addon stub fall back to the old bake-and-rebuild path; whether a
+# UKI is there is decided on the root side (see addon_capable).
 #
 # The privileged part (one file write to the ESP, or the legacy install +
 # rebuild) runs through a single pkexec call, so the shell UI gets one polkit
@@ -31,13 +32,17 @@ here="$(dirname "$(realpath "$0")")"
 # Every Omarchy UKI gets the addon instead, which also matches the legacy
 # bake-and-rebuild path — limine-mkinitcpio with no argument rebuilds every
 # kernel — so the boot screen is the same whichever entry is picked.
-uki_dir=/boot/EFI/Linux
-uki_glob='omarchy_linux*.efi'
 addon_stub=/usr/lib/systemd/boot/efi/addonx64.efi.stub
 
-ukis() { find "$uki_dir" -maxdepth 1 -name "$uki_glob" -type f 2>/dev/null; }
-
-addon_capable() { [[ -f $addon_stub && -n $(ukis) ]]; }
+# Whether there is a UKI to attach to is for the root side to say. /boot is
+# commonly mounted root-only (fmask/dmask=0077), and this script runs as the
+# user: a find on /boot/EFI/Linux from here then sees nothing, which used to
+# pass for "no UKI" and quietly took the bake-and-rebuild path instead, while
+# the shell went on reporting the design as applied (issue #59). So with the
+# stub installed the addon is always built and handed over together with the
+# theme, and install-root.sh attaches it next to every UKI it finds, baking
+# the theme in only when there is none.
+addon_capable() { [[ -f $addon_stub ]]; }
 
 # Wrap a staged theme as a systemd-stub initrd addon: the theme dir, a
 # plymouthd.conf pointing at it, and the mono font under the names the

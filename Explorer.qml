@@ -250,6 +250,8 @@ Item {
   readonly property int wakeGrace: service && service.wakeGrace !== undefined ? service.wakeGrace : 1000
   readonly property bool powerActions: service && service.powerActions === true
   readonly property bool awayReport: !service || service.awayReport !== false
+  readonly property bool lockOnKeyRemoval: service && service.lockOnKeyRemoval === true
+  readonly property bool wakeOnKeyInsert: service && service.wakeOnKeyInsert === true
   readonly property string wallpaperBlur: service && service.wallpaperBlur !== undefined ? String(service.wallpaperBlur) : "design"
   readonly property string wallpaperDim: service && service.wallpaperDim !== undefined ? String(service.wallpaperDim) : "design"
   readonly property real wallpaperBlurValue: service && service.wallpaperBlurValue !== undefined ? service.wallpaperBlurValue : -1
@@ -1055,6 +1057,16 @@ Item {
   function setAwayReport(on) {
     if (!root.service || typeof root.service.setAwayReport !== "function") return
     root.service.setAwayReport(on)
+  }
+
+  function setLockOnKeyRemoval(on) {
+    if (!root.service || typeof root.service.setLockOnKeyRemoval !== "function") return
+    root.service.setLockOnKeyRemoval(on)
+  }
+
+  function setWakeOnKeyInsert(on) {
+    if (!root.service || typeof root.service.setWakeOnKeyInsert !== "function") return
+    root.service.setWakeOnKeyInsert(on)
   }
 
   function setWakeGrace(ms) {
@@ -2183,6 +2195,28 @@ Item {
                   options: root.fido2Options
                   current: root.fido2Enabled ? "on" : "off"
                   onPicked: function(id) { root.setFido2Enabled(id === "on") }
+                }
+
+                // Both off by default, and only with the key turned on above:
+                // they follow the key, so without it they have nothing to do.
+                SettingRow {
+                  explorer: root
+                  visible: root.fido2Installed && root.fido2Enabled
+                  label: root.tr("Lock when the key is removed")
+                  help: root.tr("Removing the security key locks the screen.")
+                  options: root.onOffOptions
+                  current: root.lockOnKeyRemoval ? "on" : "off"
+                  onPicked: function(id) { root.setLockOnKeyRemoval(id === "on") }
+                }
+
+                SettingRow {
+                  explorer: root
+                  visible: root.fido2Installed && root.fido2Enabled
+                  label: root.tr("Wake when the key is inserted")
+                  help: root.tr("Inserting the security key lights a dark lock screen, ready for a touch.")
+                  options: root.onOffOptions
+                  current: root.wakeOnKeyInsert ? "on" : "off"
+                  onPicked: function(id) { root.setWakeOnKeyInsert(id === "on") }
                 }
 
                 // Mistakes on your own way in are left out.

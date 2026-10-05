@@ -377,6 +377,46 @@ Item {
   }
   readonly property bool awayReport: awayReportOverride >= 0 ? awayReportOverride === 1 : configuredAwayReport
 
+  // Both off by default. Pulling the security key out locks the session, and
+  // plugging it in lights a blanked lock screen ready for a touch. Saved on
+  // the plugin entry as `lockOnKeyRemoval` and `wakeOnKeyInsert`, only when on.
+  property int lockOnKeyRemovalOverride: -1
+  readonly property bool configuredLockOnKeyRemoval: pluginFlag("lockOnKeyRemoval")
+  readonly property bool lockOnKeyRemoval: lockOnKeyRemovalOverride >= 0 ? lockOnKeyRemovalOverride === 1 : configuredLockOnKeyRemoval
+  property int wakeOnKeyInsertOverride: -1
+  readonly property bool configuredWakeOnKeyInsert: pluginFlag("wakeOnKeyInsert")
+  readonly property bool wakeOnKeyInsert: wakeOnKeyInsertOverride >= 0 ? wakeOnKeyInsertOverride === 1 : configuredWakeOnKeyInsert
+
+  function pluginFlag(name) {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId) return entry[name] === true
+    }
+    return false
+  }
+
+  function setPluginFlag(name, value) {
+    var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
+    var off = value === false || value === "false" || value === 0 || value === "0" || value === "off"
+    if (!on && !off) return false
+    if (name === "lockOnKeyRemoval") lockOnKeyRemovalOverride = on ? 1 : 0
+    else if (name === "wakeOnKeyInsert") wakeOnKeyInsertOverride = on ? 1 : 0
+    else return false
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (on) current[name] = true
+      else delete current[name]
+      writeEntry(current)
+    }
+    logEvent(name + "=" + (on ? "on" : "off"))
+    return true
+  }
+
+  function setLockOnKeyRemoval(value) { return setPluginFlag("lockOnKeyRemoval", value) }
+  function setWakeOnKeyInsert(value) { return setPluginFlag("wakeOnKeyInsert", value) }
+
   function setAwayReport(value) {
     var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
     var off = value === false || value === "false" || value === 0 || value === "0" || value === "off"
@@ -2638,8 +2678,12 @@ echo "$out"
     if (!faceCheckProc.running) faceCheckProc.running = true
   }
 
+  // A probe already running is not an answer to a request made after it
+  // started, so the request is queued and the probe runs once more.
+  property bool fido2ProbeQueued: false
   function refreshFido2Status() {
-    if (!fido2CheckProc.running) fido2CheckProc.running = true
+    if (fido2CheckProc.running) fido2ProbeQueued = true
+    else fido2CheckProc.running = true
   }
 
   function refreshSessionLockXray() {
@@ -3511,6 +3555,62 @@ echo "$out"
     onTriggered: root.refreshFido2Status()
   }
 
+  // The two opt-in key settings, on the same udev stream. It runs only while
+  // one of them has something to do: unlocked for lock-on-removal, locked
+  // with the screen dark for wake-on-insert. Any hidraw device comes and goes
+  // here -- a mouse receiver, a game pad -- so a removal is only acted on
+  // once the probe says the key itself is gone.
+  property bool keyEventProbe: false
+  property bool keyInsertProbe: false
+  Process {
+    id: keyEventWatch
+    running: root.fido2Configured
+      && ((root.lockOnKeyRemoval && !root.lockRequested)
+          || (root.wakeOnKeyInsert && root.lockRequested && root.screenBlanked))
+    command: ["udevadm", "monitor", "--udev", "--subsystem-match=hidraw"]
+    // Lock-on-removal compares against the last answer, so that answer has
+    // to be current from the moment the watch starts -- after an unlock the
+    // key may have come or gone while the lock was up.
+    onRunningChanged: if (running && !root.lockRequested) root.refreshFido2Status()
+    stdout: SplitParser {
+      onRead: function(line) {
+        var text = String(line)
+        var added = text.indexOf(" add ") >= 0
+        var removed = text.indexOf(" remove ") >= 0
+        // Unlocked, both directions keep the presence current: a key plugged
+        // in after a password unlock has to be known before it can be missed.
+        if ((added || removed) && !root.lockRequested) keyEventSettle.restart()
+        else if (added && root.lockRequested && root.screenBlanked) keyInsertSettle.restart()
+      }
+    }
+  }
+
+  // Same settle as fido2HotplugSettle: collapses the burst of events one plug
+  // produces, and gives the node time to get its permissions.
+  Timer {
+    id: keyEventSettle
+    interval: 400
+    repeat: false
+    onTriggered: {
+      root.keyEventProbe = true
+      root.refreshFido2Status()
+    }
+  }
+
+  // Any HID device can be what went in, so the probe decides: the display
+  // wakes only when the key is there (see fido2CheckProc), and the same
+  // answer starts the round.
+  Timer {
+    id: keyInsertSettle
+    interval: 400
+    repeat: false
+    onTriggered: {
+      if (!root.lockRequested || !root.screenBlanked) return
+      root.keyInsertProbe = true
+      root.refreshFido2Status()
+    }
+  }
+
   Process {
     id: userDesignsProc
     // Files built on ClipDesign are tagged (with their clip file when it is
@@ -3660,9 +3760,23 @@ echo "$out"
     command: [root.checkFido2AuthPath]
     stdout: StdioCollector { id: fido2CheckStdout; waitForEnd: true }
     onExited: {
+      // A request that arrived while this probe ran may be about a change
+      // this probe started too early to see -- a key pulled after it had
+      // already listed the devices. Its answer is not acted on; the next one is.
+      if (root.fido2ProbeQueued) {
+        root.fido2ProbeQueued = false
+        Qt.callLater(function() { fido2CheckProc.running = true })
+        return
+      }
+
       var answer = String(fido2CheckStdout.text || "").trim().split(/\s+/)
+      var wasPresent = root.fido2TokenPresent
       root.fido2Installed = answer[0] === "yes"
       root.fido2TokenPresent = answer[1] === "present"
+      var keyEvent = root.keyEventProbe
+      var keyInsert = root.keyInsertProbe
+      root.keyEventProbe = false
+      root.keyInsertProbe = false
 
       // Not configured any more wins over a pending failure: the round is
       // moot, and the lock goes back to the password rather than waiting on
@@ -3671,6 +3785,24 @@ echo "$out"
         root.fido2FailurePending = false
         if (root.fido2Active) root.setAuthMode("password")
         return
+      }
+
+      // Only a probe a hidraw event asked for can lock: a settings refresh
+      // that happens to find no key is not somebody walking away with it.
+      if (keyEvent && !root.lockRequested && root.lockOnKeyRemoval
+          && wasPresent && !root.fido2TokenPresent) {
+        if (root.passwordPamConfigured && !root.locked) {
+          root.logEvent("lock-on-key-removal")
+          root.beginLock()
+        }
+        return
+      }
+
+      // The device that went in while the screen was dark was the key.
+      // runWake clears screenBlanked, so the round below can start.
+      if (keyInsert && root.lockRequested && root.screenBlanked && root.fido2TokenPresent) {
+        root.logEvent("wake-on-key-insert")
+        root.runWake()
       }
 
       if (root.fido2FailurePending) {
@@ -3896,6 +4028,8 @@ echo "$out"
       readonly property int defaultWakeGrace: root.defaultWakeGrace
       readonly property bool powerActions: root.powerActions
       readonly property bool awayReport: root.awayReport
+      readonly property bool lockOnKeyRemoval: root.lockOnKeyRemoval
+      readonly property bool wakeOnKeyInsert: root.wakeOnKeyInsert
       readonly property var favorites: root.favorites
       readonly property bool showLayoutBadge: root.showLayoutBadge
       readonly property string accountName: root.accountName
@@ -3987,6 +4121,8 @@ echo "$out"
       function setFaceStart(value) { return root.setFaceStart(value) }
       function setPowerActions(value) { return root.setPowerActions(value) }
       function setAwayReport(value) { return root.setAwayReport(value) }
+      function setLockOnKeyRemoval(value) { return root.setLockOnKeyRemoval(value) }
+      function setWakeOnKeyInsert(value) { return root.setWakeOnKeyInsert(value) }
       function toggleFavorite(id) { return root.toggleFavorite(id) }
       function setFieldItem(name, show) { return root.setFieldItem(name, show) }
       function installPackages(names) { return root.installPackages(names) }
@@ -4239,6 +4375,22 @@ echo "$out"
 
     function setAwayReport(value: string): string {
       return root.setAwayReport(value) ? "ok" : "invalid-value"
+    }
+
+    function lockOnKeyRemoval(): string {
+      return root.lockOnKeyRemoval ? "on" : "off"
+    }
+
+    function setLockOnKeyRemoval(value: string): string {
+      return root.setLockOnKeyRemoval(value) ? "ok" : "invalid-value"
+    }
+
+    function wakeOnKeyInsert(): string {
+      return root.wakeOnKeyInsert ? "on" : "off"
+    }
+
+    function setWakeOnKeyInsert(value: string): string {
+      return root.setWakeOnKeyInsert(value) ? "ok" : "invalid-value"
     }
 
     function favorites(): string {

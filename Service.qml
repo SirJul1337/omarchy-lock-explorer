@@ -2936,9 +2936,12 @@ echo "$out"
     if (!facePam.start()) faceAuthenticating = false
   }
 
+  // Wake and retry ask the probe rather than trusting the last answer: a key
+  // that left while the session slept is otherwise still "present", and the
+  // first round after wake is charged for it. The probe starts the round.
   function retryFido2() {
     fido2TouchMisses = 0
-    startFido2()
+    refreshFido2Status()
   }
 
   function retryFace() {
@@ -2997,10 +3000,9 @@ echo "$out"
       pendingPassword = ""
       logEvent("auth-mode=" + mode)
     }
-    // Settled last: the hotplug watcher runs on (!settled || fido2Active),
-    // and settling before the switch would stop and respawn it on every Tab.
     // A request for a mode that cannot be entered still settles, so a later
-    // probe does not override what the user asked for.
+    // probe does not override what the user asked for. A key plugged in
+    // afterwards is still offered to an empty field; see fido2CheckProc.
     authModeSettled = true
   }
 
@@ -3142,9 +3144,12 @@ echo "$out"
     // a half, park the lock on the password, stop the hotplug watcher, and
     // report three failed attempts when nobody tried anything. A round with
     // no PIN in it asks the probe first; see fido2FailureChecked.
+    // PAM can see the USB loss before udev removes the node, so a probe sent
+    // at once can still find the key and charge a miss for an unplug. Give
+    // it the same settle the hotplug path uses before asking.
     if (!fido2PinSubmitted) {
       fido2FailurePending = true
-      refreshFido2Status()
+      fido2FailureSettle.restart()
       return
     }
     countFido2Failure()
@@ -3511,7 +3516,15 @@ echo "$out"
     id: fido2RetryTimer
     interval: 500
     repeat: false
-    onTriggered: root.startFido2()
+    onTriggered: root.refreshFido2Status()
+  }
+
+  // See handleFido2Finished: the probe for a failed round without a PIN.
+  Timer {
+    id: fido2FailureSettle
+    interval: 400
+    repeat: false
+    onTriggered: root.refreshFido2Status()
   }
 
   Timer {
@@ -3521,26 +3534,29 @@ echo "$out"
     onTriggered: root.startFace()
   }
 
-  // A key plugged in after the lock came up has to be noticed, and polling for
-  // it would mean spawning a probe every couple of seconds for as long as the
-  // screen is locked. This sleeps on the udev netlink socket instead and wakes
-  // only when a hidraw device actually appears. It exists in one state only:
-  // locked, a key enrolled, none attached, nothing in flight, and the user is
-  // not already on the password. A key arriving mid-password changes nothing
-  // (settleAuthMode leaves half-typed input alone), so the process would be
-  // kept alive for an answer nobody acts on.
+  // A key plugged in or pulled out while locked has to be noticed, and polling
+  // for it would mean spawning a probe every couple of seconds for as long as
+  // the screen is locked. This sleeps on the udev netlink socket instead and
+  // wakes only when a hidraw device comes or goes. It runs for the whole lock,
+  // a round in flight included: watching only while no key was attached left
+  // a key pulled mid-round or during sleep cached as present. The probe it
+  // asks for never interrupts a running round or half-typed input; see
+  // startFido2 and fido2CheckProc. With wakeOnKeyInsert on, an add while the
+  // screen is dark goes through keyInsertSettle instead, which wakes the
+  // display only when the probe finds the key.
   Process {
     id: fido2HotplugWatch
-    running: root.lockRequested && root.fido2Configured && !root.fido2TokenPresent
-      && !root.fido2Exhausted
-      && !root.fido2Authenticating && !root.authenticatingPassword
-      && root.enteredPassword.length === 0
-      && (!root.authModeSettled || root.fido2Active)
+    running: root.lockRequested && root.fido2Configured
+      && (!root.fido2Exhausted || root.wakeOnKeyInsert)
     command: ["udevadm", "monitor", "--udev", "--subsystem-match=hidraw"]
     stdout: SplitParser {
       // "UDEV  [123.4] add  /devices/.../hidraw/hidraw0 (hidraw)"
       onRead: function(line) {
-        if (String(line).indexOf(" add ") >= 0) fido2HotplugSettle.restart()
+        var text = String(line)
+        var added = text.indexOf(" add ") >= 0
+        if (!added && text.indexOf(" remove ") < 0) return
+        if (added && root.wakeOnKeyInsert && root.screenBlanked) keyInsertSettle.restart()
+        else fido2HotplugSettle.restart()
       }
     }
   }
@@ -3555,18 +3571,16 @@ echo "$out"
     onTriggered: root.refreshFido2Status()
   }
 
-  // The two opt-in key settings, on the same udev stream. It runs only while
-  // one of them has something to do: unlocked for lock-on-removal, locked
-  // with the screen dark for wake-on-insert. Any hidraw device comes and goes
-  // here -- a mouse receiver, a game pad -- so a removal is only acted on
-  // once the probe says the key itself is gone.
+  // Lock-on-removal, while unlocked. Wake-on-insert rides on
+  // fido2HotplugWatch, which already runs for the whole lock, so the two never
+  // run side by side. Any hidraw device comes and goes here -- a mouse
+  // receiver, a game pad -- so a removal is only acted on once the probe says
+  // the key itself is gone.
   property bool keyEventProbe: false
   property bool keyInsertProbe: false
   Process {
     id: keyEventWatch
-    running: root.fido2Configured
-      && ((root.lockOnKeyRemoval && !root.lockRequested)
-          || (root.wakeOnKeyInsert && root.lockRequested && root.screenBlanked))
+    running: root.fido2Configured && root.lockOnKeyRemoval && !root.lockRequested
     command: ["udevadm", "monitor", "--udev", "--subsystem-match=hidraw"]
     // Lock-on-removal compares against the last answer, so that answer has
     // to be current from the moment the watch starts -- after an unlock the
@@ -3580,7 +3594,6 @@ echo "$out"
         // Unlocked, both directions keep the presence current: a key plugged
         // in after a password unlock has to be known before it can be missed.
         if ((added || removed) && !root.lockRequested) keyEventSettle.restart()
-        else if (added && root.lockRequested && root.screenBlanked) keyInsertSettle.restart()
       }
     }
   }
@@ -3806,11 +3819,23 @@ echo "$out"
       }
 
       if (root.fido2FailurePending) {
+        // A probe that finished inside the failure's settle window (one the
+        // hotplug watcher asked for, say) may predate the node going away.
+        // The one fido2FailureSettle sends decides.
+        if (fido2FailureSettle.running) return
         root.fido2FailureChecked()
         return
       }
 
       if (!root.lockRequested) return
+      // A key plugged back in is offered again, even after the user went to
+      // the password, but only to an empty field: typed input, a check in
+      // flight and a key at its PIN limit are left alone.
+      if (!wasPresent && root.fido2TokenPresent && !root.fido2Active && !root.fido2Exhausted
+          && !root.authenticatingPassword && root.enteredPassword.length === 0) {
+        root.fido2TouchMisses = 0
+        root.setAuthMode("fido2")
+      }
       if (!root.fido2Active) root.settleAuthMode()
       if (root.fido2Active) root.startFido2()
     }

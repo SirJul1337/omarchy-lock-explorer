@@ -61,6 +61,17 @@ build_addon() {
   echo "$work/omarchy-lock-explorer.addon.efi"
 }
 
+# A theme crosses to the privileged side as one tar file, never as a
+# directory for root to walk: root copies the bytes into a place of its own
+# before it reads them (see install-root.sh and the rotation helper), so
+# nothing in here can be swapped underneath it. Prints the tar's path.
+pack_theme() {
+  local dir="$1" tar
+  tar=$(mktemp --suffix=.tar)
+  tar -C "$dir" -cf "$tar" --owner=0 --group=0 .
+  echo "$tar"
+}
+
 target="${1:?usage: apply.sh <design|stock> [--stage-only]}"
 stage_only="${2:-}"
 
@@ -74,7 +85,9 @@ if [[ $target == stock ]]; then
     echo "Cannot find the stock Omarchy plymouth theme at $stock_dir" >&2
     exit 1
   fi
-  pkexec bash "$here/install-root.sh" stock "$stock_dir"
+  stock_tar=$(pack_theme "$stock_dir")
+  trap 'rm -f "$stock_tar"' EXIT
+  pkexec bash "$here/install-root.sh" stock "$stock_tar"
   echo stock > "$state_file"
   rm -f "$state_dir/lock-explorer-boot-preview.png"
   echo "Restored the stock boot screen."
@@ -135,12 +148,14 @@ fi
 # Spool mode: hand the staged theme to the root path unit rotate-setup.sh
 # installed, instead of prompting through pkexec. Used by the rotation.
 if [[ $stage_only == --spool ]]; then
-  spool="$state_dir/lock-explorer-boot-spool"
-  rm -rf "$spool"
-  mv "$staging" "$spool"
+  spool="$state_dir/lock-explorer-boot-spool.tar"
+  rm -rf "$state_dir/lock-explorer-boot-spool"   # the directory older versions spooled
   theme_name=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null || echo unknown)
   echo "$target $theme_name" > "$state_file"
-  [[ -f $spool/preview.png ]] && cp "$spool/preview.png" "$state_dir/lock-explorer-boot-preview.png"
+  [[ -f $staging/preview.png ]] && cp "$staging/preview.png" "$state_dir/lock-explorer-boot-preview.png"
+  tar -C "$staging" -cf "$spool.part" --owner=0 --group=0 .
+  mv -f "$spool.part" "$spool"
+  rm -rf "$staging"
   echo "$spool" > "$state_dir/lock-explorer-boot-request"
   echo "Boot screen queued: $target."
   exit 0
@@ -154,14 +169,15 @@ theme_bg=$(awk -F= '/^[[:space:]]*background[[:space:]]*=/ {v=$2; gsub(/[[:space
   "$HOME/.local/state/omarchy/current/theme/colors.toml" 2>/dev/null || true)
 [[ $theme_bg =~ ^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$ ]] || theme_bg=""
 
-trap 'rm -rf "$staging"' EXIT
+theme_tar=$(pack_theme "$staging")
+trap 'rm -rf "$staging" "$theme_tar"' EXIT
 if addon_capable; then
   addon=$(build_addon "$staging")
   addon_work=$(dirname "$addon")
-  trap 'rm -rf "$staging" "$addon_work"' EXIT
-  pkexec bash "$here/install-root.sh" addon "$addon" "$theme_bg" "$staging"
+  trap 'rm -rf "$staging" "$theme_tar" "$addon_work"' EXIT
+  pkexec bash "$here/install-root.sh" addon "$addon" "$theme_bg" "$theme_tar"
 else
-  pkexec bash "$here/install-root.sh" theme "$staging" "$theme_bg"
+  pkexec bash "$here/install-root.sh" theme "$theme_tar" "$theme_bg"
 fi
 # Record which Omarchy theme the colors were baked from, so the shell can
 # offer to regenerate when the theme changes.

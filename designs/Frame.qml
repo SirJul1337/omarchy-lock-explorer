@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -8,8 +9,8 @@ DesignBase {
   readonly property int inset: 56
   readonly property int captionHeight: 150
 
-  Rectangle { anchors.fill: parent; color: Color.background }
-  Rectangle { anchors.fill: parent; color: Color.lock.background }
+  Rectangle { anchors.fill: parent; color: Commons.Color.background }
+  Rectangle { anchors.fill: parent; color: Commons.Color.lock.background }
 
   Item {
     id: photo
@@ -47,14 +48,14 @@ DesignBase {
       spacing: 4
       Text {
         text: lock.clock("HH:mm")
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Math.round(Style.font.baseSize * 4)
         font.weight: Font.DemiBold
       }
       Text {
         text: lock.date("dddd d MMMM yyyy")
-        color: lock.withAlpha(Color.lock.text, 0.65)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.65)
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
         font.letterSpacing: 1
@@ -69,7 +70,7 @@ DesignBase {
       height: 52
       radius: 6
       outlineThickness: 1
-      color: lock.withAlpha(Color.background, 0.5)
+      color: lock.withAlpha(Commons.Color.background, 0.5)
       placeholder: lock.tr("Password")
     }
 
@@ -80,7 +81,7 @@ DesignBase {
       Text {
         anchors.right: parent.right
         text: lock.displayName
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Style.font.display
         font.weight: Font.DemiBold
@@ -89,7 +90,7 @@ DesignBase {
         anchors.right: parent.right
         text: lock.errorState ? lock.failureMessage : (lock.authenticatingPassword ? lock.tr("Checking…") : lock.hostName)
         textFormat: Text.PlainText
-        color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.65)
+        color: lock.errorState ? Commons.Color.lock.textError : lock.withAlpha(Commons.Color.lock.text, 0.65)
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
       }

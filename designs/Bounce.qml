@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // The clock rains down as bouncing balls that land as its digits. Each new
@@ -34,8 +35,8 @@ DesignBase {
     rows: Math.floor((lock.height * 0.62) / Math.max(1, cellHeight))
     effectOptions: ({
       bouncyballs: ["--ball-symbols", "●", "o", "•", "--ball-delay", "2",
-                    "--ball-colors", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text), Ttfx.hex(Color.lock.textError),
-                    "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)]
+                    "--ball-colors", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text), Ttfx.hex(Commons.Color.lock.textError),
+                    "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)]
     })
   }
 
@@ -50,7 +51,7 @@ DesignBase {
     radius: 26
     showLockGlyph: false
     shakeOnFail: false
-    color: lock.withAlpha(Color.lock.background, 0.6)
+    color: lock.withAlpha(Commons.Color.lock.background, 0.6)
   }
 
   Connections {

@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -24,13 +25,13 @@ DesignBase {
     width: lock.tileW
     height: lock.tileH
     radius: 14
-    color: lock.withAlpha(Color.lock.background, 0.9)
+    color: lock.withAlpha(Commons.Color.lock.background, 0.9)
     border.width: 1
-    border.color: lock.withAlpha(Color.lock.text, 0.1)
+    border.color: lock.withAlpha(Commons.Color.lock.text, 0.1)
     Text {
       anchors.centerIn: parent
       text: parent.digit
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(lock.tileH * 0.72)
       font.weight: Font.Bold
@@ -55,8 +56,8 @@ DesignBase {
       Column {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 22
-        Rectangle { width: 12; height: 12; radius: 6; color: Color.lock.borderActive }
-        Rectangle { width: 12; height: 12; radius: 6; color: Color.lock.borderActive }
+        Rectangle { width: 12; height: 12; radius: 6; color: Commons.Color.lock.borderActive }
+        Rectangle { width: 12; height: 12; radius: 6; color: Commons.Color.lock.borderActive }
       }
       Tile { digit: lock.mm.charAt(0) }
       Tile { digit: lock.mm.charAt(1) }
@@ -65,7 +66,7 @@ DesignBase {
         anchors.verticalCenter: parent.verticalCenter
         visible: lock.meridiem.length > 0
         text: lock.meridiem
-        color: lock.withAlpha(Color.lock.text, 0.7)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.7)
         font.family: Style.font.family
         font.pixelSize: Math.round(lock.tileH * 0.2)
         font.weight: Font.Bold
@@ -75,7 +76,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.date("dddd, d MMMM yyyy").toUpperCase()
-      color: lock.withAlpha(Color.lock.text, 0.7)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.7)
       font.family: Style.font.family
       font.pixelSize: Style.font.subtitle
       font.letterSpacing: 4

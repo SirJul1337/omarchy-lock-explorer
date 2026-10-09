@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // A wide ttfx synthgrid: grid lines draw across the screen and the blocks
@@ -13,8 +14,8 @@ DesignBase {
   Rectangle {
     anchors.fill: parent
     gradient: Gradient {
-      GradientStop { position: 0; color: lock.deepen(Color.background, 1.8) }
-      GradientStop { position: 1; color: lock.deepen(Color.background, 1.1) }
+      GradientStop { position: 0; color: lock.deepen(Commons.Color.background, 1.8) }
+      GradientStop { position: 1; color: lock.deepen(Commons.Color.background, 1.1) }
     }
   }
 
@@ -37,8 +38,8 @@ DesignBase {
     columns: Math.floor(lock.width * 0.8 / Math.max(1, cellWidth))
     rows: Math.floor(lock.height * 0.55 / Math.max(1, cellHeight))
     effectOptions: ({
-      synthgrid: ["--grid-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.muted),
-                  "--text-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text),
+      synthgrid: ["--grid-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.muted),
+                  "--text-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text),
                   "--max-active-blocks", "0.2"]
     })
   }
@@ -52,7 +53,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("dddd  ·  d MMMM")
-      color: Color.lock.borderActive
+      color: Commons.Color.lock.borderActive
       font.family: Style.font.family
       font.pixelSize: Style.font.title
       font.letterSpacing: 2
@@ -68,7 +69,7 @@ DesignBase {
       outlineThickness: 1
       showLockGlyph: false
       shakeOnFail: false
-      color: Color.lock.background
+      color: Commons.Color.lock.background
     }
   }
 

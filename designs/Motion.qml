@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import qs.Commons
+import qs.Commons as Commons
 
 // Full bleed looping video with the clock over it. Without a video set it is
 // the wallpaper instead, so the design still stands on its own.
@@ -32,7 +33,7 @@ DesignBase {
     anchors.top: parent.top
     anchors.margins: lock.margin
     text: lock.greeting() + ", " + lock.displayName
-    color: lock.withAlpha(Color.lock.text, 0.8)
+    color: lock.withAlpha(Commons.Color.lock.text, 0.8)
     font.family: Style.font.family
     font.pixelSize: Style.font.subtitle
     font.letterSpacing: 3
@@ -45,7 +46,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("HH:mm")
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.baseSize * 11)
       font.weight: Font.Light
@@ -57,7 +58,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.date("dddd d MMMM").toUpperCase()
-      color: lock.withAlpha(Color.lock.text, 0.75)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.75)
       font.family: Style.font.family
       font.pixelSize: Style.font.heading
       font.letterSpacing: 6
@@ -79,7 +80,7 @@ DesignBase {
       radius: height / 2
       showLockGlyph: false
       placeholder: lock.tr("Password")
-      color: lock.withAlpha(Color.lock.background, 0.55)
+      color: lock.withAlpha(Commons.Color.lock.background, 0.55)
     }
 
     Text {
@@ -87,7 +88,7 @@ DesignBase {
       text: lock.failedAttempts > 0
         ? lock.tr(lock.failedAttempts === 1 ? "1 failed attempt" : "%1 failed attempts").arg(lock.failedAttempts)
         : (lock.hasVideo ? "" : "No video yet  ·  omarchy-shell lock pickVideo")
-      color: lock.failedAttempts > 0 ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
+      color: lock.failedAttempts > 0 ? Commons.Color.lock.textError : lock.withAlpha(Commons.Color.lock.text, 0.55)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
       font.letterSpacing: 1

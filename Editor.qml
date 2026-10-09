@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import "ExplorerStrings.js" as UiText
 
 // Code on the left, live preview on the right. Ctrl+S saves and reloads the
@@ -14,9 +15,9 @@ Item {
     return UiText.tr(editor.service && editor.service.language !== undefined ? String(editor.service.language) : "en", text)
   }
   property var design: null
-  property color background: Color.menu.background
-  property color foreground: Color.menu.text
-  property color accent: Color.accent
+  property color background: Commons.Color.menu.background
+  property color foreground: Commons.Color.menu.text
+  property color accent: Commons.Color.accent
   property string fontFamily: Style.font.menuFamily
   property real screenWidth: 1920
   property real screenHeight: 1080
@@ -143,7 +144,7 @@ Item {
           persistentSelection: true
           color: editor.foreground
           selectionColor: editor.accent
-          selectedTextColor: Color.background
+          selectedTextColor: Commons.Color.background
           font.family: Style.font.family
           font.pixelSize: Style.font.body
           tabStopDistance: font.pixelSize * 1.2
@@ -194,7 +195,7 @@ Item {
         width: parent.width
         height: Math.round(width * editor.screenHeight / editor.screenWidth)
         radius: Math.max(6, Style.cornerRadius)
-        color: Color.background
+        color: Commons.Color.background
         border.width: 1
         border.color: Qt.rgba(editor.foreground.r, editor.foreground.g, editor.foreground.b, 0.18)
         clip: true
@@ -254,7 +255,7 @@ Item {
             width: parent.width
             text: preview.loadError.length > 0 ? preview.loadError : (editor.status.length > 0 ? editor.status : editor.tr(editor.dirty ? "Unsaved changes" : "Saved. Preview updates on Ctrl+S."))
             textFormat: Text.PlainText
-            color: preview.loadError.length > 0 ? Color.urgent : (editor.dirty ? editor.foreground : editor.muted)
+            color: preview.loadError.length > 0 ? Commons.Color.urgent : (editor.dirty ? editor.foreground : editor.muted)
             font.family: editor.fontFamily
             font.pixelSize: Style.font.bodySmall
             wrapMode: Text.Wrap

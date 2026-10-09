@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // A block clock that burns into place: ttfx's burn effect from the theme's
@@ -13,10 +14,10 @@ DesignBase {
   flashOnFail: false
 
   readonly property int cell: Math.max(14, Math.round(Math.min(width / 100, height / 34)))
-  readonly property var fire: [Ttfx.hex(Qt.lighter(Color.lock.text, 1.25)), Ttfx.hex(Qt.lighter(Color.lock.borderActive, 1.3)),
-                              Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.textError), Ttfx.hex(Qt.darker(Color.lock.textError, 2.2))]
+  readonly property var fire: [Ttfx.hex(Qt.lighter(Commons.Color.lock.text, 1.25)), Ttfx.hex(Qt.lighter(Commons.Color.lock.borderActive, 1.3)),
+                              Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.textError), Ttfx.hex(Qt.darker(Commons.Color.lock.textError, 2.2))]
 
-  Rectangle { anchors.fill: parent; color: lock.deepen(Color.background, 1.6) }
+  Rectangle { anchors.fill: parent; color: lock.deepen(Commons.Color.background, 1.6) }
 
   MouseArea {
     anchors.fill: parent
@@ -38,15 +39,15 @@ DesignBase {
       margin: 2
       pixelSize: lock.cell
       effectOptions: ({
-        burn: ["--starting-color", Ttfx.hex(Color.muted), "--burn-colors"].concat(lock.fire)
-          .concat(["--smoke-chance", "0.25", "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)])
+        burn: ["--starting-color", Ttfx.hex(Commons.Color.muted), "--burn-colors"].concat(lock.fire)
+          .concat(["--smoke-chance", "0.25", "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)])
       })
     }
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("dddd d MMMM").toUpperCase()
-      color: lock.withAlpha(Color.lock.text, 0.55)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.55)
       font.family: Style.font.family
       font.pixelSize: Style.font.body
       font.letterSpacing: 4
@@ -61,7 +62,7 @@ DesignBase {
       radius: 23
       outlineThickness: 1
       showLockGlyph: false
-      color: Color.lock.background
+      color: Commons.Color.lock.background
     }
   }
 

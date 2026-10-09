@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import "Strings.js" as Strings
 
 Item {
@@ -193,8 +194,8 @@ Item {
       width: asking ? askLabel.implicitWidth + 24 : 34
       height: 34
       radius: 17
-      color: asking ? base.withAlpha(Color.lock.textError, 0.9)
-        : base.withAlpha(Color.lock.text, powerArea.containsMouse ? 0.18 : 0.08)
+      color: asking ? base.withAlpha(Commons.Color.lock.textError, 0.9)
+        : base.withAlpha(Commons.Color.lock.text, powerArea.containsMouse ? 0.18 : 0.08)
       Behavior on color { ColorAnimation { duration: 120 } }
       Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
 
@@ -202,7 +203,7 @@ Item {
         anchors.centerIn: parent
         visible: !powerButton.asking
         text: powerButton.glyph
-        color: base.withAlpha(Color.lock.text, 0.75)
+        color: base.withAlpha(Commons.Color.lock.text, 0.75)
         font.family: Style.font.family
         font.pixelSize: 17
       }
@@ -213,7 +214,7 @@ Item {
         visible: powerButton.asking
         text: powerButton.label + "?"
         textFormat: Text.PlainText
-        color: Color.background
+        color: Commons.Color.background
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         font.weight: Font.DemiBold
@@ -254,9 +255,9 @@ Item {
     width: batteryRow.implicitWidth + 24
     height: 30
     radius: 15
-    color: withAlpha(Color.background, 0.72)
+    color: withAlpha(Commons.Color.background, 0.72)
     border.width: 1
-    border.color: withAlpha(Color.lock.textError, 0.7)
+    border.color: withAlpha(Commons.Color.lock.textError, 0.7)
 
     Row {
       id: batteryRow
@@ -264,7 +265,7 @@ Item {
       spacing: 8
       Text {
         text: "󰂃"
-        color: Color.lock.textError
+        color: Commons.Color.lock.textError
         font.family: Style.font.family
         font.pixelSize: 15
         anchors.verticalCenter: parent.verticalCenter
@@ -272,7 +273,7 @@ Item {
       Text {
         text: base.tr("Battery low (%1%)").arg(base.batteryPercent)
         textFormat: Text.PlainText
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: 13
         anchors.verticalCenter: parent.verticalCenter
@@ -293,7 +294,7 @@ Item {
     id: failFlash
     anchors.fill: parent
     z: 1000
-    color: Color.lock.textError
+    color: Commons.Color.lock.textError
     opacity: 0
     visible: opacity > 0
   }

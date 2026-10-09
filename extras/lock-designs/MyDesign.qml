@@ -3,6 +3,7 @@
 // PasswordField, LockInput, Wallpaper, Avatar). Keep it as is.
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "../plugins/io.github.sirjul1337.lock-explorer/designs"
 
 DesignBase {
@@ -32,7 +33,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: Qt.formatTime(lock.now, "HH:mm")
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.baseSize * 8)
       font.weight: Font.DemiBold
@@ -41,7 +42,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: "Hello " + lock.userName + ", this is my design"
-      color: lock.withAlpha(Color.lock.text, 0.75)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.75)
       font.family: Style.font.family
       font.pixelSize: Style.font.heading
     }

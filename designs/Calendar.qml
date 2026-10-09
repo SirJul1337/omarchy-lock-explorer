@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -36,9 +37,9 @@ DesignBase {
       width: calCol.implicitWidth + 48
       height: calCol.implicitHeight + 40
       radius: 18
-      color: lock.withAlpha(Color.lock.background, 0.75)
+      color: lock.withAlpha(Commons.Color.lock.background, 0.75)
       border.width: 1
-      border.color: lock.withAlpha(Color.lock.text, 0.12)
+      border.color: lock.withAlpha(Commons.Color.lock.text, 0.12)
       anchors.verticalCenter: parent.verticalCenter
 
       Column {
@@ -48,7 +49,7 @@ DesignBase {
 
         Text {
           text: lock.date("MMMM yyyy")
-          color: Color.lock.text
+          color: Commons.Color.lock.text
           font.family: Style.font.family
           font.pixelSize: Style.font.heading
           font.weight: Font.DemiBold
@@ -62,7 +63,7 @@ DesignBase {
               width: lock.cell
               horizontalAlignment: Text.AlignHCenter
               text: modelData
-              color: lock.withAlpha(Color.lock.text, 0.5)
+              color: lock.withAlpha(Commons.Color.lock.text, 0.5)
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
             }
@@ -81,12 +82,12 @@ DesignBase {
                 anchors.centerIn: parent
                 width: 32; height: 32; radius: 16
                 visible: parent.modelData === lock.now.getDate()
-                color: Color.lock.borderActive
+                color: Commons.Color.lock.borderActive
               }
               Text {
                 anchors.centerIn: parent
                 text: parent.modelData > 0 ? parent.modelData : ""
-                color: parent.modelData === lock.now.getDate() ? Color.background : Color.lock.text
+                color: parent.modelData === lock.now.getDate() ? Commons.Color.background : Commons.Color.lock.text
                 font.family: Style.font.family
                 font.pixelSize: Style.font.body
                 font.weight: parent.modelData === lock.now.getDate() ? Font.Bold : Font.Normal
@@ -102,7 +103,7 @@ DesignBase {
       spacing: 20
       Text {
         text: lock.clock("HH:mm")
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Math.round(Style.font.baseSize * 8)
         font.weight: Font.DemiBold
@@ -110,7 +111,7 @@ DesignBase {
       }
       Text {
         text: lock.date("dddd")
-        color: lock.withAlpha(Color.lock.text, 0.75)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.75)
         font.family: Style.font.family
         font.pixelSize: Style.font.display
       }
@@ -127,7 +128,7 @@ DesignBase {
         opacity: lock.snapshotMode ? 0 : 1
         text: lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("󰆠  Touch sensor or press Enter")) : lock.tr("Press Enter to unlock")
         textFormat: Text.PlainText
-        color: lock.withAlpha(Color.lock.text, 0.5)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.5)
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
       }

@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -23,13 +24,13 @@ DesignBase {
     anchors.right: parent.right
     anchors.bottom: parent.bottom
     height: lock.barHeight
-    color: lock.withAlpha(Color.lock.background, 0.82)
+    color: lock.withAlpha(Commons.Color.lock.background, 0.82)
 
     Rectangle {
       anchors.top: parent.top
       width: parent.width
       height: 1
-      color: lock.withAlpha(Color.lock.text, 0.14)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.14)
     }
 
     Row {
@@ -49,7 +50,7 @@ DesignBase {
         spacing: 1
         Text {
           text: lock.userName + "@" + lock.hostName
-          color: Color.lock.text
+          color: Commons.Color.lock.text
           font.family: Style.font.family
           font.pixelSize: Style.font.subtitle
           font.weight: Font.DemiBold
@@ -59,7 +60,7 @@ DesignBase {
             : (lock.authenticatingPassword ? lock.tr("Checking…")
             : (lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("Locked, touch sensor or type password")) : lock.tr("Locked")))
           textFormat: Text.PlainText
-          color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
+          color: lock.errorState ? Commons.Color.lock.textError : lock.withAlpha(Commons.Color.lock.text, 0.55)
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
         }
@@ -76,7 +77,7 @@ DesignBase {
       outlineThickness: 1
       textAlignment: TextInput.AlignLeft
       placeholder: lock.tr("Password")
-      color: lock.withAlpha(Color.background, 0.6)
+      color: lock.withAlpha(Commons.Color.background, 0.6)
     }
 
     Row {
@@ -87,15 +88,15 @@ DesignBase {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: lock.date("ddd d MMM")
-        color: lock.withAlpha(Color.lock.text, 0.65)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.65)
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
       }
-      Rectangle { width: 1; height: 24; color: lock.withAlpha(Color.lock.text, 0.2); anchors.verticalCenter: parent.verticalCenter }
+      Rectangle { width: 1; height: 24; color: lock.withAlpha(Commons.Color.lock.text, 0.2); anchors.verticalCenter: parent.verticalCenter }
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: lock.clock("HH:mm")
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Style.font.display
         font.weight: Font.DemiBold

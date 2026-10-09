@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // A paused tape: VCR on-screen display around a clock that tracks badly.
@@ -13,7 +14,7 @@ DesignBase {
   readonly property int osdSize: Math.max(22, Math.round(lock.height / 26))
   property bool rewinding: false
 
-  Rectangle { anchors.fill: parent; color: lock.deepen(Color.background, 1.3) }
+  Rectangle { anchors.fill: parent; color: lock.deepen(Commons.Color.background, 1.3) }
 
   Canvas {
     anchors.fill: parent
@@ -36,7 +37,7 @@ DesignBase {
   }
 
   component Osd: Text {
-    color: Color.lock.text
+    color: Commons.Color.lock.text
     font.family: Style.font.family
     font.pixelSize: lock.osdSize
     font.weight: Font.Bold
@@ -95,12 +96,12 @@ DesignBase {
       margin: 4
       pixelSize: Math.max(14, Math.round(lock.height / 34))
       effectOptions: ({
-        vhstape: ["--total-glitch-time", "200", "--final-gradient-stops", Ttfx.hex(Color.lock.text), Ttfx.hex(Color.lock.text)],
+        vhstape: ["--total-glitch-time", "200", "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.text), Ttfx.hex(Commons.Color.lock.text)],
         blip: { effect: "vhstape", args: ["--total-glitch-time", "45", "--glitch-line-chance", "0.2",
-                "--final-gradient-stops", Ttfx.hex(Color.lock.text), Ttfx.hex(Color.lock.text)] },
+                "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.text), Ttfx.hex(Commons.Color.lock.text)] },
         rewind: { effect: "vhstape", args: ["--total-glitch-time", "80", "--glitch-line-chance", "0.35", "--noise-chance", "0.05",
-                  "--glitch-line-colors", Ttfx.hex(Qt.lighter(Color.lock.text, 1.25)), Ttfx.hex(Color.lock.textError), Ttfx.hex(Qt.lighter(Color.lock.text, 1.25)),
-                  "--final-gradient-stops", Ttfx.hex(Color.lock.text), Ttfx.hex(Color.lock.text)] }
+                  "--glitch-line-colors", Ttfx.hex(Qt.lighter(Commons.Color.lock.text, 1.25)), Ttfx.hex(Commons.Color.lock.textError), Ttfx.hex(Qt.lighter(Commons.Color.lock.text, 1.25)),
+                  "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.text), Ttfx.hex(Commons.Color.lock.text)] }
       })
       onFinished: lock.rewinding = false
     }
@@ -114,7 +115,7 @@ DesignBase {
       radius: 0
       outlineThickness: 2
       showLockGlyph: false
-      color: Color.lock.background
+      color: Commons.Color.lock.background
       placeholder: "PASSWORD"
     }
   }

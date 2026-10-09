@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "designs"
 import "Designs.js" as Designs
@@ -193,7 +194,7 @@ Item {
     service ? service.avatarPath : "", service ? service.avatarVersion : 0,
     lockLanguage, accountName, twelveHour, wallpaperBlurValue, wallpaperDimShift, uiScale, motionReduced,
     showLayoutBadge, showCapsBadge, allowPasswordToggle, showAuthIcons,
-    String(Color.lock.text), String(Color.lock.background), String(Color.background), thumbWidth
+    String(Commons.Color.lock.text), String(Commons.Color.lock.background), String(Commons.Color.background), thumbWidth
   ].join("|")
   onThumbStateKeyChanged: thumbCache = ({})
   function thumbFor(id) {
@@ -781,17 +782,17 @@ Item {
     return name.length > 0 ? name.charAt(0).toUpperCase() : "?"
   }
 
-  readonly property color background: Color.menu.background
-  readonly property color foreground: Color.menu.text
+  readonly property color background: Commons.Color.menu.background
+  readonly property color foreground: Commons.Color.menu.text
   readonly property color muted: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.6)
-  readonly property color accent: Color.accent
-  readonly property color scrim: Color.menu.scrim
+  readonly property color accent: Commons.Color.accent
+  readonly property color scrim: Commons.Color.menu.scrim
   // Errors and the delete confirm take the theme's urgent color. Badges and
   // dimmers over thumbnails are the theme background at an alpha, so their
   // foreground text stays readable on light themes too.
-  readonly property color danger: Color.urgent
-  function shade(alpha) { return Qt.rgba(Color.background.r, Color.background.g, Color.background.b, alpha) }
-  readonly property var borderSpec: Border.surfaceSpec("menu", "border", Color.menu.border, Math.max(1, Style.space(2)))
+  readonly property color danger: Commons.Color.urgent
+  function shade(alpha) { return Qt.rgba(Commons.Color.background.r, Commons.Color.background.g, Commons.Color.background.b, alpha) }
+  readonly property var borderSpec: Border.surfaceSpec("menu", "border", Commons.Color.menu.border, Math.max(1, Style.space(2)))
   // Redesign visual language: sharp corners, everforest-style typography.
   // Colors still follow the Omarchy theme.
   readonly property int cornerRadius: 0
@@ -1559,7 +1560,7 @@ Item {
               text: root.searchText
               color: root.foreground
               selectionColor: root.accent
-              selectedTextColor: Color.background
+              selectedTextColor: Commons.Color.background
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
               onTextEdited: root.searchText = text
@@ -1635,7 +1636,7 @@ Item {
                 initial: root.userInitial
                 fontSize: Style.font.caption
                 fillColor: root.accent
-                textColor: Color.background
+                textColor: Commons.Color.background
                 shadow: false
               }
 
@@ -1718,7 +1719,7 @@ Item {
                 anchors.centerIn: parent
                 text: root.tr(chip.modelData.name)
                 textFormat: Text.PlainText
-                color: chip.current ? Color.background : root.foreground
+                color: chip.current ? Commons.Color.background : root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
                 font.weight: chip.current ? Font.DemiBold : Font.Normal
@@ -1819,7 +1820,7 @@ Item {
                           id: installLabel
                           anchors.centerIn: parent
                           text: issueRow.modelData.fix === "copies" ? root.tr(root.movingCopies ? "Moving…" : "Move it out") : root.tr("Install")
-                          color: Color.background
+                          color: Commons.Color.background
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.bodySmall
                           font.weight: Font.DemiBold
@@ -2332,7 +2333,7 @@ Item {
                       ? root.tr("Applying the boot theme\u2026")
                       : root.tr("Set to %1. Applying writes the boot theme to the EFI partition and asks for your password.").arg(root.bootDesiredName)
                     textFormat: Text.PlainText
-                    color: Color.menu.text
+                    color: Commons.Color.menu.text
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
                   }
@@ -2349,7 +2350,7 @@ Item {
                       id: applyBtnLabel
                       anchors.centerIn: parent
                       text: root.bootApplying ? root.tr("Building\u2026") : root.tr("Apply")
-                      color: Color.background
+                      color: Commons.Color.background
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.bodySmall
                       font.weight: Font.DemiBold
@@ -2390,7 +2391,7 @@ Item {
                         anchors.centerIn: parent
                         visible: root.bootSetting === "follow"
                         text: "\u2713"
-                        color: Color.background
+                        color: Commons.Color.background
                         font.pixelSize: Style.font.caption
                         font.weight: Font.Bold
                       }
@@ -2447,7 +2448,7 @@ Item {
                         anchors.centerIn: parent
                         visible: root.bootResync
                         text: "\u2713"
-                        color: Color.background
+                        color: Commons.Color.background
                         font.pixelSize: Style.font.caption
                         font.weight: Font.Bold
                       }
@@ -2496,7 +2497,7 @@ Item {
                         anchors.centerIn: parent
                         visible: root.bootRotating
                         text: "\u2713"
-                        color: Color.background
+                        color: Commons.Color.background
                         font.pixelSize: Style.font.caption
                         font.weight: Font.Bold
                       }
@@ -2564,7 +2565,7 @@ Item {
                         id: clipLenLabel
                         anchors.centerIn: parent
                         text: clipLen.modelData === 0 ? root.tr("Full") : clipLen.modelData + "s"
-                        color: clipLen.current ? Color.background : root.foreground
+                        color: clipLen.current ? Commons.Color.background : root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
                         font.weight: clipLen.current ? Font.DemiBold : Font.Normal
@@ -2638,7 +2639,7 @@ Item {
                           id: onDiskLabel
                           anchors.centerIn: parent
                           text: "\u2713 " + root.tr("Applied")
-                          color: Color.background
+                          color: Commons.Color.background
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
                           font.weight: Font.DemiBold
@@ -2670,7 +2671,7 @@ Item {
                         Text {
                           anchors.centerIn: parent
                           text: root.inRotation(bootCard.modelData.id) ? "\u2713" : "+"
-                          color: root.inRotation(bootCard.modelData.id) ? Color.background : root.foreground
+                          color: root.inRotation(bootCard.modelData.id) ? Commons.Color.background : root.foreground
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.bodySmall
                           font.weight: Font.Bold
@@ -2723,7 +2724,7 @@ Item {
                           id: bootDelLabel
                           anchors.centerIn: parent
                           text: root.tr(root.confirmingDelete === bootCard.modelData.id ? "Sure?" : "Delete")
-                          color: root.confirmingDelete === bootCard.modelData.id ? Color.background : root.foreground
+                          color: root.confirmingDelete === bootCard.modelData.id ? Commons.Color.background : root.foreground
                           font.family: root.fontFamily
                           font.pixelSize: Style.font.caption
                         }
@@ -3237,7 +3238,7 @@ Item {
               anchors.leftMargin: Style.space(12)
               anchors.verticalCenter: parent.verticalCenter
               text: (root.tr(navItem.modelData.name) + (navItem.modelData.id === "boot" && root.bootApplying ? " ·" : "")).toUpperCase()
-              color: navItem.current ? Color.menu.text : root.muted
+              color: navItem.current ? Commons.Color.menu.text : root.muted
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
               font.weight: navItem.current ? Font.Bold : Font.Normal
@@ -3324,7 +3325,7 @@ Item {
         Text {
           anchors.centerIn: parent
           text: "+ " + root.tr("New clip")
-          color: newClipArea.containsMouse ? Color.menu.text : root.muted
+          color: newClipArea.containsMouse ? Commons.Color.menu.text : root.muted
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
         }
@@ -3354,7 +3355,7 @@ Item {
         Text {
           anchors.centerIn: parent
           text: "+ " + root.tr("New styling")
-          color: newStylingArea.containsMouse ? Color.menu.text : root.muted
+          color: newStylingArea.containsMouse ? Commons.Color.menu.text : root.muted
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
         }
@@ -3410,7 +3411,7 @@ Item {
           width: parent.width
           height: Math.round(parent.width * 9 / 16)
           radius: root.cornerRadius
-          color: Color.background
+          color: Commons.Color.background
           border.width: 1
           border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.2)
           clip: true
@@ -3492,7 +3493,7 @@ Item {
             width: Style.space(150)
             height: Math.round(Style.space(150) * 9 / 16)
             radius: root.cornerRadius
-            color: Color.background
+            color: Commons.Color.background
             border.width: 1
             border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.2)
             clip: true
@@ -3528,7 +3529,7 @@ Item {
               elide: Text.ElideRight
               text: root.bootNowName
               textFormat: Text.PlainText
-              color: Color.menu.text
+              color: Commons.Color.menu.text
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall
             }
@@ -3641,7 +3642,7 @@ Item {
             width: root.thumbWidth
             height: root.thumbHeight
             radius: root.cornerRadius
-            color: Color.background
+            color: Commons.Color.background
             border.width: cell.selected ? 3 : 1
             border.color: cell.selected ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.18)
             clip: true
@@ -3753,7 +3754,7 @@ Item {
                 id: activeText
                 anchors.centerIn: parent
                 text: "󰄬 " + root.tr("Active")
-                color: Color.background
+                color: Commons.Color.background
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
                 font.bold: true
@@ -3779,7 +3780,7 @@ Item {
                   id: useLabel
                   anchors.centerIn: parent
                   text: root.tr("Use") + "  ⏎"
-                  color: Color.background
+                  color: Commons.Color.background
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
                   font.bold: true
@@ -3814,7 +3815,7 @@ Item {
                   id: delLabel
                   anchors.centerIn: parent
                   text: root.tr(root.confirmingDelete === cell.modelData.id ? "Sure?" : "Delete") + "  X"
-                  color: root.confirmingDelete === cell.modelData.id ? Color.background : root.foreground
+                  color: root.confirmingDelete === cell.modelData.id ? Commons.Color.background : root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
                   font.bold: true
@@ -3995,7 +3996,7 @@ Item {
                 id: saveLabel
                 anchors.centerIn: parent
                 text: root.tr("Save  Ctrl+S")
-                color: editorView.dirty ? Color.background : root.foreground
+                color: editorView.dirty ? Commons.Color.background : root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
                 font.bold: editorView.dirty

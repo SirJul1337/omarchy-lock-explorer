@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 // A small flat button for the designer's toolbar and panels.
 Rectangle {
@@ -8,8 +9,8 @@ Rectangle {
   property string label: ""
   property bool primary: false
   property bool active: true
-  property color foreground: Color.menu.text
-  property color accent: Color.accent
+  property color foreground: Commons.Color.menu.text
+  property color accent: Commons.Color.accent
 
   signal clicked()
 
@@ -28,7 +29,7 @@ Rectangle {
     anchors.centerIn: parent
     text: button.label
     textFormat: Text.PlainText
-    color: button.primary ? Color.background : button.foreground
+    color: button.primary ? Commons.Color.background : button.foreground
     font.family: Style.font.menuFamily
     font.pixelSize: Style.font.bodySmall
     font.weight: button.primary ? Font.DemiBold : Font.Normal

@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // A dark stage: three spotlights sweep over the clock, meet in the middle and
@@ -10,7 +11,7 @@ DesignBase {
   shakeOnFail: true
   flashOnFail: false
 
-  Rectangle { anchors.fill: parent; color: lock.deepen(Color.background, 2.4) }
+  Rectangle { anchors.fill: parent; color: lock.deepen(Commons.Color.background, 2.4) }
 
   MouseArea {
     anchors.fill: parent
@@ -33,16 +34,16 @@ DesignBase {
       pixelSize: Math.max(14, Math.round(lock.height / 30))
       effectOptions: ({
         spotlights: ["--search-duration", "200", "--spotlight-count", "3", "--beam-width-ratio", "2.5",
-                     "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)],
+                     "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)],
         searchlight: { effect: "spotlights", args: ["--search-duration", "60", "--spotlight-count", "1",
-                     "--final-gradient-stops", Ttfx.hex(Color.lock.textError), Ttfx.hex(Color.lock.text)] }
+                     "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.textError), Ttfx.hex(Commons.Color.lock.text)] }
       })
     }
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("dddd d MMMM")
-      color: lock.withAlpha(Color.lock.text, 0.4)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.4)
       font.family: Style.font.family
       font.pixelSize: Style.font.title
       font.letterSpacing: 2

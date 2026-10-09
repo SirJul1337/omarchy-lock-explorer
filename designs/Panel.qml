@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // Half the screen in the theme accent with the Omarchy logo poured into it in
@@ -14,9 +15,9 @@ DesignBase {
   // Stroke and block sizes follow the logo's cells so the field matches it.
   readonly property int stroke: Math.max(4, Math.round(art.cellWidth * 0.9))
   readonly property int block: Math.max(12, Math.round(height / 54))
-  readonly property string bgHex: Ttfx.hex(Color.background)
+  readonly property string bgHex: Ttfx.hex(Commons.Color.background)
 
-  Rectangle { anchors.fill: parent; color: Color.background }
+  Rectangle { anchors.fill: parent; color: Commons.Color.background }
 
   MouseArea {
     anchors.fill: parent
@@ -33,7 +34,7 @@ DesignBase {
     anchors.top: parent.top
     anchors.bottom: parent.bottom
     width: Math.round(lock.width * 0.46)
-    color: Color.lock.borderActive
+    color: Commons.Color.lock.borderActive
 
     TtfxText {
       id: art
@@ -43,13 +44,13 @@ DesignBase {
       replayEffect: "pour"
       margin: 4
       pixelSize: Math.max(8, Math.round(lock.height * 0.44 / Math.max(1, textRows) / 1.3))
-      textColor: Color.background
-      backgroundColor: Color.lock.borderActive
+      textColor: Commons.Color.background
+      backgroundColor: Commons.Color.lock.borderActive
       effectOptions: ({
         pour: ["--pour-direction", "down", "--movement-speed-range", "0.6-1.0",
-               "--starting-color", Ttfx.hex(Qt.lighter(Color.lock.borderActive, 1.35)),
+               "--starting-color", Ttfx.hex(Qt.lighter(Commons.Color.lock.borderActive, 1.35)),
                "--final-gradient-stops", lock.bgHex, lock.bgHex],
-        unstable: ["--unstable-color", Ttfx.hex(Color.lock.textError), "--final-gradient-stops", lock.bgHex, lock.bgHex]
+        unstable: ["--unstable-color", Ttfx.hex(Commons.Color.lock.textError), "--final-gradient-stops", lock.bgHex, lock.bgHex]
       })
     }
   }
@@ -74,13 +75,13 @@ DesignBase {
           anchors.verticalCenter: parent.verticalCenter
           width: lock.stroke * 2
           height: width
-          color: lock.errorState ? Color.lock.textError : Color.lock.borderActive
+          color: lock.errorState ? Commons.Color.lock.textError : Commons.Color.lock.borderActive
         }
         Text {
           anchors.verticalCenter: parent.verticalCenter
           readonly property string status: Ttfx.inputStatus(lock, "")
           text: (status.length > 0 ? status : lock.tr("locked · ") + lock.clock("HH:mm · ddd d MMM")).toLowerCase()
-          color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.55)
+          color: lock.errorState ? Commons.Color.lock.textError : lock.withAlpha(Commons.Color.lock.text, 0.55)
           font.family: Style.font.family
           font.pixelSize: Style.font.title
           font.letterSpacing: 1
@@ -94,7 +95,7 @@ DesignBase {
         height: lock.block * 2 + lock.stroke * 2
         color: "transparent"
         border.width: lock.stroke
-        border.color: lock.errorState ? Color.lock.textError : Color.lock.borderActive
+        border.color: lock.errorState ? Commons.Color.lock.textError : Commons.Color.lock.borderActive
         Behavior on border.color { ColorAnimation { duration: 150 } }
 
         readonly property int fits: Math.max(1, Math.floor((width - lock.block * 2 - eye.width) / (lock.block * 1.5)) - 1)
@@ -112,7 +113,7 @@ DesignBase {
             Rectangle {
               width: lock.block
               height: lock.block
-              color: Color.lock.text
+              color: Commons.Color.lock.text
               scale: 0.4
               Component.onCompleted: scale = 1
               Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutBack } }
@@ -126,7 +127,7 @@ DesignBase {
             height: lock.block
             color: "transparent"
             border.width: Math.max(2, Math.round(lock.stroke / 2))
-            border.color: Color.lock.borderActive
+            border.color: Commons.Color.lock.borderActive
             visible: lock.inputEnabled && !lock.authenticatingPassword
             SequentialAnimation on opacity {
               loops: Animation.Infinite
@@ -146,7 +147,7 @@ DesignBase {
           anchors.verticalCenter: parent.verticalCenter
           visible: lock.passwordVisible && !lock.fido2Active
           text: lock.passwordText
-          color: Color.lock.text
+          color: Commons.Color.lock.text
           elide: Text.ElideLeft
           font.family: Style.font.family
           font.pixelSize: Math.round(lock.block * 1.4)
@@ -159,7 +160,7 @@ DesignBase {
           anchors.verticalCenter: parent.verticalCenter
           visible: lock.passwordText.length === 0 && !lock.authenticatingPassword
           text: lock.fido2Active ? lock.tr("touch your key") : lock.tr("password")
-          color: lock.withAlpha(Color.lock.text, 0.3)
+          color: lock.withAlpha(Commons.Color.lock.text, 0.3)
           font.family: Style.font.family
           font.pixelSize: Math.round(lock.block * 1.1)
         }
@@ -186,7 +187,7 @@ DesignBase {
           + (lock.fingerprintConfigured ? lock.tr(" · or touch the reader") : "")
           + (lock.fido2Configured ? lock.tr(" · tab for your key") : "")).toLowerCase()
         textFormat: Text.PlainText
-        color: lock.withAlpha(Color.lock.text, 0.28)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.28)
         font.family: Style.font.family
         font.pixelSize: Style.font.body
         font.letterSpacing: 1

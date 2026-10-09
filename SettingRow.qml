@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 // One setting: its name in a column on the left, the choices on the right
 // (wrapping onto more lines when there are many), and a line of help under
@@ -66,7 +67,7 @@ Item {
             anchors.centerIn: parent
             text: chip.modelData.name
             textFormat: Text.PlainText
-            color: chip.current ? Color.background : row.fg
+            color: chip.current ? Commons.Color.background : row.fg
             font.family: row.explorer ? row.explorer.fontFamily : Style.font.family
             font.pixelSize: Style.font.bodySmall
             font.weight: chip.current ? Font.DemiBold : Font.Normal

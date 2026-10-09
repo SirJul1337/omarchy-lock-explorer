@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "designs"
 import "Designer.js" as D
 
@@ -57,7 +58,7 @@ Item {
     visible: nodeRoot.editing && (nodeRoot.selected || hoverArea.containsMouse)
     color: "transparent"
     border.width: nodeRoot.selected ? 2 * nodeRoot.hair : nodeRoot.hair
-    border.color: nodeRoot.selected ? Color.accent : Qt.rgba(1, 1, 1, 0.45)
+    border.color: nodeRoot.selected ? Commons.Color.accent : Qt.rgba(1, 1, 1, 0.45)
   }
 
   MouseArea {
@@ -118,7 +119,7 @@ Item {
       width: nodeRoot.grip
       height: nodeRoot.grip
       radius: nodeRoot.hair
-      color: Color.accent
+      color: Commons.Color.accent
       border.width: nodeRoot.hair
       border.color: Qt.rgba(0, 0, 0, 0.6)
       x: horizontal ? nodeRoot.width - width / 2 : (nodeRoot.width - width) / 2

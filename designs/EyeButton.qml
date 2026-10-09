@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 // Show/hide password button for designs that draw their own input.
 Item {
@@ -13,7 +14,7 @@ Item {
   Text {
     anchors.centerIn: parent
     text: button.revealed ? "󰈉" : "󰈈"
-    color: button.revealed ? Color.lock.borderActive : Color.lock.placeholder
+    color: button.revealed ? Commons.Color.lock.borderActive : Commons.Color.lock.placeholder
     font.family: Style.font.family
     font.pixelSize: button.size
   }

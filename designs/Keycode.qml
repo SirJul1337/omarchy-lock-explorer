@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // A grid draws and dissolves into the Omarchy logo; under it the password is
@@ -14,7 +15,7 @@ DesignBase {
   readonly property int typed: passwordText.length
   readonly property int slots: Math.min(24, Math.max(8, typed + 1))
 
-  Rectangle { anchors.fill: parent; color: lock.deepen(Color.background, 2.1) }
+  Rectangle { anchors.fill: parent; color: lock.deepen(Commons.Color.background, 2.1) }
 
   MouseArea {
     anchors.fill: parent
@@ -41,11 +42,11 @@ DesignBase {
       rows: textRows + 6
       pixelSize: Math.max(8, Math.round(lock.height * 0.36 / Math.max(1, textRows) / 1.3))
       effectOptions: ({
-        synthgrid: ["--grid-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.muted),
-                    "--text-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text),
+        synthgrid: ["--grid-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.muted),
+                    "--text-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text),
                     "--max-active-blocks", "0.2"],
-        unstable: ["--unstable-color", Ttfx.hex(Color.lock.textError),
-                   "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)]
+        unstable: ["--unstable-color", Ttfx.hex(Commons.Color.lock.textError),
+                   "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)]
       })
     }
 
@@ -78,10 +79,10 @@ DesignBase {
             width: lock.cell
             height: lock.cell
             radius: Math.round(lock.cell * 0.14)
-            color: filled ? Color.lock.borderActive : "transparent"
+            color: filled ? Commons.Color.lock.borderActive : "transparent"
             border.width: filled ? 0 : 1
-            border.color: lock.errorState ? Color.lock.textError
-              : current ? Color.lock.text : lock.withAlpha(Color.lock.text, 0.22)
+            border.color: lock.errorState ? Commons.Color.lock.textError
+              : current ? Commons.Color.lock.text : lock.withAlpha(Commons.Color.lock.text, 0.22)
             scale: filled ? 1 : 0.86
             Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
             Behavior on color { ColorAnimation { duration: 120 } }
@@ -90,7 +91,7 @@ DesignBase {
               anchors.centerIn: parent
               visible: slot.filled && lock.passwordVisible && !lock.fido2Active
               text: lock.passwordText.charAt(slot.index)
-              color: Color.background
+              color: Commons.Color.background
               font.family: Style.font.family
               font.pixelSize: Math.round(lock.cell * 0.55)
               font.weight: Font.Bold
@@ -127,7 +128,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: Ttfx.inputStatus(lock, lock.clock("dddd d MMMM").toLowerCase())
-      color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.45)
+      color: lock.errorState ? Commons.Color.lock.textError : lock.withAlpha(Commons.Color.lock.text, 0.45)
       font.family: Style.font.family
       font.pixelSize: Style.font.heading
       font.letterSpacing: 2

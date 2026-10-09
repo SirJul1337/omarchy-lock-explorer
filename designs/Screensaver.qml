@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // The Omarchy screensaver as a lock screen: your branding logo from
@@ -23,7 +24,7 @@ DesignBase {
     }
   }
 
-  Rectangle { anchors.fill: parent; color: Color.background }
+  Rectangle { anchors.fill: parent; color: Commons.Color.background }
 
   MouseArea {
     anchors.fill: parent
@@ -78,7 +79,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("HH:mm")
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.baseSize * 3)
       font.weight: Font.DemiBold
@@ -93,7 +94,7 @@ DesignBase {
       radius: 6
       outlineThickness: 1
       showLockGlyph: false
-      color: lock.withAlpha(Color.lock.background, 0.7)
+      color: lock.withAlpha(Commons.Color.lock.background, 0.7)
     }
   }
 }

@@ -1,16 +1,17 @@
 import QtQuick
 import QtQuick.Effects
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
   inputItem: field.input
 
-  readonly property color c1: Color.lock.borderActive
+  readonly property color c1: Commons.Color.lock.borderActive
   readonly property color c2: Qt.hsla((c1.hslHue + 0.12) % 1, Math.max(0.35, c1.hslSaturation), 0.5, 1)
   readonly property color c3: Qt.hsla((c1.hslHue + 0.85) % 1, Math.max(0.35, c1.hslSaturation), 0.45, 1)
 
-  Rectangle { anchors.fill: parent; color: Color.background }
+  Rectangle { anchors.fill: parent; color: Commons.Color.background }
 
   Item {
     id: blobs
@@ -86,7 +87,7 @@ DesignBase {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: lock.clock("HH:mm")
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Math.round(Style.font.baseSize * 9)
         font.weight: Font.Light
@@ -95,7 +96,7 @@ DesignBase {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: lock.date("dddd, d MMMM")
-        color: lock.withAlpha(Color.lock.text, 0.7)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.7)
         font.family: Style.font.family
         font.pixelSize: Style.font.heading
         font.letterSpacing: 2
@@ -110,7 +111,7 @@ DesignBase {
       height: 56
       radius: 28
       showLockGlyph: false
-      color: lock.withAlpha(Color.lock.background, 0.4)
+      color: lock.withAlpha(Commons.Color.lock.background, 0.4)
       placeholder: lock.greeting() + ", " + lock.displayName
     }
   }
@@ -124,7 +125,7 @@ DesignBase {
       ? lock.tr(lock.failedAttempts === 1 ? "1 failed attempt" : "%1 failed attempts").arg(lock.failedAttempts)
       : (lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("Touch the sensor or press Enter")) : lock.tr("Press Enter to unlock"))
     textFormat: Text.PlainText
-    color: lock.failedAttempts > 0 ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.45)
+    color: lock.failedAttempts > 0 ? Commons.Color.lock.textError : lock.withAlpha(Commons.Color.lock.text, 0.45)
     font.family: Style.font.family
     font.pixelSize: Style.font.bodySmall
     font.letterSpacing: 2

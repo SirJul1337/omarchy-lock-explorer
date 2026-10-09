@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import qs.Commons
+import qs.Commons as Commons
 
 // One piece of a design made in the visual designer. The designer's canvas and
 // the generated design file both render through this, so what you arrange is
@@ -69,7 +70,7 @@ Item {
     visible: piece.customError.length > 0
     text: piece.customError
     textFormat: Text.PlainText
-    color: Color.lock.textError
+    color: Commons.Color.lock.textError
     font.family: Style.font.family
     font.pixelSize: 13
     wrapMode: Text.Wrap
@@ -123,15 +124,15 @@ Item {
     var r = String(role || "text")
     if (r.charAt(0) === "#") return r
     switch (r) {
-    case "accent": return Color.lock.borderActive
-    case "error": return Color.lock.textError
-    case "placeholder": return Color.lock.placeholder
-    case "surface": return Color.lock.background
-    case "background": return Color.background
+    case "accent": return Commons.Color.lock.borderActive
+    case "error": return Commons.Color.lock.textError
+    case "placeholder": return Commons.Color.lock.placeholder
+    case "surface": return Commons.Color.lock.background
+    case "background": return Commons.Color.background
     case "black": return "#000000"
     case "white": return "#ffffff"
     }
-    return Color.lock.text
+    return Commons.Color.lock.text
   }
 
   function tint(role, alpha) {
@@ -204,7 +205,7 @@ Item {
   // the property can be missing there.
   readonly property bool fingerprintFailed: !!(lock && lock.fingerprintStatusIsError && (lock.fingerprintStatus || "").length > 0)
   readonly property color textColor: (kind === "status" && lock && (lock.failureMessage.length > 0 || fingerprintFailed))
-    ? Color.lock.textError
+    ? Commons.Color.lock.textError
     : tint(p("color", "text"), p("alpha", 1))
 
   Loader {
@@ -328,7 +329,7 @@ Item {
       readonly property int count: piece.lock ? piece.lock.passwordText.length : 0
       readonly property int shown: Math.min(count, Math.max(1, Math.round(piece.p("max", 24))))
       readonly property color dotColor: piece.lock && piece.lock.errorState
-        ? Color.lock.textError : piece.tint(piece.p("color", "text"), piece.p("alpha", 0.9))
+        ? Commons.Color.lock.textError : piece.tint(piece.p("color", "text"), piece.p("alpha", 0.9))
 
       LockInput {
         id: hidden
@@ -572,7 +573,7 @@ Item {
             Text {
               anchors.centerIn: parent
               text: parent.modelData > 0 ? String(parent.modelData) : ""
-              color: parent.isToday ? Color.background : month.ink
+              color: parent.isToday ? Commons.Color.background : month.ink
               font.family: Style.font.family
               font.pixelSize: Math.round(month.cell * 0.4)
               font.weight: parent.isToday ? Font.Bold : Font.Normal

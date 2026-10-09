@@ -2549,7 +2549,17 @@ echo "$out"
   // wallpaper the animation otherwise lands on would only be in the way.
   property bool sessionLockXray: false
 
-  readonly property bool locked: lockRequested || sessionLock.locked || sessionLock.secure
+  // Quickshell 0.3.2 omits lockStateChanged on normal unlock. Re-read
+  // the native properties after release rather than retaining a stale binding.
+  property int lockStateRevision: 0
+  readonly property bool locked: {
+    root.lockStateRevision
+    return lockRequested || sessionLock.locked || sessionLock.secure
+  }
+
+  function refreshLockState() {
+    lockStateRevision += 1
+  }
   readonly property bool authenticating: authenticatingPassword || fingerprintAuthenticating || faceAuthenticating || fido2Authenticating
 
   function realScreenCount() {
@@ -2631,7 +2641,10 @@ echo "$out"
 
   readonly property string lockClaimPath: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omarchy-lock-explorer.lock-held"
   readonly property string instanceToken: String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9))
-  readonly property bool holdsLock: sessionLock.locked || sessionLock.secure
+  readonly property bool holdsLock: {
+    root.lockStateRevision
+    return sessionLock.locked || sessionLock.secure
+  }
 
   FileView {
     id: lockClaim
@@ -2808,6 +2821,7 @@ echo "$out"
     unlockPlayback = false
     unlocking = false
     sessionLock.locked = false
+    refreshLockState()
     logEvent("unlocked")
     if (pendingAwayReport) sendAwayReport(pendingAwayReport)
     pendingAwayReport = null
@@ -3216,6 +3230,8 @@ echo "$out"
     locked: false
 
     onSecureStateChanged: {
+      // The native manager finishes changing its state after this signal.
+      Qt.callLater(root.refreshLockState)
       root.logEvent("secure=" + secure)
       if (secure) {
         root.pendingSessionLock = false
@@ -3228,6 +3244,7 @@ echo "$out"
     }
 
     onLockStateChanged: {
+      root.refreshLockState()
       root.logEvent("session-locked=" + locked)
 
       if (locked) {

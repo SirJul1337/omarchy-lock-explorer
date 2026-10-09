@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -9,7 +10,7 @@ DesignBase {
   readonly property string glyphs: "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789ABCDEFXYZ<>*+-="
   property var drops: []
 
-  Rectangle { anchors.fill: parent; color: Qt.darker(Color.background, 1.4) }
+  Rectangle { anchors.fill: parent; color: Qt.darker(Commons.Color.background, 1.4) }
 
   Canvas {
     id: canvas
@@ -29,12 +30,12 @@ DesignBase {
 
     onPaint: {
       var ctx = getContext("2d")
-      var bg = Qt.darker(Color.background, 1.4)
+      var bg = Qt.darker(Commons.Color.background, 1.4)
       ctx.fillStyle = Qt.rgba(bg.r, bg.g, bg.b, 0.18)
       ctx.fillRect(0, 0, width, height)
       ctx.font = "bold " + (lock.cellSize - 4) + "px " + Style.font.family
-      var accent = Color.lock.borderActive
-      var head = Color.lock.text
+      var accent = Commons.Color.lock.borderActive
+      var head = Commons.Color.lock.text
       var rows = height / lock.cellSize
       var d = lock.drops
       for (var i = 0; i < d.length; i++) {
@@ -72,7 +73,7 @@ DesignBase {
     radius: 6
     color: Qt.rgba(0, 0, 0, 0.72)
     border.width: 1
-    border.color: lock.withAlpha(Color.lock.borderActive, 0.6)
+    border.color: lock.withAlpha(Commons.Color.lock.borderActive, 0.6)
 
     Column {
       id: box
@@ -81,7 +82,7 @@ DesignBase {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: lock.clock("HH:mm:ss")
-        color: Color.lock.borderActive
+        color: Commons.Color.lock.borderActive
         font.family: Style.font.family
         font.pixelSize: Math.round(Style.font.baseSize * 6)
         font.weight: Font.Bold
@@ -90,7 +91,7 @@ DesignBase {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: "wake up, " + lock.displayName + "..."
-        color: lock.withAlpha(Color.lock.text, 0.8)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.8)
         font.family: Style.font.family
         font.pixelSize: Style.font.heading
       }

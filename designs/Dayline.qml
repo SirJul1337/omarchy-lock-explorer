@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -24,7 +25,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("HH:mm")
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.baseSize * 9)
       font.weight: Font.DemiBold
@@ -42,20 +43,20 @@ DesignBase {
         width: parent.width
         height: 6
         radius: 3
-        color: lock.withAlpha(Color.lock.text, 0.2)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.2)
         Rectangle {
           width: parent.width * lock.dayFraction
           height: parent.height
           radius: 3
-          color: Color.lock.borderActive
+          color: Commons.Color.lock.borderActive
         }
         Rectangle {
           x: parent.width * lock.dayFraction - 7
           y: -4
           width: 14; height: 14; radius: 7
-          color: Color.lock.text
+          color: Commons.Color.lock.text
           border.width: 3
-          border.color: Color.lock.borderActive
+          border.color: Commons.Color.lock.borderActive
         }
       }
 
@@ -68,7 +69,7 @@ DesignBase {
             required property string modelData
             width: lock.lineWidth / 4
             text: modelData
-            color: lock.withAlpha(Color.lock.text, 0.5)
+            color: lock.withAlpha(Commons.Color.lock.text, 0.5)
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }
@@ -79,7 +80,7 @@ DesignBase {
         anchors.topMargin: 8
         anchors.right: parent.right
         text: "24"
-        color: lock.withAlpha(Color.lock.text, 0.5)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.5)
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }
@@ -88,7 +89,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.date("dddd, d MMMM") + "  ·  " + lock.tr("%1% of the day").arg(Math.round(lock.dayFraction * 100))
-      color: lock.withAlpha(Color.lock.text, 0.7)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.7)
       font.family: Style.font.family
       font.pixelSize: Style.font.subtitle
       font.letterSpacing: 1

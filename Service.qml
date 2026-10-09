@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Services.Pam
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 import "Designs.js" as Designs
 import "DisplayPower.js" as DisplayPower
 import "Bridge.js" as Bridge
@@ -3248,7 +3249,7 @@ echo "$out"
 
     WlSessionLockSurface {
       id: lockSurface
-      color: Color.background
+      color: Commons.Color.background
 
       UnlockLayer {
         anchors.fill: parent
@@ -3687,7 +3688,7 @@ echo "$out"
   // theme's wallpaper with them: look straight away, and once more in case the
   // link moved just after, instead of showing the old wallpaper under the new
   // colors until the next poll -- or missing a theme picked within it.
-  readonly property color themeColorProbe: Color.background
+  readonly property color themeColorProbe: Commons.Color.background
   onThemeColorProbeChanged: themeBackgroundTimer.restart()
   Timer {
     id: themeBackgroundTimer

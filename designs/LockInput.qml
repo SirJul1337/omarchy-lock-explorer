@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 TextInput {
   id: input
@@ -23,9 +24,9 @@ TextInput {
   // plugged in there is nothing to protect the keystrokes from, and refusing
   // them would leave the user with no way in.
   readOnly: lock ? (lock.inputBlocked === true || lock.authenticatingPassword || (lock.fido2Active && lock.fido2Authenticating && !lock.fido2NeedsPin)) : true
-  color: Color.lock.text
-  selectionColor: Color.lock.selection
-  selectedTextColor: Color.lock.text
+  color: Commons.Color.lock.text
+  selectionColor: Commons.Color.lock.selection
+  selectedTextColor: Commons.Color.lock.text
   font.family: Style.font.family
   font.pixelSize: Style.font.heading
 

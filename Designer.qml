@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import "designs"
 import "Designer.js" as D
 import "ExplorerStrings.js" as UiText
@@ -23,9 +24,9 @@ Item {
   function tr(text) { return UiText.tr(designer.language, text) }
   property var design: null
   property string pluginId: "io.github.sirjul1337.lock-explorer"
-  property color background: Color.menu.background
-  property color foreground: Color.menu.text
-  property color accent: Color.accent
+  property color background: Commons.Color.menu.background
+  property color foreground: Commons.Color.menu.text
+  property color accent: Commons.Color.accent
   property string fontFamily: Style.font.menuFamily
   property real screenWidth: 1920
   property real screenHeight: 1080
@@ -782,7 +783,7 @@ Item {
     verticalAlignment: Text.AlignVCenter
     text: designer.loadError
     textFormat: Text.PlainText
-    color: Color.lock.textError
+    color: Commons.Color.lock.textError
     font.family: designer.fontFamily
     font.pixelSize: Style.font.bodySmall
     wrapMode: Text.Wrap
@@ -882,7 +883,7 @@ Item {
               anchors.topMargin: Style.space(5)
               visible: componentArea.containsMouse || removeArea.containsMouse
               text: "✕"
-              color: removeArea.containsMouse ? Color.lock.textError : designer.muted
+              color: removeArea.containsMouse ? Commons.Color.lock.textError : designer.muted
               font.family: designer.fontFamily
               font.pixelSize: Style.font.caption
               MouseArea {
@@ -915,7 +916,7 @@ Item {
                   anchors.centerIn: parent
                   text: componentEntry.modelData.comp ? componentEntry.modelData.comp.name : ""
                   textFormat: Text.PlainText
-                  color: Color.background
+                  color: Commons.Color.background
                   font.family: designer.fontFamily
                   font.pixelSize: Style.font.caption
                   font.weight: Font.DemiBold
@@ -1046,7 +1047,7 @@ Item {
                       anchors.centerIn: parent
                       text: designer.tr(entry.modelData.kind.name)
                       textFormat: Text.PlainText
-                      color: Color.background
+                      color: Commons.Color.background
                       font.family: designer.fontFamily
                       font.pixelSize: Style.font.caption
                       font.weight: Font.DemiBold
@@ -1323,7 +1324,7 @@ Item {
                     width: Style.space(5)
                     height: width
                     radius: 1
-                    color: parent.current ? Color.background : designer.muted
+                    color: parent.current ? Commons.Color.background : designer.muted
                   }
                   MouseArea {
                     id: anchorArea

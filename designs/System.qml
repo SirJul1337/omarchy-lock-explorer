@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell.Io
 import Quickshell.Services.UPower
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -84,9 +85,9 @@ DesignBase {
     width: 200
     height: 112
     radius: 14
-    color: lock.withAlpha(Color.lock.background, 0.7)
+    color: lock.withAlpha(Commons.Color.lock.background, 0.7)
     border.width: 1
-    border.color: lock.withAlpha(Color.lock.text, 0.1)
+    border.color: lock.withAlpha(Commons.Color.lock.text, 0.1)
     Column {
       anchors.left: parent.left
       anchors.top: parent.top
@@ -94,11 +95,11 @@ DesignBase {
       spacing: 4
       Row {
         spacing: 8
-        Text { text: icon; color: Color.lock.borderActive; font.family: Style.font.family; font.pixelSize: Style.font.title }
-        Text { text: label.toUpperCase(); color: lock.withAlpha(Color.lock.text, 0.55); font.family: Style.font.family; font.pixelSize: Style.font.caption; font.letterSpacing: 2; anchors.verticalCenter: parent.verticalCenter }
+        Text { text: icon; color: Commons.Color.lock.borderActive; font.family: Style.font.family; font.pixelSize: Style.font.title }
+        Text { text: label.toUpperCase(); color: lock.withAlpha(Commons.Color.lock.text, 0.55); font.family: Style.font.family; font.pixelSize: Style.font.caption; font.letterSpacing: 2; anchors.verticalCenter: parent.verticalCenter }
       }
-      Text { text: value; color: Color.lock.text; font.family: Style.font.family; font.pixelSize: Style.font.displayLarge; font.weight: Font.DemiBold }
-      Text { text: sub; color: lock.withAlpha(Color.lock.text, 0.55); font.family: Style.font.family; font.pixelSize: Style.font.caption; visible: sub.length > 0 }
+      Text { text: value; color: Commons.Color.lock.text; font.family: Style.font.family; font.pixelSize: Style.font.displayLarge; font.weight: Font.DemiBold }
+      Text { text: sub; color: lock.withAlpha(Commons.Color.lock.text, 0.55); font.family: Style.font.family; font.pixelSize: Style.font.caption; visible: sub.length > 0 }
     }
     Rectangle {
       visible: fill >= 0
@@ -108,8 +109,8 @@ DesignBase {
       anchors.margins: 12
       height: 4
       radius: 2
-      color: lock.withAlpha(Color.lock.text, 0.15)
-      Rectangle { width: parent.width * Math.max(0, Math.min(1, fill)); height: parent.height; radius: 2; color: Color.lock.borderActive }
+      color: lock.withAlpha(Commons.Color.lock.text, 0.15)
+      Rectangle { width: parent.width * Math.max(0, Math.min(1, fill)); height: parent.height; radius: 2; color: Commons.Color.lock.borderActive }
     }
   }
 
@@ -123,7 +124,7 @@ DesignBase {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: lock.clock("HH:mm")
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Math.round(Style.font.baseSize * 7)
         font.weight: Font.DemiBold
@@ -132,7 +133,7 @@ DesignBase {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: lock.date("dddd, d MMMM") + "  ·  " + lock.userName + "@" + lock.hostName
-        color: lock.withAlpha(Color.lock.text, 0.7)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.7)
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
       }

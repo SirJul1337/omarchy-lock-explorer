@@ -454,7 +454,7 @@ var KINDS = {
     hint: "Write the QML yourself — lock.now, lock.userName and the rest are in scope",
     sized: true,
     w: 300, h: 120,
-    spec: { qml: 'Text {\n  anchors.centerIn: parent\n  text: Qt.formatDate(lock.now, "dddd")\n  color: Color.lock.text\n  font.family: Style.font.family\n  font.pixelSize: 32\n}' },
+    spec: { qml: 'Text {\n  anchors.centerIn: parent\n  text: Qt.formatDate(lock.now, "dddd")\n  color: Commons.Color.lock.text\n  font.family: Style.font.family\n  font.pixelSize: 32\n}' },
     fields: [
       { key: "qml", type: "code", label: "QML" }
     ]
@@ -658,6 +658,7 @@ function generate(doc, pluginId) {
   out.push("import QtQuick")
   out.push("import QtQuick.Effects")
   out.push("import qs.Commons")
+  out.push("import qs.Commons as Commons")
   out.push('import "../plugins/' + pluginId + '/designs"')
   out.push("")
   out.push("DesignBase {")

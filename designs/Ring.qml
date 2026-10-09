@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -10,7 +11,7 @@ DesignBase {
   readonly property int ringWidth: 8
   readonly property int maxSegments: 12
   readonly property real progress: Math.min(passwordText.length, maxSegments) / maxSegments
-  readonly property color ringColor: errorState ? Color.lock.textError : Color.lock.borderActive
+  readonly property color ringColor: errorState ? Commons.Color.lock.textError : Commons.Color.lock.borderActive
 
   Wallpaper { anchors.fill: parent; lock: lock; blur: 0.9; dim: 0.15 }
 
@@ -44,7 +45,7 @@ DesignBase {
         var c = width / 2
         var r = c - lock.ringWidth
         ctx.lineWidth = lock.ringWidth
-        ctx.strokeStyle = lock.withAlpha(Color.lock.text, 0.18)
+        ctx.strokeStyle = lock.withAlpha(Commons.Color.lock.text, 0.18)
         ctx.beginPath()
         ctx.arc(c, c, r, 0, Math.PI * 2)
         ctx.stroke()
@@ -85,7 +86,7 @@ DesignBase {
         var r = c - lock.ringWidth
         ctx.lineWidth = lock.ringWidth
         ctx.lineCap = "round"
-        ctx.strokeStyle = Color.lock.borderActive
+        ctx.strokeStyle = Commons.Color.lock.borderActive
         ctx.beginPath()
         ctx.arc(c, c, r, 0, Math.PI * 0.4)
         ctx.stroke()
@@ -103,7 +104,7 @@ DesignBase {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: lock.clock("HH:mm")
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Math.round(Style.font.baseSize * 6)
         font.weight: Font.DemiBold
@@ -112,7 +113,7 @@ DesignBase {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: lock.date("ddd d MMM").toUpperCase()
-        color: lock.withAlpha(Color.lock.text, 0.65)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.65)
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
         font.letterSpacing: 4
@@ -128,7 +129,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.displayName
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Style.font.heading
       font.weight: Font.DemiBold
@@ -145,7 +146,7 @@ DesignBase {
             ? (lock.passwordVisible ? lock.passwordText : lock.passwordText.length + " characters, Enter to unlock")
             : (lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("Type your password or touch the sensor")) : lock.tr("Type your password"))))
         textFormat: Text.PlainText
-        color: lock.errorState ? Color.lock.textError : (lock.passwordVisible && lock.passwordText.length > 0 ? Color.lock.text : lock.withAlpha(Color.lock.text, 0.55))
+        color: lock.errorState ? Commons.Color.lock.textError : (lock.passwordVisible && lock.passwordText.length > 0 ? Commons.Color.lock.text : lock.withAlpha(Commons.Color.lock.text, 0.55))
         font.family: Style.font.family
         font.pixelSize: lock.passwordVisible && lock.passwordText.length > 0 ? Style.font.heading : Style.font.body
         font.italic: lock.errorState

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -24,7 +25,7 @@ DesignBase {
     spacing: 2
     Text {
       text: lock.clock("HH:mm")
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.baseSize * 8)
       font.weight: Font.DemiBold
@@ -34,7 +35,7 @@ DesignBase {
     }
     Text {
       text: lock.date("dddd, d MMMM")
-      color: lock.withAlpha(Color.lock.text, 0.85)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.85)
       font.family: Style.font.family
       font.pixelSize: Style.font.display
       layer.enabled: true
@@ -50,14 +51,14 @@ DesignBase {
     anchors.bottomMargin: -32
     height: lock.sheetHeight + 32
     radius: 32
-    color: lock.withAlpha(Color.lock.background, 0.94)
+    color: lock.withAlpha(Commons.Color.lock.background, 0.94)
 
     Rectangle {
       anchors.top: parent.top
       anchors.topMargin: 12
       anchors.horizontalCenter: parent.horizontalCenter
       width: 44; height: 5; radius: 3
-      color: lock.withAlpha(Color.lock.text, 0.25)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.25)
     }
 
     Column {
@@ -81,7 +82,7 @@ DesignBase {
           spacing: 2
           Text {
             text: lock.greeting() + ", " + lock.displayName
-            color: Color.lock.text
+            color: Commons.Color.lock.text
             font.family: Style.font.family
             font.pixelSize: Style.font.display
             font.weight: Font.DemiBold
@@ -89,7 +90,7 @@ DesignBase {
           Text {
             text: lock.errorState ? lock.failureMessage : (lock.authenticatingPassword ? lock.tr("Checking…") : lock.tr("Enter your password to unlock"))
             textFormat: Text.PlainText
-            color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.6)
+            color: lock.errorState ? Commons.Color.lock.textError : lock.withAlpha(Commons.Color.lock.text, 0.6)
             font.family: Style.font.family
             font.pixelSize: Style.font.subtitle
           }
@@ -103,7 +104,7 @@ DesignBase {
         width: 440
         height: 56
         placeholder: lock.tr("Password")
-        color: lock.withAlpha(Color.background, 0.6)
+        color: lock.withAlpha(Commons.Color.background, 0.6)
       }
 
       Text {
@@ -111,7 +112,7 @@ DesignBase {
         opacity: lock.snapshotMode ? 0 : 1
         text: lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("󰆠  Touch sensor or press Enter")) : lock.tr("Press Enter to unlock  ·  Esc clears")
         textFormat: Text.PlainText
-        color: lock.withAlpha(Color.lock.text, 0.45)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.45)
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
         font.letterSpacing: 1

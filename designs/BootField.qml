@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 // One labelled row in the boot layout editor. `control` picks the widget:
 // "text" (free text), "dropdown" (pick from `options`), "toggle" (on/off) or
@@ -24,9 +25,9 @@ Row {
   signal step(int delta)
   signal escaped()   // the text field has focus, so it forwards Escape
 
-  readonly property color fg: Color.menu.text
+  readonly property color fg: Commons.Color.menu.text
   readonly property color mut: Qt.rgba(fg.r, fg.g, fg.b, 0.6)
-  readonly property color accent: Color.accent
+  readonly property color accent: Commons.Color.accent
 
   spacing: Style.space(12)
   height: control === "dropdown" && expanded
@@ -67,7 +68,7 @@ Row {
       clip: true
       color: field.fg
       selectionColor: field.accent
-      selectedTextColor: Color.background
+      selectedTextColor: Commons.Color.background
       font.family: Style.font.menuFamily
       font.pixelSize: Style.font.bodySmall
       text: field.value
@@ -170,7 +171,7 @@ Row {
       width: Style.space(18)
       height: Style.space(18)
       radius: width / 2
-      color: Color.background
+      color: Commons.Color.background
       anchors.verticalCenter: parent.verticalCenter
       x: field.on ? parent.width - width - Style.space(3) : Style.space(3)
       Behavior on x { NumberAnimation { duration: 100 } }

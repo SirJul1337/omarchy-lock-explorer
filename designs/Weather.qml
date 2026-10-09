@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -126,7 +127,7 @@ DesignBase {
         Text {
           anchors.verticalCenter: parent.verticalCenter
           text: lock.current ? lock.glyph(lock.current.weatherCode) : "󰖐"
-          color: Color.lock.borderActive
+          color: Commons.Color.lock.borderActive
           font.family: Style.font.family
           font.pixelSize: Math.round(Style.font.baseSize * 7)
         }
@@ -134,7 +135,7 @@ DesignBase {
           anchors.verticalCenter: parent.verticalCenter
           text: lock.temp
           textFormat: Text.PlainText
-          color: Color.lock.text
+          color: Commons.Color.lock.text
           font.family: Style.font.family
           font.pixelSize: Math.round(Style.font.baseSize * 8)
           font.weight: Font.DemiBold
@@ -144,14 +145,14 @@ DesignBase {
       Text {
         text: lock.desc
         textFormat: Text.PlainText
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Style.font.display
       }
       Text {
         text: (lock.area ? lock.area + "  ·  " : "") + (lock.current ? "feels like " + lock.feels + "  ·  " + lock.current.humidity + "% humidity  ·  " + lock.current.windspeedKmph + " km/h" : "")
         textFormat: Text.PlainText
-        color: lock.withAlpha(Color.lock.text, 0.65)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.65)
         font.family: Style.font.family
         font.pixelSize: Style.font.body
       }
@@ -164,23 +165,23 @@ DesignBase {
             required property var modelData
             required property int index
             width: 96; height: 92; radius: 12
-            color: lock.withAlpha(Color.lock.background, 0.55)
+            color: lock.withAlpha(Commons.Color.lock.background, 0.55)
             border.width: 1
-            border.color: lock.withAlpha(Color.lock.text, 0.1)
+            border.color: lock.withAlpha(Commons.Color.lock.text, 0.1)
             Column {
               anchors.centerIn: parent
               spacing: 2
               Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: parent.parent.index === 0 ? lock.tr("Today") : lock.date("ddd", new Date(parent.parent.modelData.date))
-                color: lock.withAlpha(Color.lock.text, 0.6)
+                color: lock.withAlpha(Commons.Color.lock.text, 0.6)
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
               }
               Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: lock.dayGlyph(parent.parent.modelData)
-                color: Color.lock.borderActive
+                color: Commons.Color.lock.borderActive
                 font.family: Style.font.family
                 font.pixelSize: Style.font.display
               }
@@ -188,7 +189,7 @@ DesignBase {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: parent.parent.modelData.maxtempC + "° / " + parent.parent.modelData.mintempC + "°"
                 textFormat: Text.PlainText
-                color: Color.lock.text
+                color: Commons.Color.lock.text
                 font.family: Style.font.family
                 font.pixelSize: Style.font.bodySmall
               }
@@ -198,14 +199,14 @@ DesignBase {
       }
     }
 
-    Rectangle { width: 1; height: 220; color: lock.withAlpha(Color.lock.text, 0.2); anchors.verticalCenter: parent.verticalCenter }
+    Rectangle { width: 1; height: 220; color: lock.withAlpha(Commons.Color.lock.text, 0.2); anchors.verticalCenter: parent.verticalCenter }
 
     Column {
       anchors.verticalCenter: parent.verticalCenter
       spacing: 6
       Text {
         text: lock.clock("HH:mm")
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Math.round(Style.font.baseSize * 8)
         font.weight: Font.DemiBold
@@ -213,7 +214,7 @@ DesignBase {
       }
       Text {
         text: lock.date("dddd, d MMMM")
-        color: lock.withAlpha(Color.lock.text, 0.75)
+        color: lock.withAlpha(Commons.Color.lock.text, 0.75)
         font.family: Style.font.family
         font.pixelSize: Style.font.display
       }

@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 // The field throws embers. A handful per keystroke, more the faster you type,
 // a red shower on a wrong password. Plain items on a parabola rather than
@@ -86,16 +87,16 @@ DesignBase {
   Typing {
     id: typing
     lock: lock
-    onTyped: lock.throwEmbers(8 + Math.min(12, Math.round(typing.cadence * 3)), Color.lock.borderActive, 230)
-    onDeleted: lock.throwEmbers(3, lock.withAlpha(Color.lock.text, 0.8), 140)
-    onCleared: lock.throwEmbers(26, Color.lock.borderActive, 300)
+    onTyped: lock.throwEmbers(8 + Math.min(12, Math.round(typing.cadence * 3)), Commons.Color.lock.borderActive, 230)
+    onDeleted: lock.throwEmbers(3, lock.withAlpha(Commons.Color.lock.text, 0.8), 140)
+    onCleared: lock.throwEmbers(26, Commons.Color.lock.borderActive, 300)
   }
 
   Connections {
     target: lock
     function onFailureMessageChanged() {
       if (lock.failureMessage.length === 0) return
-      lock.throwEmbers(60, Color.lock.textError, 380)
+      lock.throwEmbers(60, Commons.Color.lock.textError, 380)
     }
   }
 
@@ -113,7 +114,7 @@ DesignBase {
         gravity: -8,
         span: 4000 + Math.random() * 2000,
         spread: 4 + Math.random() * 3,
-        color: lock.withAlpha(Color.lock.borderActive, 0.7)
+        color: lock.withAlpha(Commons.Color.lock.borderActive, 0.7)
       })
     }
   }
@@ -126,7 +127,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("HH:mm")
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.baseSize * 10)
       font.weight: Font.DemiBold
@@ -136,7 +137,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.greeting() + ", " + lock.displayName
-      color: lock.withAlpha(Color.lock.text, 0.7)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.7)
       font.family: Style.font.family
       font.pixelSize: Style.font.title
       font.letterSpacing: 1
@@ -155,6 +156,6 @@ DesignBase {
     showLockGlyph: false
     shakeOnFail: false
     placeholder: lock.tr("Password")
-    color: lock.withAlpha(Color.lock.background, 0.6)
+    color: lock.withAlpha(Commons.Color.lock.background, 0.6)
   }
 }

@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Designer.js" as D
 import "ExplorerStrings.js" as UiText
 
@@ -17,8 +18,8 @@ Item {
   property real minimum: 0
   property real maximum: 1
   property real step: 0.05
-  property color foreground: Color.menu.text
-  property color accent: Color.accent
+  property color foreground: Commons.Color.menu.text
+  property color accent: Commons.Color.accent
   readonly property color muted: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.55)
   readonly property color well: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.07)
   readonly property color line: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.16)
@@ -273,7 +274,7 @@ Item {
             anchors.centerIn: parent
             text: parent.modelData.name
             textFormat: Text.PlainText
-            color: parent.current ? Color.background : field.foreground
+            color: parent.current ? Commons.Color.background : field.foreground
             font.family: Style.font.menuFamily
             font.pixelSize: Style.font.caption
           }
@@ -377,7 +378,7 @@ Item {
           width: parent.height - Style.space(6)
           height: width
           radius: width / 2
-          color: field.value === true ? Color.background : field.foreground
+          color: field.value === true ? Commons.Color.background : field.foreground
           Behavior on x { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
         }
 

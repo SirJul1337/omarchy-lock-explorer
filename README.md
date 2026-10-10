@@ -591,6 +591,15 @@ errored). Update the plugin -- it now installs the addon next to every Omarchy k
 then pick the boot screen again once in the explorer (`B`). The lock screen itself is
 unaffected.
 
+The boot screen keeps going back to the stock one after Omarchy updates while the explorer
+still shows it as applied, and `journalctl -g install-root.sh` only ever shows `theme`, never
+`addon`: `/boot` is mounted root-only on your install (`fmask=0077,dmask=0077` in `/etc/fstab`),
+and plugin versions up to 1.9.6 looked for the kernel image as your user, saw nothing there and
+quietly used the bake-and-rebuild path instead. That path depends on `/etc/plymouth/plymouthd.conf`,
+which Omarchy updates reset, so the next boot image rebuild brought the stock screen back. Update
+the plugin -- the root side now decides whether there is a kernel image to attach to -- then pick
+the boot screen again once.
+
 Designs show the theme color instead of your wallpaper (and the explorer header says the
 wallpaper failed to load): stock Omarchy ships Qt without a WebP decoder, so `.webp` wallpapers
 cannot be read by the shell even though the desktop shows them fine. Fix:

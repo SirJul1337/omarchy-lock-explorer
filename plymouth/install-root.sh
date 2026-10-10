@@ -10,7 +10,10 @@
 #                      sees the addon, so this copy is what the shutdown
 #                      splash shows (same as the rotation helper does). The
 #                      addon still overrides whatever a later kernel-update
-#                      rebuild bakes in on the way up.
+#                      rebuild bakes in on the way up. When no Omarchy UKI
+#                      is on the ESP this falls through to the theme path
+#                      below: only root can tell, since /boot is commonly
+#                      mounted root-only and apply.sh runs as the user.
 #   theme <theme.tar>  legacy path for non-UKI systems: bake the theme into
 #                      the initramfs and rebuild.
 #   stock <stock.tar>  remove the addon and/or the baked theme; only rebuilds
@@ -178,8 +181,15 @@ case $mode in
       installed=1
     done < <(extra_dirs)
     if [[ $installed == 0 ]]; then
-      echo "No Omarchy UKI under $uki_dir to attach the boot screen to" >&2
-      exit 1
+      # Not a UKI boot: bake the theme in and rebuild, as the theme mode does.
+      # The theme copy below is the same one that mode installs, so with it
+      # the rebuild picks the design up; without it there is nothing to bake.
+      if [[ -z $theme_tar ]]; then
+        echo "No Omarchy UKI under $uki_dir to attach the boot screen to" >&2
+        exit 1
+      fi
+      echo "No Omarchy UKI under $uki_dir; baking the boot screen into the initramfs instead" >&2
+      need_rebuild=1
     fi
     install_quit_dropin
     [[ -n $bg_hex ]] && sync_limine_backdrop "${bg_hex#\#}"

@@ -501,12 +501,19 @@ Item {
   property bool showAuthIcons: true
   readonly property var dateLocale: Qt.locale(Strings.localeName(language))
   function tr(text) { return Strings.tr(language, text) }
-  function date(spec, when) { return (when || now).toLocaleString(dateLocale, String(spec)) }
+  // A boot snapshot is a still image shown on later boots, so today's time and
+  // date baked into it would read as a frozen clock there (issue #74). Both
+  // render empty while snapshotting; a date passed in explicitly still shows.
+  function date(spec, when) {
+    if (snapshotMode && !when) return ""
+    return (when || now).toLocaleString(dateLocale, String(spec))
+  }
 
   // Designs pass their ordinary 24-hour Qt format string here. With the
   // 12-hour setting off it is used as written, so a design that never calls
   // this still behaves exactly as before.
   function clock(spec) {
+    if (snapshotMode) return ""
     var s = String(spec)
     if (!twelveHour || s.indexOf("H") === -1) return now.toLocaleString(dateLocale, s)
     // An hour standing on its own -- a flip tile, a poster numeral -- has
@@ -523,7 +530,7 @@ Item {
   }
 
   // For designs that lay the meridiem out themselves next to a bare hour.
-  readonly property string meridiem: twelveHour ? now.toLocaleString(dateLocale, "AP") : ""
+  readonly property string meridiem: !snapshotMode && twelveHour ? now.toLocaleString(dateLocale, "AP") : ""
 
   function greeting() {
     var h = now.getHours()

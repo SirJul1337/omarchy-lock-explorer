@@ -562,6 +562,7 @@ Item {
   readonly property var bootVideos: service && service.bootVideos !== undefined ? service.bootVideos : []
   readonly property var bootCustomDesigns: service && service.bootCustomDesigns !== undefined ? service.bootCustomDesigns : []
   readonly property int bootClipSeconds: service && service.bootClipSeconds !== undefined ? service.bootClipSeconds : 0
+  readonly property string bootShutdown: service && service.bootShutdown !== undefined ? service.bootShutdown : "design"
   readonly property var bootCards: {
     var cards = [
       { id: "stock", name: root.tr("Untouched"), kind: root.tr("stock Omarchy splash") },
@@ -892,6 +893,15 @@ Item {
   function setBoot(id) {
     if (root.bootApplying) return
     if (root.service && typeof root.service.setBoot === "function") root.service.setBoot(id)
+  }
+
+  function setBootClipSeconds(n) {
+    if (root.service && typeof root.service.setBootClipSeconds === "function") root.service.setBootClipSeconds(n)
+  }
+
+  function setBootShutdown(v) {
+    if (root.bootApplying) return
+    if (root.service && typeof root.service.setBootShutdown === "function") root.service.setBootShutdown(v)
   }
 
   function toggleBootResync() {
@@ -2968,6 +2978,49 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         onClicked: root.setBootClipSeconds(clipLen.modelData)
+                      }
+                    }
+                  }
+
+                  Item { width: Style.space(10); height: 1 }
+
+                  // What reboot and shutdown show on a snapshot or custom
+                  // boot screen, see bootShutdown in Service.qml.
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.tr("Reboot & shutdown")
+                    color: root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                  }
+
+                  Repeater {
+                    model: ["design", "plain"]
+                    Rectangle {
+                      id: downMode
+                      required property string modelData
+                      readonly property bool current: modelData === root.bootShutdown
+                      width: downModeLabel.implicitWidth + Style.space(16)
+                      height: Style.space(24)
+                      radius: root.cornerRadius
+                      color: current ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, downModeArea.containsMouse ? 0.12 : 0.06)
+                      Behavior on color { ColorAnimation { duration: 100 } }
+
+                      Text {
+                        id: downModeLabel
+                        anchors.centerIn: parent
+                        text: downMode.modelData === "design" ? root.tr("Design") : root.tr("Plain")
+                        color: downMode.current ? Commons.Color.background : root.foreground
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.caption
+                        font.weight: downMode.current ? Font.DemiBold : Font.Normal
+                      }
+
+                      MouseArea {
+                        id: downModeArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: root.setBootShutdown(downMode.modelData)
                       }
                     }
                   }

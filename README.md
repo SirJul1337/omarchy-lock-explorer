@@ -226,6 +226,8 @@ omarchy-shell lock menuEntry
 omarchy-shell lock setMenuEntry on     # launcher + Omarchy menu entries, or off
 omarchy-shell lock boot
 omarchy-shell lock setBoot follow            # stock, follow, or a design id with a twin
+omarchy-shell lock bootShutdown
+omarchy-shell lock setBootShutdown plain     # reboot/shutdown splash: design (default) or plain
 omarchy-shell lock followTheme
 omarchy-shell lock setFollowTheme on         # remember a design per theme and switch with it
 omarchy-shell lock rotateDesigns

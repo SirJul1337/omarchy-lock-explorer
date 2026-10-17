@@ -2224,7 +2224,7 @@ echo "$out"
     if (!force && target === bootApplied) return
     bootApplying = true
     bootApplyTarget = target
-    bootApplyProc.command = ["env", "BOOT_CLIP_SECONDS=" + bootClipSeconds, "bash", pluginDir + "/plymouth/apply.sh", target]
+    bootApplyProc.command = ["env", "BOOT_CLIP_SECONDS=" + bootClipSeconds, "BOOT_SHUTDOWN=" + bootShutdown, "bash", pluginDir + "/plymouth/apply.sh", target]
     bootApplyProc.running = true
   }
 
@@ -2447,6 +2447,44 @@ echo "$out"
     return true
   }
 
+  // What reboot and shutdown show while a design snapshot or a custom layout
+  // is the boot screen: "design" keeps the design's box-free capture up,
+  // "plain" leaves only the theme's background colour (issue #76). Saved on
+  // the plugin entry as bootShutdown; absent means "design".
+  property string bootShutdownOverride: ""
+  readonly property string configuredBootShutdown: {
+    var cfg = root.settingsConfig
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i]
+      if (entry && String(entry.id || "") === pluginId && entry.bootShutdown === "plain")
+        return "plain"
+    }
+    return "design"
+  }
+  readonly property string bootShutdown: bootShutdownOverride.length > 0 ? bootShutdownOverride : configuredBootShutdown
+
+  function setBootShutdown(value) {
+    var v = String(value || "")
+    if (v !== "design" && v !== "plain") return false
+    bootShutdownOverride = v
+    if (shell && typeof shell.updateEntryInline === "function") {
+      var current = pluginEntry()
+      if (v === "design") delete current.bootShutdown
+      else current.bootShutdown = v
+      writeEntry(current)
+    }
+    logEvent("boot-shutdown=" + v)
+    // Baked into the generated theme, so an installed snapshot or layout is
+    // rebuilt with it. A snapshot goes back through the explorer, which
+    // carries the entry geometry the boot theme needs.
+    if (bootApplied.indexOf("snapshot:") === 0)
+      bootResnapshotRequested(bootApplied.substring(9), bootSetting !== "follow")
+    else if (bootApplied.indexOf("custom:") === 0)
+      applyBoot(true, bootApplied)
+    return true
+  }
+
   // Plumbing for the boot layout editor in the explorer.
   signal bootDesignLoaded(string name, string content)
   property string bootDesignPendingLoad: ""
@@ -2592,7 +2630,7 @@ echo "$out"
     }
     bootApplying = true
     bootApplyTarget = "snapshot:" + id
-    bootApplyProc.command = ["env", "BOOT_CLIP_SECONDS=0",
+    bootApplyProc.command = ["env", "BOOT_CLIP_SECONDS=0", "BOOT_SHUTDOWN=" + bootShutdown,
       "SNAPSHOT_ENTRY=" + String(entryRect || ""),
       "bash", pluginDir + "/plymouth/apply.sh", "snapshot:" + id]
     bootApplyProc.running = true
@@ -4549,6 +4587,7 @@ echo "$out"
       readonly property var bootVideos: root.bootVideos
       readonly property var bootCustomDesigns: root.bootCustomDesigns
       readonly property int bootClipSeconds: root.bootClipSeconds
+      readonly property string bootShutdown: root.bootShutdown
       readonly property var bootRotation: root.bootRotation
 
       signal designCustomized(string id, string path)
@@ -4630,6 +4669,7 @@ echo "$out"
       function setBootResync(on) { return root.setBootResync(on) }
       function refreshBootPreviews() { return root.refreshBootPreviews() }
       function setBootClipSeconds(n) { return root.setBootClipSeconds(n) }
+      function setBootShutdown(v) { return root.setBootShutdown(v) }
       function loadBootDesign(name) { return root.loadBootDesign(name) }
       function saveBootDesign(name, content) { return root.saveBootDesign(name, content) }
       function createBootDesign() { return root.createBootDesign() }
@@ -5061,6 +5101,15 @@ echo "$out"
 
     function setBootClipSeconds(value: string): string {
       return root.setBootClipSeconds(value) ? "ok" : "failed"
+    }
+
+    // design or plain, see bootShutdown.
+    function bootShutdown(): string {
+      return root.bootShutdown
+    }
+
+    function setBootShutdown(value: string): string {
+      return root.setBootShutdown(value) ? "ok" : "invalid-value (design or plain)"
     }
 
     function previewDesign(id: string): string {

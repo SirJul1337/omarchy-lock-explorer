@@ -45,6 +45,7 @@ var DESIGNS = [
   { id: "constellation", file: "Constellation.qml", name: "Constellation", description: "Your typing draws a constellation", tags: ["reactive", "dark"], anim: true },
   { id: "sparks", file: "Sparks.qml", name: "Sparks", description: "The field throws embers as you type", tags: ["reactive", "fun"], anim: true },
   // Work in progress, disabled so they do not load. Uncomment to bring them back.
+  { id: "waves", file: "Waves.qml", name: "Waves", description: "Slow silk ribbons drift across the screen in your theme colors, and swell as you type", tags: ["dark", "reactive"], anim: true },
   { id: "lightspeed", file: "Lightspeed.qml", name: "Lightspeed", description: "Stars stretch into streaks as you jump to hyperspace", tags: ["reactive", "dark", "fun"], anim: true },
   { id: "terminator", file: "Terminator.qml", name: "Terminator", description: "Your wallpaper in red under a grid, with this machine's specs and live CPU and GPU, and a target box that closes in as you type", tags: ["dark", "fun", "reactive"], anim: true },
   // { id: "tracker", file: "Tracker.qml", name: "Motion Tracker", description: "Contacts creep in on a radar dial, every key sends another", tags: ["dark", "reactive"], anim: true },

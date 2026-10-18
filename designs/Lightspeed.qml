@@ -8,8 +8,7 @@ DesignBase {
   id: lock
   inputItem: field.input
 
-  readonly property int starCount: 220
-  readonly property int farCount: 140
+  readonly property int starCount: 320
   // 0 is a slow cruise, 1 is the stars fully stretched.
   property real boost: 0
 
@@ -19,19 +18,20 @@ DesignBase {
     id: space
     anchors.fill: parent
 
+    // One field of stars with real depth. A star far away sits out in the
+    // screen and crawls, one close by races past in a streak, same as the
+    // rest, so the two never look like separate layers.
     property var stars: []
-    // Distant stars: scattered over the whole screen, small and dim, creeping
-    // outward so slowly they hardly seem to move.
-    property var far: []
-    property real speed: 0.25
+    property real speed: 0.12
     property real lastTime: 0
 
     function spawn(star, fresh) {
       star.angle = Math.random() * Math.PI * 2
-      // Depth runs from 1 (far, at the middle) down to 0 (past the screen).
-      star.z = fresh ? Math.random() : 1
-      star.drift = 0.7 + Math.random() * 0.6
-      star.tint = Math.random() < 0.25
+      // Distance from the middle in world units, evenly over the area.
+      star.rho = 0.03 + Math.sqrt(Math.random()) * 0.97
+      // Depth runs from 1 (far away) to 0 (right at the screen).
+      star.z = fresh ? 0.05 + Math.random() * 0.95 : 1
+      star.tint = Math.random() < 0.2
     }
 
     Component.onCompleted: {
@@ -42,43 +42,18 @@ DesignBase {
         list.push(star)
       }
       stars = list
-      var distant = []
-      for (var j = 0; j < lock.farCount; j++) {
-        var f = {}
-        spawnFar(f, true)
-        distant.push(f)
-      }
-      far = distant
-    }
-
-    function spawnFar(star, fresh) {
-      star.angle = Math.random() * Math.PI * 2
-      star.r = fresh ? Math.random() * 1.1 : Math.random() * 0.05
-      star.rate = 0.6 + Math.random() * 0.8
-      star.size = 0.5 + Math.random() * 0.8
-      star.alpha = 0.2 + Math.random() * 0.35
     }
 
     function step(dt) {
-      var target = 0.25 + lock.boost * 3.2
+      var target = 0.12 + lock.boost * 3.4
       speed += (target - speed) * Math.min(1, dt * 4)
       lock.boost = Math.max(0, lock.boost - dt * 0.8)
       for (var i = 0; i < stars.length; i++) {
         var star = stars[i]
-        star.z -= speed * star.drift * dt * 0.35
-        if (star.z <= 0.02) spawn(star, false)
+        star.z -= speed * dt * 0.35
+        // Gone once it has flown past the edge of the screen.
+        if (star.z <= star.rho * 0.95 || star.z <= 0.02) spawn(star, false)
       }
-      for (var j = 0; j < far.length; j++) {
-        var f = far[j]
-        f.r += (0.004 + lock.boost * 0.03) * f.rate * dt
-        if (f.r > 1.1) spawnFar(f, false)
-      }
-    }
-
-    // Where a star is on screen for a given depth: perspective from the middle.
-    function project(star, z, cx, cy, reach) {
-      var r = (1 / Math.max(z, 0.02) - 1) * reach * 0.04
-      return { x: cx + Math.cos(star.angle) * r, y: cy + Math.sin(star.angle) * r }
     }
 
     onPaint: {
@@ -91,27 +66,21 @@ DesignBase {
       var accent = Color.lock.borderActive
       ctx.lineCap = "round"
 
-      for (var j = 0; j < far.length; j++) {
-        var f = far[j]
-        var fade = Math.min(1, f.r * 6)
-        ctx.fillStyle = Qt.rgba(base.r, base.g, base.b, f.alpha * fade)
-        ctx.beginPath()
-        ctx.arc(cx + Math.cos(f.angle) * f.r * reach, cy + Math.sin(f.angle) * f.r * reach, f.size, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
       for (var i = 0; i < stars.length; i++) {
         var star = stars[i]
-        var tail = Math.min(0.98, star.z + 0.02 + speed * 0.05 * star.drift)
-        var head = project(star, star.z, cx, cy, reach)
-        var back = project(star, tail, cx, cy, reach)
+        var tail = Math.min(1, star.z + speed * 0.05)
+        var cos = Math.cos(star.angle)
+        var sin = Math.sin(star.angle)
+        var rHead = star.rho / star.z * reach
+        var rTail = star.rho / tail * reach
         var near = 1 - star.z
         var color = star.tint ? accent : base
-        ctx.strokeStyle = Qt.rgba(color.r, color.g, color.b, Math.min(1, near * 1.6))
-        ctx.lineWidth = 0.6 + near * 2.2
+        var alpha = Math.min(1, near * 12) * (0.2 + 0.8 * Math.pow(near, 1.5))
+        ctx.strokeStyle = Qt.rgba(color.r, color.g, color.b, alpha)
+        ctx.lineWidth = 0.5 + near * near * 2.4
         ctx.beginPath()
-        ctx.moveTo(back.x, back.y)
-        ctx.lineTo(head.x, head.y)
+        ctx.moveTo(cx + cos * rTail, cy + sin * rTail)
+        ctx.lineTo(cx + cos * rHead + 0.01, cy + sin * rHead)
         ctx.stroke()
       }
     }

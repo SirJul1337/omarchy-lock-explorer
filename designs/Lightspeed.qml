@@ -9,6 +9,7 @@ DesignBase {
   inputItem: field.input
 
   readonly property int starCount: 220
+  readonly property int farCount: 140
   // 0 is a slow cruise, 1 is the stars fully stretched.
   property real boost: 0
 
@@ -19,6 +20,9 @@ DesignBase {
     anchors.fill: parent
 
     property var stars: []
+    // Distant stars: scattered over the whole screen, small and dim, creeping
+    // outward so slowly they hardly seem to move.
+    property var far: []
     property real speed: 0.25
     property real lastTime: 0
 
@@ -38,6 +42,21 @@ DesignBase {
         list.push(star)
       }
       stars = list
+      var distant = []
+      for (var j = 0; j < lock.farCount; j++) {
+        var f = {}
+        spawnFar(f, true)
+        distant.push(f)
+      }
+      far = distant
+    }
+
+    function spawnFar(star, fresh) {
+      star.angle = Math.random() * Math.PI * 2
+      star.r = fresh ? Math.random() * 1.1 : Math.random() * 0.05
+      star.rate = 0.6 + Math.random() * 0.8
+      star.size = 0.5 + Math.random() * 0.8
+      star.alpha = 0.2 + Math.random() * 0.35
     }
 
     function step(dt) {
@@ -48,6 +67,11 @@ DesignBase {
         var star = stars[i]
         star.z -= speed * star.drift * dt * 0.35
         if (star.z <= 0.02) spawn(star, false)
+      }
+      for (var j = 0; j < far.length; j++) {
+        var f = far[j]
+        f.r += (0.004 + lock.boost * 0.03) * f.rate * dt
+        if (f.r > 1.1) spawnFar(f, false)
       }
     }
 
@@ -66,6 +90,15 @@ DesignBase {
       var base = Color.lock.text
       var accent = Color.lock.borderActive
       ctx.lineCap = "round"
+
+      for (var j = 0; j < far.length; j++) {
+        var f = far[j]
+        var fade = Math.min(1, f.r * 6)
+        ctx.fillStyle = Qt.rgba(base.r, base.g, base.b, f.alpha * fade)
+        ctx.beginPath()
+        ctx.arc(cx + Math.cos(f.angle) * f.r * reach, cy + Math.sin(f.angle) * f.r * reach, f.size, 0, Math.PI * 2)
+        ctx.fill()
+      }
 
       for (var i = 0; i < stars.length; i++) {
         var star = stars[i]

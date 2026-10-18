@@ -633,6 +633,10 @@ MIT, see [LICENSE](LICENSE). `Service.qml` is based on the built-in `omarchy.loc
 
 ## Development
 
+Every design has a CPU, GPU and memory budget, since a lock screen runs for as long as the
+machine sits locked. The limits, how they were measured and how to build a design that stays
+under them are in [standards.md](standards.md). `node --test tests/*.test.cjs` checks them.
+
 ```sh
 omarchy plugin validate ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer
 qmllint -I "$OMARCHY_PATH/shell" ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer/{*.qml,designs/*.qml}

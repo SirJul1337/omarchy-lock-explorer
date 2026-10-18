@@ -24,7 +24,6 @@ const LEGACY = {
   panel: { cpu: 45, gpu: 10 },
   beacon: { cpu: 45, gpu: 10 },
   aurora: { cpu: 35, gpu: 15 },
-  lightspeed: { cpu: 58, gpu: 11 },
 };
 
 // Enabled designs from Designs.js, as { id: file }. Commented-out entries are

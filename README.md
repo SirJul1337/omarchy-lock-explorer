@@ -636,6 +636,8 @@ MIT, see [LICENSE](LICENSE). `Service.qml` is based on the built-in `omarchy.loc
 Every design has a CPU, GPU and memory budget, since a lock screen runs for as long as the
 machine sits locked. The limits, how they were measured and how to build a design that stays
 under them are in [standards.md](standards.md). `node --test tests/*.test.cjs` checks them.
+`tests/run-in-window.sh <id>` runs one design in a normal window (`list` prints the ids and names),
+handy for trying a change without locking.
 
 ```sh
 omarchy plugin validate ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer

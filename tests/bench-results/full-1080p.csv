@@ -27,7 +27,7 @@ motion,0.0,0.0,211
 pond,1.4,2.0,198
 constellation,6.6,5.0,208
 sparks,3.7,5.0,198
-lightspeed,48.0,9.4,233
+lightspeed,3.8,7.0,214
 terminator,1.2,1.8,301
 tracker,129.3,7.1,243
 circuits,52.0,9.5,245
@@ -60,3 +60,4 @@ storm,0.0,0.0,243
 eyes,0.1,0.1,241
 river,0.0,0.0,240
 companion,0.2,0.3,193
+waves,3.0,5.5,208

@@ -44,6 +44,7 @@ var DESIGNS = [
   { id: "pond", file: "Pond.qml", name: "Pond", description: "Keystrokes ripple across the screen", tags: ["reactive", "clock"], anim: true },
   { id: "constellation", file: "Constellation.qml", name: "Constellation", description: "Your typing draws a constellation", tags: ["reactive", "dark"], anim: true },
   { id: "sparks", file: "Sparks.qml", name: "Sparks", description: "The field throws embers as you type", tags: ["reactive", "fun"], anim: true },
+  { id: "lightspeed", file: "Lightspeed.qml", name: "Lightspeed", description: "Stars stretch into streaks as you jump to hyperspace", tags: ["reactive", "dark", "fun"], anim: true },
   { id: "cipher", file: "Cipher.qml", name: "Cipher", description: "A block clock that decrypts itself, drawn by ttfx", tags: ["dark", "clock", "fun"], anim: true },
   { id: "screensaver", file: "Screensaver.qml", name: "Screensaver", description: "Your Omarchy logo through ttfx effects, like the screensaver", tags: ["dark", "fun"], anim: true },
   { id: "ember", file: "Ember.qml", name: "Ember", description: "The clock burns into place, drawn by ttfx", tags: ["dark", "clock"], anim: true },

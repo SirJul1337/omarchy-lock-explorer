@@ -42,7 +42,7 @@ omarchy-shell lock explore
 </table>
 
 Weather fetches from wttr.in (same location as the bar widget), Music reads MPRIS players, System shows uptime, memory, load and battery.
-Motion loops a video you pick. Pond, Constellation and Sparks react to your typing. Storm, Eyes and River play their clip when you unlock.
+Motion loops a video you pick. Pond, Constellation, Sparks and Lightspeed react to your typing. Storm, Eyes and River play their clip when you unlock.
 
 Cipher through Statusline are drawn by `ttfx`, the terminal text effects Omarchy ships: the clock or
 your branding logo is animated a character at a time, in your theme colors, and a wrong password

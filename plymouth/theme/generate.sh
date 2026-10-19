@@ -22,8 +22,9 @@ bg=$(theme_color background)
 fg=$(theme_color foreground)
 bg_f=$(hex_floats "$bg")
 
-find "$stock_dir" -maxdepth 1 -type f ! -name '*.plymouth' -exec cp -t "$staging/" {} +
-mv "$staging/omarchy.script" "$staging/omarchy-boot.script"
+# Only the images and the script: root refuses a theme with anything else.
+find "$stock_dir" -maxdepth 1 -type f -name '*.png' -exec cp -t "$staging/" {} +
+cp "$stock_dir/omarchy.script" "$staging/omarchy-boot.script"
 
 sed -i "s/^Window.SetBackgroundTopColor.*/Window.SetBackgroundTopColor($bg_f);/" "$staging/omarchy-boot.script"         # sec-ok: bg_f is numeric hex_floats output
 sed -i "s/^Window.SetBackgroundBottomColor.*/Window.SetBackgroundBottomColor($bg_f);/" "$staging/omarchy-boot.script"   # sec-ok: bg_f is numeric hex_floats output
@@ -32,7 +33,7 @@ for asset in bullet.png entry.png lock.png progress_bar.png; do
   [[ -f $staging/$asset ]] && magick "$staging/$asset" -channel RGB +level-colors "#$fg","#$fg" "$staging/$asset"
 done
 
-[[ -f $theme_dir/unlock.png ]] && cp "$theme_dir/unlock.png" "$staging/logo.png"
+if src=$(image_in "$theme_dir/unlock.png"); then magick "${src}[0]" "png:$staging/logo.png"; fi
 
 cat > "$staging/omarchy-boot.plymouth" <<EOF
 [Plymouth Theme]

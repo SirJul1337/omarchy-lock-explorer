@@ -28,6 +28,71 @@ theme_color() {
   ' "$omarchy_theme_dir/colors.toml"
 }
 
+# layout_val <conf> <key> <default>: one key of a boot design layout
+# (~/.config/omarchy/boot-designs/*.conf), held to the pattern its key allows.
+# These values end up inside generated Plymouth script and lock design QML,
+# in magick arguments and in shell arithmetic, and a layout is a file anyone
+# can hand over, so anything off the pattern -- or an unknown key -- gives
+# the default instead. Nothing is escaped; nothing that would need it passes.
+layout_val() {
+  local conf="$1" key="$2" default="$3" v re
+  # The first match only, from at most 64 KiB of a regular file.
+  [[ -f $conf && ! -L $conf ]] || { printf '%s' "$default"; return; }
+  v=$(head -c 65536 -- "$conf" | awk -F= -v k="$key" '
+    /^[ \t]*#/ { next }
+    { name = $1; gsub(/^[ \t]+|[ \t]+$/, "", name)
+      if (name == k) { sub(/^[^=]*=/, ""); gsub(/^[ \t\r]+|[ \t\r]+$/, ""); print; exit } }')
+  case $key in
+    logo_y | title_y | subtitle_y | entry_y | entry_x | entry_wp | entry_hp)
+      re='^-?[0-9]{1,4}(\.[0-9]{1,3})?$' ;;
+    logo_height | title_size | subtitle_size | entry_width)
+      re='^[0-9]{1,4}$' ;;
+    scanlines | clock) re='^(on|off)$' ;;
+    entry) re='^(pill|line|none|embedded)$' ;;
+    entry_align) re='^(left|center|right)$' ;;
+    title_color | subtitle_color)
+      re='^(foreground|accent|dim|background|#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?)$' ;;
+    background)
+      re='^(theme|wallpaper|#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?|/[A-Za-z0-9._/@+ -]{1,255})$' ;;
+    logo) re='^(theme|none|/[A-Za-z0-9._/@+ -]{1,255})$' ;;
+    background_plain) re='^/[A-Za-z0-9._/@+ -]{1,255}$' ;;
+    # Text: no quote, backslash, backtick or control character, at most 80
+    # characters, and no leading @ (magick -annotate reads @file).
+    title | subtitle | hint) re='^([^@"\`[:cntrl:]][^"\`[:cntrl:]]{0,79})?$' ;;
+    *) re='' ;;
+  esac
+  if [[ -n $v && -n $re && $v =~ $re && $v != *..* ]]; then
+    printf '%s' "$v"
+  else
+    printf '%s' "$default"
+  fi
+}
+
+# layout_text <string>: a layout text after $USER/$HOST expansion, held to
+# the same pattern as the raw text (an account or host name could carry
+# anything the pattern refuses); empty when it does not fit.
+layout_text() {
+  local re='^([^@"\`[:cntrl:]][^"\`[:cntrl:]]{0,95})?$'
+  if [[ $1 =~ $re ]]; then printf '%s' "$1"; fi
+}
+
+# image_in <file>: the file as a magick input with its decoder named after
+# the file's own signature -- PNG, JPEG, WebP or GIF -- so magick never picks
+# a coder from what the content claims to be (SVG, MSL, text: and the like
+# can read other files). Prints nothing, and fails, for anything else.
+image_in() {
+  local f="$1" sig
+  [[ -f $f ]] || return 1
+  sig=$(head -c 12 -- "$f" | od -An -tx1 | tr -d ' \n')
+  case $sig in
+    89504e470d0a1a0a*) printf 'png:%s' "$f" ;;
+    ffd8ff*) printf 'jpeg:%s' "$f" ;;
+    52494646????????57454250) printf 'webp:%s' "$f" ;;
+    474946383761* | 474946383961*) printf 'gif:%s' "$f" ;;
+    *) return 1 ;;
+  esac
+}
+
 # hex_floats aabbcc -> "0.667, 0.733, 0.800" (plymouth script color args)
 hex_floats() {
   awk -v h="$1" 'BEGIN {
@@ -68,7 +133,12 @@ darker_hex() {
 # The monospace family the theme resolves to; plymouth's label plugin gets the
 # same name via the Font= line so the initramfs embeds the right file.
 mono_font_family() {
-  fc-match -f '%{family}' monospace | cut -d, -f1
+  # Lands inside script strings; a family name off the pattern falls back.
+  local family
+  family=$(fc-match -f '%{family}' monospace | cut -d, -f1)
+  [[ $family =~ ^[A-Za-z0-9\ ._-]{1,64}$ ]] || family=monospace
+  printf '%s
+' "$family"
 }
 
 # The boot-chrome contract: plymouthd runs the applied theme on the way down

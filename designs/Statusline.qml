@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // An editor waiting for a command: code rain resolves into the Omarchy logo,
@@ -12,11 +13,11 @@ DesignBase {
   flashOnFail: false
 
   readonly property int fs: Math.max(15, Math.round(height / 44))
-  readonly property color barColor: Qt.lighter(Color.background, 1.35)
-  readonly property color modeColor: errorState ? Color.lock.textError
-    : authenticatingPassword ? Color.lock.text : Color.lock.borderActive
+  readonly property color barColor: Qt.lighter(Commons.Color.background, 1.35)
+  readonly property color modeColor: errorState ? Commons.Color.lock.textError
+    : authenticatingPassword ? Commons.Color.lock.text : Commons.Color.lock.borderActive
 
-  Rectangle { anchors.fill: parent; color: lock.deepen(Color.background, 1.5) }
+  Rectangle { anchors.fill: parent; color: lock.deepen(Commons.Color.background, 1.5) }
 
   MouseArea {
     anchors.fill: parent
@@ -30,7 +31,7 @@ DesignBase {
   LockInput { id: input; lock: lock; width: 1; height: 1; opacity: 0 }
 
   component Mono: Text {
-    color: Color.lock.text
+    color: Commons.Color.lock.text
     font.family: Style.font.family
     font.pixelSize: lock.fs
     textFormat: Text.PlainText
@@ -54,11 +55,11 @@ DesignBase {
     rows: Math.floor((lock.height - bottom.height) / Math.max(1, cellHeight))
     effectOptions: ({
       matrix: ["--rain-time", "2", "--resolve-delay", "1",
-               "--highlight-color", Ttfx.hex(Color.lock.text),
-               "--rain-color-gradient", Ttfx.hex(Color.muted), Ttfx.hex(Color.lock.borderActive),
-               "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)],
-      errorcorrect: ["--error-pairs", "0.05", "--error-color", Ttfx.hex(Color.lock.textError), "--correct-color", Ttfx.hex(Color.lock.borderActive),
-                     "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)]
+               "--highlight-color", Ttfx.hex(Commons.Color.lock.text),
+               "--rain-color-gradient", Ttfx.hex(Commons.Color.muted), Ttfx.hex(Commons.Color.lock.borderActive),
+               "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)],
+      errorcorrect: ["--error-pairs", "0.05", "--error-color", Ttfx.hex(Commons.Color.lock.textError), "--correct-color", Ttfx.hex(Commons.Color.lock.borderActive),
+                     "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)]
     })
   }
 
@@ -87,25 +88,25 @@ DesignBase {
             id: mode
             anchors.centerIn: parent
             text: lock.errorState ? "DENIED" : lock.authenticatingPassword ? "CHECKING" : lock.fido2Active ? "KEY" : "LOCKED"
-            color: Color.background
+            color: Commons.Color.background
             font.weight: Font.Bold
           }
         }
-        Mono { height: parent.height; text: "  omarchy  "; color: lock.withAlpha(Color.lock.text, 0.6) }
-        Mono { height: parent.height; text: "[+]"; color: lock.withAlpha(Color.lock.text, 0.35); visible: lock.passwordText.length > 0 }
+        Mono { height: parent.height; text: "  omarchy  "; color: lock.withAlpha(Commons.Color.lock.text, 0.6) }
+        Mono { height: parent.height; text: "[+]"; color: lock.withAlpha(Commons.Color.lock.text, 0.35); visible: lock.passwordText.length > 0 }
       }
 
       Row {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         height: parent.height
-        Mono { height: parent.height; text: lock.clock("ddd d MMM").toLowerCase() + "  "; color: lock.withAlpha(Color.lock.text, 0.6) }
+        Mono { height: parent.height; text: lock.clock("ddd d MMM").toLowerCase() + "  "; color: lock.withAlpha(Commons.Color.lock.text, 0.6) }
         Rectangle {
           height: parent.height
           width: clock.implicitWidth + lock.fs * 1.6
           color: lock.modeColor
           Behavior on color { ColorAnimation { duration: 150 } }
-          Mono { id: clock; anchors.centerIn: parent; text: lock.clock("HH:mm"); color: Color.background; font.weight: Font.Bold }
+          Mono { id: clock; anchors.centerIn: parent; text: lock.clock("HH:mm"); color: Commons.Color.background; font.weight: Font.Bold }
         }
       }
     }
@@ -127,7 +128,7 @@ DesignBase {
           anchors.verticalCenter: parent.verticalCenter
           width: Math.round(lock.fs * 0.6)
           height: Math.round(lock.fs * 1.2)
-          color: Color.lock.text
+          color: Commons.Color.lock.text
           SequentialAnimation on opacity {
             loops: Animation.Infinite
             running: lock.visible
@@ -145,7 +146,7 @@ DesignBase {
         anchors.verticalCenter: parent.verticalCenter
         visible: lock.errorState || lock.authenticatingPassword || lock.fido2Active
         text: lock.errorState ? "E492: " + lock.failureMessage : "-- " + Ttfx.inputStatus(lock, "").toUpperCase() + " --"
-        color: lock.errorState ? Color.lock.textError : Color.lock.text
+        color: lock.errorState ? Commons.Color.lock.textError : Commons.Color.lock.text
         font.weight: lock.errorState ? Font.Normal : Font.Bold
       }
 

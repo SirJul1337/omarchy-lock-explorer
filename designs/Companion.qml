@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 // Shown on monitors that are not the input monitor. Still takes keyboard
 // input so typing works wherever focus lands.
@@ -30,7 +31,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("HH:mm")
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.baseSize * 9)
       font.weight: Font.DemiBold
@@ -39,7 +40,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.date("dddd, d MMMM")
-      color: lock.withAlpha(Color.lock.text, 0.75)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.75)
       font.family: Style.font.family
       font.pixelSize: Style.font.display
     }
@@ -53,7 +54,7 @@ DesignBase {
           : (lock.authenticatingPassword ? lock.tr("Checking…")
           : (lock.passwordText.length > 0 ? (lock.passwordVisible ? lock.passwordText : "●".repeat(Math.min(lock.passwordText.length, 24))) : "󰌾"))
         textFormat: Text.PlainText
-        color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, lock.passwordVisible ? 0.9 : 0.55)
+        color: lock.errorState ? Commons.Color.lock.textError : lock.withAlpha(Commons.Color.lock.text, lock.passwordVisible ? 0.9 : 0.55)
         font.family: Style.font.family
         font.pixelSize: Style.font.heading
         font.letterSpacing: lock.passwordVisible ? 1 : 4

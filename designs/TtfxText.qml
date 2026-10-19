@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // Plays a ttfx effect (Omarchy's terminal text effects, /usr/bin/ttfx) on a
@@ -37,11 +38,11 @@ Item {
 
   property int pixelSize: Style.font.body
   property string fontFamily: Style.font.family
-  property color textColor: Color.lock.text
-  property color accentColor: Color.lock.borderActive
-  property color mutedColor: Color.muted
-  property color errorColor: Color.lock.textError
-  property color backgroundColor: Color.background
+  property color textColor: Commons.Color.lock.text
+  property color accentColor: Commons.Color.lock.borderActive
+  property color mutedColor: Commons.Color.muted
+  property color errorColor: Commons.Color.lock.textError
+  property color backgroundColor: Commons.Color.background
 
   // Plays an effect again whenever `text` changes: `replayEffect`, or `effect`
   // when that is empty.

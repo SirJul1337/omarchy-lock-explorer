@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -28,7 +29,7 @@ DesignBase {
       anchors.left: parent.left
       anchors.leftMargin: lock.pad
       anchors.verticalCenter: parent.verticalCenter
-      opacity: lock.snapshotMode ? 0 : 1
+      opacity: lock.hideTime ? 0 : 1
       text: lock.clock("HH:mm")
       color: "#f2f2f2"
       font.family: Style.font.family
@@ -39,7 +40,7 @@ DesignBase {
       anchors.right: parent.right
       anchors.rightMargin: lock.pad
       anchors.verticalCenter: parent.verticalCenter
-      opacity: lock.snapshotMode ? 0 : 1
+      opacity: lock.hideTime ? 0 : 1
       text: lock.date("dddd d MMMM yyyy").toUpperCase()
       color: "#bdbdbd"
       font.family: Style.font.family
@@ -64,7 +65,7 @@ DesignBase {
           : (lock.authenticatingPassword ? lock.tr("Checking…")
           : lock.greeting() + ", " + lock.displayName + ". Enter your password to continue.")
         textFormat: Text.PlainText
-        color: lock.errorState ? Color.lock.textError : "#f2f2f2"
+        color: lock.errorState ? Commons.Color.lock.textError : "#f2f2f2"
         font.family: Style.font.family
         font.pixelSize: Style.font.heading
         font.italic: true

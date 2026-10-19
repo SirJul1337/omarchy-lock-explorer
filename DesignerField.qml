@@ -1,5 +1,7 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
+import "designs"
 import "Designer.js" as D
 import "ExplorerStrings.js" as UiText
 
@@ -17,8 +19,8 @@ Item {
   property real minimum: 0
   property real maximum: 1
   property real step: 0.05
-  property color foreground: Color.menu.text
-  property color accent: Color.accent
+  property color foreground: Commons.Color.menu.text
+  property color accent: Commons.Color.accent
   readonly property color muted: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.55)
   readonly property color well: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.07)
   readonly property color line: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.16)
@@ -82,7 +84,7 @@ Item {
       border.width: 1
       border.color: entry.activeFocus ? field.accent : field.line
 
-      TextInput {
+      TypedInput {
         id: entry
         anchors.fill: parent
         anchors.leftMargin: Style.space(8)
@@ -122,7 +124,7 @@ Item {
         border.width: 1
         border.color: numberEntry.activeFocus ? field.accent : field.line
 
-        TextInput {
+        TypedInput {
           id: numberEntry
           anchors.fill: parent
           anchors.leftMargin: Style.space(8)
@@ -273,7 +275,7 @@ Item {
             anchors.centerIn: parent
             text: parent.modelData.name
             textFormat: Text.PlainText
-            color: parent.current ? Color.background : field.foreground
+            color: parent.current ? Commons.Color.background : field.foreground
             font.family: Style.font.menuFamily
             font.pixelSize: Style.font.caption
           }
@@ -326,7 +328,7 @@ Item {
         color: field.well
         border.width: 1
         border.color: hexEntry.activeFocus ? field.accent : field.line
-        TextInput {
+        TypedInput {
           id: hexEntry
           anchors.fill: parent
           anchors.leftMargin: Style.space(8)
@@ -377,7 +379,7 @@ Item {
           width: parent.height - Style.space(6)
           height: width
           radius: width / 2
-          color: field.value === true ? Color.background : field.foreground
+          color: field.value === true ? Commons.Color.background : field.foreground
           Behavior on x { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
         }
 
@@ -521,7 +523,7 @@ Item {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
 
-        TextEdit {
+        TypedEdit {
           id: codeEdit
           width: Math.max(parent.width, contentWidth)
           text: String(field.value || "")
@@ -541,9 +543,6 @@ Item {
             if ((event.modifiers & Qt.ControlModifier)
                 && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) {
               field.edited(codeEdit.text)
-              event.accepted = true
-            } else if (event.key === Qt.Key_Tab) {
-              codeEdit.insert(codeEdit.cursorPosition, "  ")
               event.accepted = true
             }
           }

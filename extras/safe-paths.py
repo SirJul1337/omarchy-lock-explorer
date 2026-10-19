@@ -152,25 +152,36 @@ def refuse_symlink_at(dir_fd, name, shown):
     return st
 
 
+def replacement_mode(mode, *existing):
+    """The mode for a file that replaces DIR/NAME: never looser than the file
+    it replaces. Rewriting a 0600 config must not hand it out as 0644, so the
+    requested bits are narrowed by every mode the file was seen with."""
+    for st in existing:
+        if st is not None:
+            mode &= stat.S_IMODE(st.st_mode)
+    return mode
+
+
 def put(target_dir, name, mode):
     check_name(name)
     dir_fd = descend(target_dir, create=True)
     shown = target_dir.rstrip("/") + "/" + name
     tmp_name = None
     try:
-        refuse_symlink_at(dir_fd, name, shown)
+        before = refuse_symlink_at(dir_fd, name, shown)
         tmp_name, tmp_fd = create_temp(dir_fd, name, shown)
         with os.fdopen(tmp_fd, "wb") as out:
             data = sys.stdin.buffer.read()
             out.write(data)
             out.flush()
-            os.fchmod(out.fileno(), mode)
+            # Re-check immediately before the rename: a symlink that appeared
+            # while we were writing must not be replaced silently either, and
+            # a mode narrowed meanwhile is kept as well.
+            after = refuse_symlink_at(dir_fd, name, shown)
+            os.fchmod(out.fileno(), replacement_mode(mode, before, after))
             os.fsync(out.fileno())
-        # Re-check immediately before the rename: a symlink that appeared
-        # while we were writing must not be replaced silently either.
-        refuse_symlink_at(dir_fd, name, shown)
-        os.rename(tmp_name, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
-        tmp_name = None
+            os.rename(tmp_name, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+            tmp_name = None
     finally:
         if tmp_name is not None:
             try:

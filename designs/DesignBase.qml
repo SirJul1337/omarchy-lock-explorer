@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import "Strings.js" as Strings
 
 Item {
@@ -57,12 +58,42 @@ Item {
   // top right corner is the base's, so every design has it.
   property bool batteryLow: false
   property int batteryPercent: -1
+  // A line for whoever finds the computer, set in Settings. The base draws
+  // it bottom left, so every design has it; empty draws nothing.
+  property string ownerMessage: ""
 
   // Sleep, restart and shut down, off unless the owner turned them on. Every
   // design gets them from here, in the corner, and each asks a second time
   // before it happens.
   property bool powerActions: false
   signal powerActionRequested(string action)
+
+  // Previous, play or pause, and next for whatever is playing, with its
+  // title, off unless the owner turned it on (Settings > Screen and power >
+  // Media controls). Every design gets the strip from here, top centre. A
+  // design that draws controls of its own turns the strip off with
+  // showMediaStrip and calls mediaAct(); one with something of its own at the
+  // top moves it down with mediaStripAtBottom.
+  property bool mediaControls: false
+  property bool showMediaStrip: true
+  property bool mediaStripAtBottom: false
+  // The corners of the base's own chrome: the media strip and the owner
+  // message. Squarish by default; a design with pills (Island) rounds it, a
+  // designer layout sets it from its Corners slider.
+  property int chromeRadius: 6
+  readonly property alias lockMedia: lockMediaSource
+  LiveMedia { id: lockMediaSource }
+  // "previous", "toggle" or "next". A click on a blanked screen only wakes it.
+  function mediaAct(action) {
+    var blanked = base.inputBlocked
+    base.wakeRequested()
+    if (blanked || !base.mediaControls) return
+    var p = lockMediaSource.player
+    if (!p) return
+    if (action === "previous") { if (p.canGoPrevious) p.previous() }
+    else if (action === "next") { if (p.canGoNext) p.next() }
+    else if (p.canTogglePlaying) p.togglePlaying()
+  }
   property bool loadBackground: true
   property string passwordText: ""
 
@@ -99,7 +130,12 @@ Item {
   signal submitFido2Pin(string pin)
 
   readonly property bool errorState: failureMessage.length > 0
-  readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"
+  // Names shown on the lock screen are held to their plain shape and length
+  // where they come in, whatever Text later shows them.
+  readonly property string userName: {
+    var u = String(Quickshell.env("USER") || Quickshell.env("LOGNAME") || "").replace(/[^A-Za-z0-9._-]/g, "").substring(0, 32)
+    return u.length > 0 ? u : "user"
+  }
   readonly property string userInitial: displayName.length > 0 ? displayName.charAt(0).toUpperCase() : "?"
   // The account's full name (the GECOS field), set by the service when there
   // is one. displayName is what a design greets: its first word, or else the
@@ -111,7 +147,7 @@ Item {
   // never be taken for rich text.
   readonly property string displayName: {
     var first = String(fullName || "").replace(/[<>]/g, "").trim().split(/\s+/)[0] || ""
-    if (first.length > 0) return first
+    if (first.length > 0) return first.substring(0, 40)
     var u = String(userName || "")
     return u.length > 0 ? u.charAt(0).toUpperCase() + u.slice(1) : u
   }
@@ -131,12 +167,15 @@ Item {
     var encoded = String(videoPath).split("/").map(encodeURIComponent).join("/")
     return "file://" + encoded
   }
-  property string hostName: Quickshell.env("HOSTNAME") || Quickshell.env("HOST") || "omarchy"
+  function cleanHostName(h) {
+    return String(h || "").trim().replace(/[^A-Za-z0-9.-]/g, "").substring(0, 64)
+  }
+  property string hostName: cleanHostName(Quickshell.env("HOSTNAME") || Quickshell.env("HOST")) || "omarchy"
   FileView {
     path: "/etc/hostname"
     printErrors: false
     onLoaded: {
-      var h = String(text() || "").trim()
+      var h = base.cleanHostName(text())
       if (h.length > 0) base.hostName = h
     }
   }
@@ -148,6 +187,12 @@ Item {
   // disappears entirely. That capture becomes the splash for reboot/shutdown
   // and for stretches of boot with no prompt up, where a box is dead chrome.
   property bool snapshotBare: false
+  // The explorer sets this for a boot snapshot when "Clock on boot screen" is
+  // Hide. A snapshot is a still image shown on later boots, so a clock in it
+  // stays at the time of the grab (issue #74); hideTime is the one switch
+  // designs read to leave their time, date and day-bound parts out of it.
+  property bool snapshotHideClock: false
+  readonly property bool hideTime: snapshotMode && snapshotHideClock
   property Item inputItem: null
   property bool shakeOnFail: false
   property bool flashOnFail: true
@@ -193,8 +238,8 @@ Item {
       width: asking ? askLabel.implicitWidth + 24 : 34
       height: 34
       radius: 17
-      color: asking ? base.withAlpha(Color.lock.textError, 0.9)
-        : base.withAlpha(Color.lock.text, powerArea.containsMouse ? 0.18 : 0.08)
+      color: asking ? base.withAlpha(Commons.Color.lock.textError, 0.9)
+        : base.withAlpha(Commons.Color.lock.text, powerArea.containsMouse ? 0.18 : 0.08)
       Behavior on color { ColorAnimation { duration: 120 } }
       Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
 
@@ -202,7 +247,7 @@ Item {
         anchors.centerIn: parent
         visible: !powerButton.asking
         text: powerButton.glyph
-        color: base.withAlpha(Color.lock.text, 0.75)
+        color: base.withAlpha(Commons.Color.lock.text, 0.75)
         font.family: Style.font.family
         font.pixelSize: 17
       }
@@ -213,7 +258,7 @@ Item {
         visible: powerButton.asking
         text: powerButton.label + "?"
         textFormat: Text.PlainText
-        color: Color.background
+        color: Commons.Color.background
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         font.weight: Font.DemiBold
@@ -243,6 +288,99 @@ Item {
     PowerButton { action: "shutdown"; glyph: "󰐥"; label: base.tr("Shut down") }
   }
 
+  // The media strip, above the design like the power row and gone from boot
+  // snapshots with the rest of the chrome.
+  Rectangle {
+    id: mediaStrip
+    z: 900
+    visible: base.mediaControls && base.showMediaStrip && lockMediaSource.hasMedia && !base.snapshotMode
+    anchors.horizontalCenter: parent.horizontalCenter
+    y: base.mediaStripAtBottom ? parent.height - height - 64 : 24
+    width: mediaRow.implicitWidth + 20
+    height: 40
+    radius: Math.min(20, base.chromeRadius)
+    color: withAlpha(Commons.Color.background, 0.72)
+    border.width: 1
+    border.color: withAlpha(Commons.Color.lock.text, 0.12)
+
+    component MediaButton: Rectangle {
+      id: mediaButton
+      required property string action
+      required property string glyph
+      property bool available: true
+      width: 30
+      height: 30
+      radius: Math.min(15, base.chromeRadius)
+      anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+      opacity: available ? 1 : 0.35
+      color: base.withAlpha(Commons.Color.lock.text, mediaArea.containsMouse && available ? 0.18 : 0.08)
+      Behavior on color { ColorAnimation { duration: 120 } }
+      Text {
+        anchors.centerIn: parent
+        text: mediaButton.glyph
+        color: base.withAlpha(Commons.Color.lock.text, 0.85)
+        font.family: Style.font.family
+        font.pixelSize: 16
+      }
+      MouseArea {
+        id: mediaArea
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: base.mediaAct(mediaButton.action)
+      }
+    }
+
+    Row {
+      id: mediaRow
+      anchors.centerIn: parent
+      spacing: 8
+
+      Rectangle {
+        width: 26
+        height: 26
+        radius: 6
+        anchors.verticalCenter: parent.verticalCenter
+        visible: lockMediaSource.artUrl.length > 0 && mediaArt.status === Image.Ready
+        color: "transparent"
+        clip: true
+        Image {
+          id: mediaArt
+          anchors.fill: parent
+          source: base.mediaControls ? lockMediaSource.artUrl : ""
+          fillMode: Image.PreserveAspectCrop
+          asynchronous: true
+          sourceSize.width: 64
+          sourceSize.height: 64
+        }
+      }
+
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        width: Math.min(implicitWidth, 320)
+        elide: Text.ElideRight
+        text: lockMediaSource.title + (lockMediaSource.artist.length > 0 ? "  ·  " + lockMediaSource.artist : "")
+        textFormat: Text.PlainText
+        color: Commons.Color.lock.text
+        font.family: Style.font.family
+        font.pixelSize: 13
+      }
+
+      MediaButton {
+        action: "previous"; glyph: "󰒮"
+        available: !!lockMediaSource.player && lockMediaSource.player.canGoPrevious
+      }
+      MediaButton {
+        action: "toggle"; glyph: lockMediaSource.playing ? "󰏤" : "󰐊"
+        available: !!lockMediaSource.player && lockMediaSource.player.canTogglePlaying
+      }
+      MediaButton {
+        action: "next"; glyph: "󰒭"
+        available: !!lockMediaSource.player && lockMediaSource.player.canGoNext
+      }
+    }
+  }
+
   Rectangle {
     id: batteryWarning
     z: 900
@@ -254,9 +392,9 @@ Item {
     width: batteryRow.implicitWidth + 24
     height: 30
     radius: 15
-    color: withAlpha(Color.background, 0.72)
+    color: withAlpha(Commons.Color.background, 0.72)
     border.width: 1
-    border.color: withAlpha(Color.lock.textError, 0.7)
+    border.color: withAlpha(Commons.Color.lock.textError, 0.7)
 
     Row {
       id: batteryRow
@@ -264,7 +402,7 @@ Item {
       spacing: 8
       Text {
         text: "󰂃"
-        color: Color.lock.textError
+        color: Commons.Color.lock.textError
         font.family: Style.font.family
         font.pixelSize: 15
         anchors.verticalCenter: parent.verticalCenter
@@ -272,11 +410,42 @@ Item {
       Text {
         text: base.tr("Battery low (%1%)").arg(base.batteryPercent)
         textFormat: Text.PlainText
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: 13
         anchors.verticalCenter: parent.verticalCenter
       }
+    }
+  }
+
+  Rectangle {
+    id: ownerNote
+    z: 900
+    visible: base.ownerMessage.length > 0 && !base.snapshotMode
+    anchors.left: parent.left
+    anchors.bottom: parent.bottom
+    anchors.leftMargin: 28
+    anchors.bottomMargin: 24
+    width: Math.min(ownerText.implicitWidth + 24, Math.round(parent.width * 0.5))
+    height: ownerText.height + 16
+    radius: Math.min(15, base.chromeRadius)
+    color: withAlpha(Commons.Color.background, 0.72)
+    border.width: 1
+    border.color: withAlpha(Commons.Color.lock.text, 0.25)
+
+    Text {
+      id: ownerText
+      anchors.centerIn: parent
+      width: parent.width - 24
+      text: base.ownerMessage
+      textFormat: Text.PlainText
+      wrapMode: Text.Wrap
+      maximumLineCount: 4
+      elide: Text.ElideRight
+      horizontalAlignment: Text.AlignHCenter
+      color: Commons.Color.lock.text
+      font.family: Style.font.family
+      font.pixelSize: 13
     }
   }
 
@@ -293,7 +462,7 @@ Item {
     id: failFlash
     anchors.fill: parent
     z: 1000
-    color: Color.lock.textError
+    color: Commons.Color.lock.textError
     opacity: 0
     visible: opacity > 0
   }
@@ -338,12 +507,18 @@ Item {
   property bool showAuthIcons: true
   readonly property var dateLocale: Qt.locale(Strings.localeName(language))
   function tr(text) { return Strings.tr(language, text) }
-  function date(spec, when) { return (when || now).toLocaleString(dateLocale, String(spec)) }
+  // date() and clock() render empty in a snapshot with the clock hidden (see
+  // hideTime); a date passed in explicitly still shows.
+  function date(spec, when) {
+    if (hideTime && !when) return ""
+    return (when || now).toLocaleString(dateLocale, String(spec))
+  }
 
   // Designs pass their ordinary 24-hour Qt format string here. With the
   // 12-hour setting off it is used as written, so a design that never calls
   // this still behaves exactly as before.
   function clock(spec) {
+    if (hideTime) return ""
     var s = String(spec)
     if (!twelveHour || s.indexOf("H") === -1) return now.toLocaleString(dateLocale, s)
     // An hour standing on its own -- a flip tile, a poster numeral -- has
@@ -360,9 +535,11 @@ Item {
   }
 
   // For designs that lay the meridiem out themselves next to a bare hour.
-  readonly property string meridiem: twelveHour ? now.toLocaleString(dateLocale, "AP") : ""
+  readonly property string meridiem: !hideTime && twelveHour ? now.toLocaleString(dateLocale, "AP") : ""
 
   function greeting() {
+    // A snapshot with the clock hidden is shown at any hour: no time of day.
+    if (hideTime) return tr("Welcome back")
     var h = now.getHours()
     if (h < 5) return tr("Good night")
     if (h < 12) return tr("Good morning")

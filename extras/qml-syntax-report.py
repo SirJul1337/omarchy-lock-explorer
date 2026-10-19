@@ -29,8 +29,9 @@ for entry in entries:
         category = str(warning.get("id", "")).lower()
         # A file that will not parse is reported as an ordinary warning in the
         # `syntax` category, not as a critical, so both have to be caught: the
-        # criticals cover things like two items sharing an id.
-        if category != "syntax" and severity not in ("critical", "error"):
+        # Duplicate names and bindings can also prevent QML object creation
+        # even when qmllint reports them as warnings.
+        if category not in ("syntax", "duplicated-name", "duplicate-property-binding") and severity not in ("critical", "error"):
             continue
         message = str(warning.get("message", ""))
         broken.append(f"{name}:{warning.get('line', 0)}:{warning.get('column', 0)}: {message}")

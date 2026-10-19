@@ -12,7 +12,8 @@
 # stub concatenates after the baked-in initrd, so later cpio entries win and
 # the theme applies with NO initramfs rebuild (proven on real hardware
 # 2026-08-24, see extras/no-rebuild-boot-theme.md). Systems without a UKI
-# or the addon stub fall back to the old bake-and-rebuild path.
+# or the addon stub fall back to the old bake-and-rebuild path; whether a
+# UKI is there is decided on the root side (see addon_capable).
 #
 # The privileged part (one file write to the ESP, or the legacy install +
 # rebuild) runs through a single pkexec call, so the shell UI gets one polkit
@@ -31,38 +32,43 @@ here="$(dirname "$(realpath "$0")")"
 # Every Omarchy UKI gets the addon instead, which also matches the legacy
 # bake-and-rebuild path — limine-mkinitcpio with no argument rebuilds every
 # kernel — so the boot screen is the same whichever entry is picked.
-uki_dir=/boot/EFI/Linux
-uki_glob='omarchy_linux*.efi'
 addon_stub=/usr/lib/systemd/boot/efi/addonx64.efi.stub
 
-ukis() { find "$uki_dir" -maxdepth 1 -name "$uki_glob" -type f 2>/dev/null; }
+# Whether there is a UKI to attach to is for the root side to say. /boot is
+# commonly mounted root-only (fmask/dmask=0077), and this script runs as the
+# user: a find on /boot/EFI/Linux from here then sees nothing, which used to
+# pass for "no UKI" and quietly took the bake-and-rebuild path instead, while
+# the shell went on reporting the design as applied (issue #59). So with the
+# stub installed the theme always goes over in addon mode, and install-root.sh
+# builds the addon and attaches it next to every UKI it finds, baking the
+# theme in only when there is none. Root builds the addon itself, from the
+# theme it has checked (see root-theme.sh): an addon's initrd is laid over
+# the boot image's own, so this side never hands one over.
+addon_capable() { [[ -f $addon_stub ]]; }
 
-addon_capable() { [[ -f $addon_stub && -n $(ukis) ]]; }
-
-# Wrap a staged theme as a systemd-stub initrd addon: the theme dir, a
-# plymouthd.conf pointing at it, and the mono font under the names the
-# initramfs' label-freetype knows. Prints the addon path (in its own tmp dir).
-build_addon() {
-  local staging="$1" work overlay font vma
-  work=$(mktemp -d)
-  overlay="$work/overlay"
-  install -d "$overlay/usr/share/plymouth/themes/omarchy-boot" \
-    "$overlay/etc/plymouth" "$overlay/usr/share/fonts"
-  cp -r "$staging/." "$overlay/usr/share/plymouth/themes/omarchy-boot/"
-  printf '[Daemon]\nTheme=omarchy-boot\n' > "$overlay/etc/plymouth/plymouthd.conf"
-  font=$(fc-match -f %{file} 'JetBrainsMono Nerd Font')
-  cp "$font" "$overlay/usr/share/fonts/Plymouth.ttf"
-  cp "$font" "$overlay/usr/share/fonts/Plymouth-monospace.ttf"
-  (cd "$overlay" && find . -mindepth 1 | cpio -o -H newc -R 0:0 --quiet) > "$work/extra.cpio"
-  vma=$(objdump -h "$addon_stub" | awk '$2 ~ /^\./ { end = strtonum("0x"$4) + strtonum("0x"$3) }
-    END { printf "0x%x", and(end + 0xfff, compl(0xfff)) }')
-  objcopy --add-section .initrd="$work/extra.cpio" --change-section-vma .initrd="$vma" \
-    "$addon_stub" "$work/omarchy-lock-explorer.addon.efi"
-  echo "$work/omarchy-lock-explorer.addon.efi"
+# A theme crosses to the privileged side as one tar file on stdin, never as a
+# path or a directory for root to open: root copies the bytes into a place of
+# its own before it reads them (see install-root.sh), so nothing in here can
+# be swapped underneath it. Prints the tar's path.
+pack_theme() {
+  local dir="$1" tar
+  tar=$(mktemp --suffix=.tar)
+  tar -C "$dir" -cf "$tar" --owner=0 --group=0 .
+  echo "$tar"
 }
 
 target="${1:?usage: apply.sh <design|stock> [--stage-only]}"
 stage_only="${2:-}"
+
+# The target names a generator directory or a file under one of the plugin's
+# folders, and is written into the generated script and the state file: it
+# comes from the shell's saved settings, so it is held to a name pattern
+# rather than trusted. No path separators, no leading dot.
+case $target in
+  custom:* | video:* | snapshot:*)
+    [[ ${target#*:} =~ ^[A-Za-z0-9_-][A-Za-z0-9._\ -]{0,127}$ ]] ;;
+  *) [[ $target =~ ^[a-z0-9-]{1,32}$ ]] ;;
+esac || { echo "Refusing boot screen target: $target" >&2; exit 1; }
 
 state_dir="$HOME/.local/state/omarchy"
 state_file="$state_dir/lock-explorer-boot"
@@ -74,7 +80,9 @@ if [[ $target == stock ]]; then
     echo "Cannot find the stock Omarchy plymouth theme at $stock_dir" >&2
     exit 1
   fi
-  pkexec bash "$here/install-root.sh" stock "$stock_dir"
+  stock_tar=$(pack_theme "$stock_dir")
+  trap 'rm -f "$stock_tar"' EXIT
+  pkexec bash "$here/install-root.sh" stock < "$stock_tar"
   echo stock > "$state_file"
   rm -f "$state_dir/lock-explorer-boot-preview.png"
   echo "Restored the stock boot screen."
@@ -109,6 +117,11 @@ case $target in
       # its text area instead of drawing a pill.
       # SNAPSHOT_ENTRY = "cx,cy,w,h,align" (percent, align left|center|right).
       IFS=, read -r ex ey ew eh ea <<< "$SNAPSHOT_ENTRY"
+      # The fields become layout values; layout_val holds them to its
+      # patterns again, but a malformed rect is dropped here as a whole.
+      num='^-?[0-9]{1,4}(\.[0-9]{1,3})?$'
+      [[ $ex =~ $num && $ey =~ $num && $ew =~ $num && $eh =~ $num && ${ea:-center} =~ ^(left|center|right)$ ]] ||
+        { echo "Refusing SNAPSHOT_ENTRY: $SNAPSHOT_ENTRY" >&2; exit 1; }
       printf 'background = %s\nbackground_plain = %s\nlogo = none\ntitle =\nsubtitle =\nclock = off\nentry = embedded\nentry_x = %s\nentry_y = %s\nentry_wp = %s\nentry_hp = %s\nentry_align = %s\nhint =\n' \
         "$snap" "$plain" "$ex" "$ey" "$ew" "$eh" "${ea:-center}" > "$tmpconf"
     else
@@ -132,20 +145,6 @@ if [[ $stage_only == --stage-only ]]; then
   exit 0
 fi
 
-# Spool mode: hand the staged theme to the root path unit rotate-setup.sh
-# installed, instead of prompting through pkexec. Used by the rotation.
-if [[ $stage_only == --spool ]]; then
-  spool="$state_dir/lock-explorer-boot-spool"
-  rm -rf "$spool"
-  mv "$staging" "$spool"
-  theme_name=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null || echo unknown)
-  echo "$target $theme_name" > "$state_file"
-  [[ -f $spool/preview.png ]] && cp "$spool/preview.png" "$state_dir/lock-explorer-boot-preview.png"
-  echo "$spool" > "$state_dir/lock-explorer-boot-request"
-  echo "Boot screen queued: $target."
-  exit 0
-fi
-
 # The theme background, so the bootloader screen matches the splash color.
 # Anything that is not a plain hex color is dropped: the value crosses the
 # pkexec boundary into a root sed on limine.conf, so it must never carry
@@ -154,18 +153,18 @@ theme_bg=$(awk -F= '/^[[:space:]]*background[[:space:]]*=/ {v=$2; gsub(/[[:space
   "$HOME/.local/state/omarchy/current/theme/colors.toml" 2>/dev/null || true)
 [[ $theme_bg =~ ^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$ ]] || theme_bg=""
 
-trap 'rm -rf "$staging"' EXIT
+theme_tar=$(pack_theme "$staging")
+trap 'rm -rf "$staging" "$theme_tar"' EXIT
 if addon_capable; then
-  addon=$(build_addon "$staging")
-  addon_work=$(dirname "$addon")
-  trap 'rm -rf "$staging" "$addon_work"' EXIT
-  pkexec bash "$here/install-root.sh" addon "$addon" "$theme_bg" "$staging"
+  pkexec bash "$here/install-root.sh" addon "$theme_bg" < "$theme_tar"
 else
-  pkexec bash "$here/install-root.sh" theme "$staging" "$theme_bg"
+  pkexec bash "$here/install-root.sh" theme "$theme_bg" < "$theme_tar"
 fi
 # Record which Omarchy theme the colors were baked from, so the shell can
 # offer to regenerate when the theme changes.
-theme_name=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null || echo unknown)
+# One line in the state file the shell reads back: held to a name pattern.
+theme_name=$(f="$HOME/.local/state/omarchy/current/theme.name"; [[ -f $f && ! -L $f ]] && head -c 128 -- "$f" | head -n 1) || true
+[[ $theme_name =~ ^[A-Za-z0-9._-]{1,64}$ && $theme_name != *..* ]] || theme_name=unknown
 echo "$target $theme_name" > "$state_file"
 [[ -f $staging/preview.png ]] && cp "$staging/preview.png" "$state_dir/lock-explorer-boot-preview.png"
 echo "Boot screen set to $target."

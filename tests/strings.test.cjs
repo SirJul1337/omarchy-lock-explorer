@@ -121,6 +121,7 @@ test("locales map to a language", () => {
   assert.equal(S.fromLocale("de_DE.UTF-8"), "de");
   assert.equal(S.fromLocale("pt_BR"), "pt");
   assert.equal(S.fromLocale("nn_NO"), "nb");
+  assert.equal(S.fromLocale("ko_KR.UTF-8"), "ko");
   assert.equal(S.fromLocale("C"), "en");
   assert.equal(S.fromLocale("ja_JP.UTF-8"), "en");
 });

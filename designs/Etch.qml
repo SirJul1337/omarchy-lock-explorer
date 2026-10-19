@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // A laser etches the greeting and the time onto the screen, sparks cooling
@@ -35,10 +36,10 @@ DesignBase {
       pixelSize: Math.max(24, Math.round(lock.height / 18))
       effectOptions: ({
         laseretch: ["--etch-speed", "1", "--etch-delay", "2",
-                    "--laser-gradient-stops", Ttfx.hex(Qt.lighter(Color.lock.text, 1.25)), Ttfx.hex(Color.lock.borderActive),
-                    "--spark-gradient-stops", Ttfx.hex(Qt.lighter(Color.lock.text, 1.25)), Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.textError),
-                    "--cool-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.muted),
-                    "--final-gradient-stops", Ttfx.hex(Color.lock.text), Ttfx.hex(Color.lock.borderActive),
+                    "--laser-gradient-stops", Ttfx.hex(Qt.lighter(Commons.Color.lock.text, 1.25)), Ttfx.hex(Commons.Color.lock.borderActive),
+                    "--spark-gradient-stops", Ttfx.hex(Qt.lighter(Commons.Color.lock.text, 1.25)), Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.textError),
+                    "--cool-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.muted),
+                    "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.text), Ttfx.hex(Commons.Color.lock.borderActive),
                     "--final-gradient-direction", "horizontal"]
       })
     }
@@ -53,7 +54,7 @@ DesignBase {
       outlineThickness: 1
       showLockGlyph: false
       textAlignment: TextInput.AlignLeft
-      color: lock.withAlpha(Color.lock.background, 0.5)
+      color: lock.withAlpha(Commons.Color.lock.background, 0.5)
     }
   }
 

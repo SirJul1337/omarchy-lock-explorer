@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // Shared layout for the logo designs: the square Omarchy logo animated by
@@ -38,7 +39,7 @@ DesignBase {
   Rectangle {
     anchors.fill: parent
     visible: !lock.wallpaper
-    color: lock.deepen(Color.background, lock.backgroundDarkness)
+    color: lock.deepen(Commons.Color.background, lock.backgroundDarkness)
   }
 
   Wallpaper {
@@ -92,7 +93,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("HH:mm") + "   " + lock.clock("ddd d MMM")
-      color: lock.withAlpha(Color.lock.text, 0.7)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.7)
       font.family: Style.font.family
       font.pixelSize: Style.font.title
       font.letterSpacing: 2
@@ -107,7 +108,7 @@ DesignBase {
       radius: 24
       outlineThickness: 1
       showLockGlyph: false
-      color: Color.lock.background
+      color: Commons.Color.lock.background
       placeholder: lock.tr(lock.placeholder)
     }
   }

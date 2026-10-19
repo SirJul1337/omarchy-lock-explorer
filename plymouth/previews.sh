@@ -11,7 +11,9 @@ source "$here/../extras/safe-paths.sh"
 
 outdir="${1:-$HOME/.local/state/omarchy/lock-explorer-boot-previews}"
 safe_dir "$outdir"
-theme=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null || echo unknown)
+# Part of every preview file name and a find pattern: held to a name pattern.
+theme=$(f="$HOME/.local/state/omarchy/current/theme.name"; [[ -f $f && ! -L $f ]] && head -c 128 -- "$f" | head -n 1) || true
+[[ $theme =~ ^[A-Za-z0-9._-]{1,64}$ && $theme != *..* ]] || theme=unknown
 
 find "$outdir" -name '*.png' ! -name "*-$theme.png" -delete 2>/dev/null || true
 

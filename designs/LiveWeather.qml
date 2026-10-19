@@ -57,9 +57,9 @@ Item {
   }
   property bool locationKnown: false
 
-  FileView {
+  CappedFile {
     path: Quickshell.env("HOME") + "/.local/state/omarchy/settings/weather.json"
-    printErrors: false
+    maxBytes: 65536
     onLoaded: {
       try {
         var d = JSON.parse(text())
@@ -82,9 +82,12 @@ Item {
     command: ["bash", "-c",
       'set -o pipefail; c="$3"; '
       + 'if [ -z "$c" ]; then curl -fsS --max-time 15 --max-filesize "$2" "$1" | head -c "$2"; exit; fi; '
-      + 'exec 9>"$c.lock"; flock -w 30 9 || true; '
-      + 'if [ -s "$c" ] && [ $(( $(date +%s) - $(stat -c %Y "$c") )) -lt 1800 ]; then cat "$c"; exit 0; fi; '
-      + 'curl -fsS --max-time 15 --max-filesize "$2" "$1" | head -c "$2" > "$c.part" && mv -f "$c.part" "$c" && cat "$c"',
+      + 'exec 9>>"$c.lock"; flock -w 30 9 || true; '
+      // The cache is read as a plain file within the cap, and written to a
+      // fresh temporary that replaces it, never through a link.
+      + 'if [ -f "$c" ] && [ ! -L "$c" ] && [ -s "$c" ] && [ $(( $(date +%s) - $(stat -c %Y "$c") )) -lt 1800 ]; then head -c "$2" -- "$c"; exit 0; fi; '
+      + 't=$(mktemp "$c.XXXXXX") || exit 1; '
+      + 'curl -fsS --max-time 15 --max-filesize "$2" "$1" | head -c "$2" > "$t" && mv -f "$t" "$c" && head -c "$2" -- "$c" || { rm -f -- "$t"; exit 1; }',
       "weather", "https://wttr.in/" + weather.locationQuery + "?format=j1&lang=" + weather.language, String(weather.responseCap),
       weather.cacheDir.length > 0
         ? weather.cacheDir + "/omarchy-lock-explorer-weather-" + Qt.md5(weather.locationQuery + "|" + weather.language) + ".json" : ""]

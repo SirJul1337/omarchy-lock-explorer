@@ -17,8 +17,14 @@ Item {
   }
   readonly property bool hasMedia: player !== null && String(player.trackTitle || "").length > 0
   readonly property bool playing: hasMedia && player.playbackState === MprisPlaybackState.Playing
-  readonly property string title: hasMedia ? String(player.trackTitle || "") : ""
-  readonly property string artist: hasMedia ? String(player.trackArtist || "") : ""
-  readonly property string album: hasMedia ? String(player.trackAlbum || "") : ""
-  readonly property string artUrl: hasMedia ? String(player.trackArtUrl || "") : ""
+  // Whatever the player says, capped: it is shown on the lock screen.
+  readonly property string title: hasMedia ? String(player.trackTitle || "").substring(0, 200) : ""
+  readonly property string artist: hasMedia ? String(player.trackArtist || "").substring(0, 200) : ""
+  readonly property string album: hasMedia ? String(player.trackAlbum || "").substring(0, 200) : ""
+  // Cover art comes from whichever program on the session bus claims to be a
+  // player: a local file or an https URL only, never another scheme.
+  readonly property string artUrl: {
+    var u = hasMedia ? String(player.trackArtUrl || "") : ""
+    return /^(file:\/\/\/|https:\/\/)/.test(u) ? u : ""
+  }
 }

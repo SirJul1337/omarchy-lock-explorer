@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 BorderSurface {
@@ -62,12 +63,24 @@ BorderSurface {
 
   width: 400
   height: 60
-  color: Color.lock.background
+  color: Commons.Color.lock.background
   radius: Math.max(Style.cornerRadius, 12)
   clip: true
-  borderSpec: errorState
-    ? Border.surfaceSpec("lock", "border-error", Color.lock.borderError, field.outlineThickness, "border-alpha")
-    : Border.surfaceSpec("lock", "border-active", Color.lock.borderActive, field.outlineThickness, "border-alpha")
+  // The field's colors, the lock theme's unless a design brings its own
+  // palette (the seasonal ones do). The outline follows the theme's border
+  // token -- width, alpha, gradient -- until a design sets `outlineColor`.
+  property color textColor: Commons.Color.lock.text
+  property color mutedColor: Commons.Color.lock.placeholder
+  property color accentColor: Commons.Color.lock.borderActive
+  property color errorColor: Commons.Color.lock.textError
+  property color outlineColor: "transparent"
+  property color outlineErrorColor: errorColor
+  readonly property var themedBorder: errorState
+    ? Border.surfaceSpec("lock", "border-error", Commons.Color.lock.borderError, field.outlineThickness, "border-alpha")
+    : Border.surfaceSpec("lock", "border-active", Commons.Color.lock.borderActive, field.outlineThickness, "border-alpha")
+  borderSpec: outlineColor.a > 0
+    ? ({ color: errorState ? outlineErrorColor : outlineColor, widths: themedBorder.widths, gradient: { colors: [], angle: 0, enabled: false } })
+    : themedBorder
 
   function focusInput() { input.forceActiveFocus() }
 
@@ -103,7 +116,7 @@ BorderSurface {
     anchors.verticalCenter: parent.verticalCenter
     visible: field.showLockGlyph
     text: field.authenticating ? "󰔟" : (field.errorState ? "󰍁" : "󰌾")
-    color: field.errorState ? Color.lock.textError : Color.lock.placeholder
+    color: field.errorState ? field.errorColor : field.mutedColor
     font.family: Style.font.family
     font.pixelSize: Math.round(field.fieldFontSize * 1.1)
   }
@@ -121,14 +134,14 @@ BorderSurface {
     radius: 3
     color: "transparent"
     border.width: 1
-    border.color: Color.lock.placeholder
+    border.color: field.mutedColor
 
     Text {
       id: layoutCode
       anchors.centerIn: parent
       text: field.lock ? field.lock.keyboardLayout : ""
       textFormat: Text.PlainText
-      color: Color.lock.placeholder
+      color: field.mutedColor
       font.family: Style.font.family
       font.pixelSize: Math.round(field.fieldFontSize * 0.62)
       font.letterSpacing: 1
@@ -158,14 +171,14 @@ BorderSurface {
     radius: 3
     color: "transparent"
     border.width: 1
-    border.color: Color.lock.borderActive
+    border.color: field.accentColor
 
     Text {
       id: capsLabel
       anchors.centerIn: parent
       text: "CAPS"
       textFormat: Text.PlainText
-      color: Color.lock.borderActive
+      color: field.accentColor
       font.family: Style.font.family
       font.pixelSize: Math.round(field.fieldFontSize * 0.62)
       font.letterSpacing: 1
@@ -196,7 +209,7 @@ BorderSurface {
     cursorVisible: activeFocus && text.length > 0 && !field.authenticating && !field.errorState
     cursorDelegate: Rectangle {
       width: 2
-      color: Color.lock.text
+      color: field.textColor
       visible: input.cursorVisible
     }
   }
@@ -208,7 +221,7 @@ BorderSurface {
       : (field.fido2Active ? (field.lock.fido2Status.length > 0 ? field.lock.fido2Status : tr("Waiting for your key…")) : tr(field.placeholder)))
     textFormat: Text.PlainText
     visible: input.text.length === 0 && !field.snapshotBox
-    color: field.authenticating ? Color.lock.text : (field.errorState ? Color.lock.textError : Color.lock.placeholder)
+    color: field.authenticating ? field.textColor : (field.errorState ? field.errorColor : field.mutedColor)
     font.family: Style.font.family
     font.pixelSize: field.fieldFontSize
     font.italic: !field.authenticating && field.errorState
@@ -230,7 +243,7 @@ BorderSurface {
     Text {
       anchors.centerIn: parent
       text: field.revealed ? "󰈉" : "󰈈"
-      color: field.revealed ? Color.lock.borderActive : Color.lock.placeholder
+      color: field.revealed ? field.accentColor : field.mutedColor
       font.family: Style.font.family
       font.pixelSize: Math.round(field.fieldFontSize * 1.1)
     }
@@ -256,7 +269,7 @@ BorderSurface {
     anchors.verticalCenter: parent.verticalCenter
     visible: field.fingerprint
     text: "󰈷"
-    color: Color.lock.placeholder
+    color: field.mutedColor
     font.family: Style.font.family
     font.pixelSize: Math.round(field.fieldFontSize * 1.1)
   }
@@ -269,7 +282,7 @@ BorderSurface {
     anchors.verticalCenter: parent.verticalCenter
     visible: field.face
     text: "󰱻"
-    color: Color.lock.placeholder
+    color: field.mutedColor
     font.family: Style.font.family
     font.pixelSize: Math.round(field.fieldFontSize * 1.1)
   }
@@ -283,7 +296,7 @@ BorderSurface {
     anchors.verticalCenter: parent.verticalCenter
     visible: field.fido2
     text: ""
-    color: field.fido2Active ? Color.lock.text : Color.lock.placeholder
+    color: field.fido2Active ? field.textColor : field.mutedColor
     font.family: Style.font.family
     font.pixelSize: Math.round(field.fieldFontSize * 1.1)
     MouseArea {

@@ -80,9 +80,24 @@ else
        "omarchy plugin enable $ID && omarchy restart shell"
 fi
 
+# Another enabled plugin that also replaces omarchy.lock registers the same
+# `lock` IPC target, and whichever loads first keeps it (issue #41).
+rivals=()
+if command -v jq >/dev/null 2>&1; then
+  mapfile -t rivals < <(timeout 5 omarchy-shell shell listPlugins 2>/dev/null \
+    | jq -r --arg id "$ID" '.[]? | select(.enabled == true and .clonedFrom == "omarchy.lock" and .id != $id) | .id' 2>/dev/null)
+fi
+if (( ${#rivals[@]} > 0 )); then
+  fail "another lock screen plugin is enabled too: ${rivals[*]}" \
+       "Only one of them gets omarchy-shell lock. Keep one, e.g.:" \
+       "omarchy plugin disable ${rivals[0]} && omarchy restart shell"
+fi
+
 answer="$(timeout 5 omarchy-shell lock status 2>&1 || true)"
 if [[ $answer == \{* && $answer == *'"wakeGraceMs"'* ]]; then
   ok "omarchy-shell lock is answered by this plugin"
+elif (( ${#rivals[@]} > 0 )) && [[ $answer == \{* || $answer == *"Function not found"* ]]; then
+  fail "omarchy-shell lock is answered by ${rivals[0]}, not this plugin (see above)"
 elif [[ $answer == \{* || $answer == *"Function not found"* ]]; then
   fail "omarchy-shell lock is answered by Omarchy's own lock screen, not this plugin" \
        "Restart the shell so it hands the lock over: omarchy restart shell" \

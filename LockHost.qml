@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell.Io
+import "designs"
 import "Designs.js" as Designs
 
 Item {
@@ -7,6 +8,8 @@ Item {
 
   property string designId: Designs.DEFAULT_ID
   property int revision: 0
+  // Service.userDesigns, the scanned ~/.config/omarchy/lock-designs.
+  property var userDesigns: []
   property bool fadeIn: false
 
   property string backgroundPath: ""
@@ -31,10 +34,12 @@ Item {
   property int keyboardLayoutCount: 1
   property bool batteryLow: false
   property int batteryPercent: -1
+  property string ownerMessage: ""
   signal layoutSwitchRequested()
   property bool capsLock: false
   signal capsProbeRequested()
   property bool powerActions: false
+  property bool mediaControls: false
   signal powerActionRequested(string action)
   property bool loadBackground: true
   property string passwordText: ""
@@ -86,7 +91,7 @@ Item {
 
   readonly property var design: {
     var r = revision
-    return Designs.resolve(designId)
+    return Designs.resolve(designId, userDesigns)
   }
   readonly property bool isUserDesign: design && design.path ? true : false
   readonly property string userLocalPath: isUserDesign ? decodeURIComponent(String(design.path).replace(/^file:\/\//, "")) : ""
@@ -134,8 +139,10 @@ Item {
     if (it.keyboardLayoutCount !== undefined) it.keyboardLayoutCount = Qt.binding(function() { return host.keyboardLayoutCount })
     if (it.batteryLow !== undefined) it.batteryLow = Qt.binding(function() { return host.batteryLow })
     if (it.batteryPercent !== undefined) it.batteryPercent = Qt.binding(function() { return host.batteryPercent })
+    if (it.ownerMessage !== undefined) it.ownerMessage = Qt.binding(function() { return host.ownerMessage })
     if (it.capsLock !== undefined) it.capsLock = Qt.binding(function() { return host.capsLock })
     if (it.powerActions !== undefined) it.powerActions = Qt.binding(function() { return host.powerActions })
+    if (it.mediaControls !== undefined) it.mediaControls = Qt.binding(function() { return host.mediaControls })
     it.loadBackground = Qt.binding(function() { return host.loadBackground })
     it.passwordText = Qt.binding(function() { return host.passwordText })
     if (it.videoPath !== undefined) it.videoPath = Qt.binding(function() { return host.videoPath })
@@ -242,6 +249,7 @@ Item {
     function onFailedAttemptsChanged() { host.regrab() }
     function onBatteryLowChanged() { host.regrab() }
     function onBatteryPercentChanged() { host.regrab() }
+    function onOwnerMessageChanged() { host.regrab() }
     function onAuthenticatingPasswordChanged() { host.regrab() }
     function onFingerprintStatusChanged() { host.regrab() }
     function onFido2StatusChanged() { host.regrab() }
@@ -261,10 +269,13 @@ Item {
     function onShowAuthIconsChanged() { host.regrab() }
   }
 
-  FileView {
+  // A design file of the user's own: read as a plain file (a link to one is
+  // fine), at most 1 MiB.
+  CappedFile {
     id: userFile
     path: host.userLocalPath
-    printErrors: false
+    allowLinks: true
+    maxBytes: 1048576
     onLoaded: host.rebuildUser()
     onLoadFailed: { host.loadError = "Cannot read " + host.userLocalPath }
   }
@@ -344,7 +355,7 @@ Item {
         border.width: 1
         border.color: host.failureMessage.length > 0 ? "#c96a6a" : "#565b63"
 
-        TextInput {
+        TypedInput {
           id: emergencyInput
           anchors.fill: parent
           anchors.margins: 14
@@ -354,7 +365,7 @@ Item {
           color: "#eeeeee"
           font.pixelSize: 18
           enabled: host.inputEnabled && !host.authenticatingPassword
-          readOnly: host.inputBlocked
+          typing: !host.inputBlocked
           Keys.onPressed: host.wakeRequested()
           onTextChanged: host.passwordTextEdited(text)
           onAccepted: host.submitPassword(text)

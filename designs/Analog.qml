@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -27,14 +28,18 @@ DesignBase {
       anchors.horizontalCenter: parent.horizontalCenter
       property date t: lock.now
       onTChanged: requestPaint()
+      Connections {
+        target: lock
+        function onHideTimeChanged() { face.requestPaint() }
+      }
       onPaint: {
         var ctx = getContext("2d")
         ctx.reset()
         var c = width / 2
         var r = c - 6
-        var fg = Color.lock.text
-        var accent = Color.lock.borderActive
-        var bg = Color.lock.background
+        var fg = Commons.Color.lock.text
+        var accent = Commons.Color.lock.borderActive
+        var bg = Commons.Color.lock.background
 
         ctx.beginPath()
         ctx.arc(c, c, r, 0, Math.PI * 2)
@@ -54,6 +59,10 @@ DesignBase {
           ctx.lineTo(c + Math.sin(a) * (r - 10 - len), c - Math.cos(a) * (r - 10 - len))
           ctx.stroke()
         }
+
+        // A boot snapshot with the clock hidden keeps the dial but not the hands:
+        // they would only show the time the snapshot was taken.
+        if (lock.hideTime) return
 
         var h = t.getHours() % 12, m = t.getMinutes(), s = t.getSeconds()
         function hand(angle, length, w, col) {
@@ -79,7 +88,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("dddd d MMMM  ·  HH:mm")
-      color: lock.withAlpha(Color.lock.text, 0.75)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.75)
       font.family: Style.font.family
       font.pixelSize: Style.font.title
       font.letterSpacing: 1

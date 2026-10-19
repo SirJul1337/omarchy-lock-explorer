@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
@@ -8,11 +9,11 @@ DesignBase {
 
   readonly property int fontSize: Math.round(Style.font.baseSize * 1.6)
   readonly property int pad: Math.round(Math.min(width, height) * 0.08)
-  readonly property color fg: Color.lock.text
-  readonly property color dimFg: withAlpha(Color.lock.text, 0.55)
+  readonly property color fg: Commons.Color.lock.text
+  readonly property color dimFg: withAlpha(Commons.Color.lock.text, 0.55)
   readonly property string masked: passwordVisible ? passwordText : "*".repeat(passwordText.length)
 
-  Rectangle { anchors.fill: parent; color: Color.background }
+  Rectangle { anchors.fill: parent; color: Commons.Color.background }
 
   Canvas {
     anchors.fill: parent
@@ -49,11 +50,13 @@ DesignBase {
 
     Text {
       text: "Omarchy Linux (" + lock.hostName + ") (tty1)"
+      textFormat: Text.PlainText
       color: lock.fg; font.family: Style.font.family; font.pixelSize: lock.fontSize
     }
     Text { text: " "; font.pixelSize: lock.fontSize }
     Text {
       text: lock.hostName + " login: " + lock.userName
+      textFormat: Text.PlainText
       color: lock.fg; font.family: Style.font.family; font.pixelSize: lock.fontSize
     }
 
@@ -65,6 +68,8 @@ DesignBase {
       }
       Text {
         text: lock.masked
+        // The typed password, revealed or not: never markup.
+        textFormat: Text.PlainText
         color: lock.fg; font.family: Style.font.family; font.pixelSize: lock.fontSize
       }
       Rectangle {
@@ -94,7 +99,7 @@ DesignBase {
     Text {
       visible: lock.errorState
       text: "Login incorrect" + (lock.failedAttempts > 1 ? " (" + lock.failedAttempts + ")" : "")
-      color: Color.lock.textError; font.family: Style.font.family; font.pixelSize: lock.fontSize
+      color: Commons.Color.lock.textError; font.family: Style.font.family; font.pixelSize: lock.fontSize
     }
     Text {
       visible: lock.fingerprintConfigured

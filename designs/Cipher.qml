@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // A block clock drawn by ttfx: it decrypts when the screen locks, slides the
@@ -13,7 +14,7 @@ DesignBase {
 
   readonly property int cell: Math.max(14, Math.round(Math.min(width / 120, height / 40)))
 
-  Rectangle { anchors.fill: parent; color: lock.deepen(Color.background, 1.35) }
+  Rectangle { anchors.fill: parent; color: lock.deepen(Commons.Color.background, 1.35) }
 
   MouseArea {
     anchors.fill: parent
@@ -48,7 +49,7 @@ DesignBase {
       frameRate: 120
       margin: 1
       pixelSize: Style.font.heading
-      textColor: lock.withAlpha(Color.lock.text, 0.75)
+      textColor: lock.withAlpha(Commons.Color.lock.text, 0.75)
     }
 
     PasswordField {
@@ -61,7 +62,7 @@ DesignBase {
       outlineThickness: 1
       shakeOnFail: false
       showLockGlyph: false
-      color: Color.lock.background
+      color: Commons.Color.lock.background
       placeholder: "passphrase"
     }
   }

@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import "designs"
 import "Designer.js" as D
 import "ExplorerStrings.js" as UiText
@@ -23,9 +24,9 @@ Item {
   function tr(text) { return UiText.tr(designer.language, text) }
   property var design: null
   property string pluginId: "io.github.sirjul1337.lock-explorer"
-  property color background: Color.menu.background
-  property color foreground: Color.menu.text
-  property color accent: Color.accent
+  property color background: Commons.Color.menu.background
+  property color foreground: Commons.Color.menu.text
+  property color accent: Commons.Color.accent
   property string fontFamily: Style.font.menuFamily
   property real screenWidth: 1920
   property real screenHeight: 1080
@@ -42,6 +43,7 @@ Item {
   // announcement, the canvas is bound to its properties.
   property var nodes: []
   property string docName: D.DEFAULT_NAME
+  property int docCorners: D.DEFAULT_CORNERS
   property var selection: []
   property bool dirty: false
   property bool confirmDiscard: false
@@ -89,15 +91,28 @@ Item {
     })
   }
 
-  function currentDoc() { return D.docOf(designer.nodes, designer.docName) }
+  function currentDoc() { return D.docOf(designer.nodes, designer.docName, designer.docCorners) }
 
   function newNodeId() { return D.nextIdFrom(D.idsOf(designer.nodes)) }
 
   // -------------------------------------------------------------- the file
 
+  // Reads go through CappedFile (a plain file, a link to one is fine, at most
+  // 1 MiB); the FileView only writes, and never reads the file itself.
+  CappedFile {
+    id: reader
+    path: designer.path
+    allowLinks: true
+    maxBytes: 1048576
+    preload: false
+    onLoadFailed: designer.loadError = designer.tr("Cannot read %1").arg(designer.path)
+    onLoaded: designer.adopt(reader.text())
+  }
+
   FileView {
     id: file
     path: designer.path
+    preload: false
     watchChanges: false
     atomicWrites: true
     printErrors: false
@@ -108,8 +123,6 @@ Item {
         designer.service.reloadDesigns()
     }
     onSaveFailed: function(error) { designer.status = designer.tr("Save failed: %1").arg(error) }
-    onLoadFailed: designer.loadError = designer.tr("Cannot read %1").arg(designer.path)
-    onLoaded: designer.adopt(file.text())
   }
 
   onPathChanged: if (path.length > 0) load()
@@ -123,7 +136,8 @@ Item {
   function load() {
     loadError = ""
     status = ""
-    file.reload()
+    // After the bindings settle: the reader's path follows designer.path.
+    Qt.callLater(reader.reload)
   }
 
   function adopt(text) {
@@ -145,6 +159,7 @@ Item {
     var made = []
     for (var i = 0; i < plain.nodes.length; i++) made.push(makeNode(plain.nodes[i]))
     designer.docName = plain.name
+    designer.docCorners = D.clampCorners(plain.corners)
     designer.nodes = made
     designer.selection = []
     // Only once the canvas has let go of them.
@@ -782,7 +797,7 @@ Item {
     verticalAlignment: Text.AlignVCenter
     text: designer.loadError
     textFormat: Text.PlainText
-    color: Color.lock.textError
+    color: Commons.Color.lock.textError
     font.family: designer.fontFamily
     font.pixelSize: Style.font.bodySmall
     wrapMode: Text.Wrap
@@ -882,7 +897,7 @@ Item {
               anchors.topMargin: Style.space(5)
               visible: componentArea.containsMouse || removeArea.containsMouse
               text: "✕"
-              color: removeArea.containsMouse ? Color.lock.textError : designer.muted
+              color: removeArea.containsMouse ? Commons.Color.lock.textError : designer.muted
               font.family: designer.fontFamily
               font.pixelSize: Style.font.caption
               MouseArea {
@@ -915,7 +930,7 @@ Item {
                   anchors.centerIn: parent
                   text: componentEntry.modelData.comp ? componentEntry.modelData.comp.name : ""
                   textFormat: Text.PlainText
-                  color: Color.background
+                  color: Commons.Color.background
                   font.family: designer.fontFamily
                   font.pixelSize: Style.font.caption
                   font.weight: Font.DemiBold
@@ -1046,7 +1061,7 @@ Item {
                       anchors.centerIn: parent
                       text: designer.tr(entry.modelData.kind.name)
                       textFormat: Text.PlainText
-                      color: Color.background
+                      color: Commons.Color.background
                       font.family: designer.fontFamily
                       font.pixelSize: Style.font.caption
                       font.weight: Font.DemiBold
@@ -1157,6 +1172,7 @@ Item {
         editing: true
         selection: designer.selection
         viewScale: designer.canvasScale
+        chromeRadius: designer.docCorners
         backgroundPath: designer.service ? designer.service.backgroundPath : ""
         backgroundVersion: designer.service ? designer.service.backgroundVersion : 0
         avatarPath: designer.service ? designer.service.avatarPath : ""
@@ -1255,6 +1271,27 @@ Item {
           onEscaped: designer.focusCanvas()
         }
 
+        // The base's own chrome (media strip, owner message) follows the
+        // design: square for a sharp layout, a pill for a round one.
+        DesignerField {
+          language: designer.language
+          width: parent.width
+          label: designer.tr("CORNERS")
+          type: "number"
+          minimum: 0
+          maximum: 24
+          step: 1
+          value: designer.docCorners
+          foreground: designer.foreground
+          accent: designer.accent
+          onEdited: function(next) {
+            designer.pushUndo("corners")
+            designer.docCorners = D.clampCorners(next)
+            designer.touch()
+          }
+          onEscaped: designer.focusCanvas()
+        }
+
         Rectangle { width: parent.width; height: 1; color: designer.line }
 
         Text {
@@ -1323,7 +1360,7 @@ Item {
                     width: Style.space(5)
                     height: width
                     radius: 1
-                    color: parent.current ? Color.background : designer.muted
+                    color: parent.current ? Commons.Color.background : designer.muted
                   }
                   MouseArea {
                     id: anchorArea
@@ -1559,7 +1596,7 @@ Item {
             color: Qt.rgba(designer.foreground.r, designer.foreground.g, designer.foreground.b, 0.07)
             border.width: 1
             border.color: nameEntry.activeFocus ? designer.accent : designer.line
-            TextInput {
+            TypedInput {
               id: nameEntry
               anchors.fill: parent
               anchors.leftMargin: Style.space(8)

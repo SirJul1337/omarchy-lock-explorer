@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // Shells launch from the bottom of the screen, burst in the theme colors and
@@ -33,8 +34,8 @@ DesignBase {
     rows: Math.floor(lock.height * 0.7 / Math.max(1, cellHeight))
     effectOptions: ({
       fireworks: ["--launch-delay", "20", "--firework-volume", "0.08", "--firework-symbol", "●",
-                  "--firework-colors", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text), Ttfx.hex(Color.lock.textError), Ttfx.hex(Qt.lighter(Color.lock.borderActive, 1.4)),
-                  "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)]
+                  "--firework-colors", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text), Ttfx.hex(Commons.Color.lock.textError), Ttfx.hex(Qt.lighter(Commons.Color.lock.borderActive, 1.4)),
+                  "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)]
     })
   }
 
@@ -46,7 +47,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.greeting()
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Style.font.title
     }
@@ -60,7 +61,7 @@ DesignBase {
       radius: 25
       showLockGlyph: false
       shakeOnFail: false
-      color: lock.withAlpha(Color.lock.background, 0.6)
+      color: lock.withAlpha(Commons.Color.lock.background, 0.6)
     }
   }
 

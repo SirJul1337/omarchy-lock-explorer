@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // Four launchers circle the screen edge and fire the clock together from the
@@ -34,10 +35,10 @@ DesignBase {
       orbittingvolley: ["--launch-delay", "20", "--volley-size", "0.05",
                         "--top-launcher-symbol", "●", "--right-launcher-symbol", "●",
                         "--bottom-launcher-symbol", "●", "--left-launcher-symbol", "●",
-                        "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)],
+                        "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)],
       rings: ["--spin-duration", "60", "--disperse-duration", "40", "--spin-disperse-cycles", "1",
-              "--ring-colors", Ttfx.hex(Color.lock.textError), Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text),
-              "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)]
+              "--ring-colors", Ttfx.hex(Commons.Color.lock.textError), Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text),
+              "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)]
     })
   }
 
@@ -52,7 +53,7 @@ DesignBase {
     radius: 25
     outlineThickness: 1
     showLockGlyph: false
-    color: lock.withAlpha(Color.lock.background, 0.55)
+    color: lock.withAlpha(Commons.Color.lock.background, 0.55)
   }
 
   Connections {

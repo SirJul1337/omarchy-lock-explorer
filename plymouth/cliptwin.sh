@@ -12,6 +12,10 @@ source "$(dirname "$(realpath "$0")")/common.sh"
 staging="${1:?usage: cliptwin.sh <staging-dir> <design-id> <clip-file>}"
 design="${2:?missing design id}"
 clip="$HOME/.config/omarchy/lock-videos/${3:?missing clip filename}"
+[[ $3 =~ ^[A-Za-z0-9_-][A-Za-z0-9._\ -]{0,127}$ && $3 != *..* ]] || { echo "Refusing clip name: $3" >&2; exit 1; }
+# Only a local video container is opened, and only from a file: a playlist or
+# concat "video" would otherwise have ffmpeg read other files into the theme.
+clip_in=(-protocol_whitelist file -format_whitelist mov,mp4,m4a,3gp,3g2,mj2,matroska,webm)
 
 if [[ ! -f $clip ]]; then
   echo "Missing $clip - drop the design's video in ~/.config/omarchy/lock-videos first" >&2
@@ -41,7 +45,7 @@ w=${res%% *}; h=${res##* }
 # Preview mode stops after the thumbnail: one frame instead of the whole
 # sequence, so the explorer can render its cards quickly.
 if [[ ${PREVIEW_ONLY:-0} == 1 ]]; then
-  ffmpeg -v error -y -i "$clip" -vf "scale=720:405:force_original_aspect_ratio=increase,crop=720:405" -frames:v 1 "$staging/first.png"
+  ffmpeg -v error -y "${clip_in[@]}" -i "$clip" -vf "scale=720:405:force_original_aspect_ratio=increase,crop=720:405" -frames:v 1 "$staging/first.png"
   magick -size 220x30 xc:none -draw "fill rgba($bg_i,0.55) roundrectangle 0,0 219,29 15,15" "$staging/pill-s.png"
   magick "$staging/first.png" \
     \( -size 720x101 gradient:'#00000073-#00000000' \) -geometry +0+0 -composite \
@@ -54,14 +58,14 @@ fi
 # Whole clip by default, capped at 72 frames: drop the frame rate for longer
 # clips rather than cutting them short. BOOT_CLIP_SECONDS trims the clip to
 # the first N seconds instead (0 or unset plays it all).
-duration=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$clip")
+duration=$(ffprobe -v error "${clip_in[@]}" -show_entries format=duration -of csv=p=0 "$clip")
 limit="${BOOT_CLIP_SECONDS:-0}"
 if awk -v l="$limit" -v d="$duration" 'BEGIN { exit !(l > 0 && l < d) }'; then
   duration=$limit
 fi
 fps=$(awk -v d="$duration" 'BEGIN { f = 72 / d; if (f > 12) f = 12; printf "%.3f", f }')
 
-ffmpeg -v error -y -t "$duration" -i "$clip" -vf "fps=$fps,scale=$w:$h:force_original_aspect_ratio=increase,crop=$w:$h" \
+ffmpeg -v error -y -t "$duration" "${clip_in[@]}" -i "$clip" -vf "fps=$fps,scale=$w:$h:force_original_aspect_ratio=increase,crop=$w:$h" \
   -start_number 0 "$staging/fr%02d.png"
 num_frames=$(ls "$staging"/fr*.png | wc -l)
 
@@ -98,8 +102,82 @@ num_frames = $num_frames;
 Window.SetBackgroundTopColor(0, 0, 0);
 Window.SetBackgroundBottomColor(0, 0, 0);
 
-screen.w = Window.GetWidth();
-screen.h = Window.GetHeight();
+# Every head measured on its own and moved to a slice of the canvas of its
+# own, as in the custom generator: Plymouth centres the heads on each other,
+# so a single Window.GetWidth() layout or one shared sprite lands on a head of
+# another shape stretched or cut off (issue #38). The room between the slices
+# keeps a clip filled past one head's edges off the next.
+display_count = 0;
+next_x = 0;
+i = 0;
+while (i < 8) {
+  dw = Window.GetWidth(i);
+  dh = Window.GetHeight(i);
+  if (dw > 0) {
+    Window.SetX(i, next_x);
+    Window.SetY(i, 0);
+    dsp_i[display_count] = i;
+    dsp_x[display_count] = next_x;
+    dsp_y[display_count] = 0;
+    dsp_w[display_count] = dw;
+    dsp_h[display_count] = dh;
+    display_count++;
+    next_x = next_x + dw + 32768;
+  }
+  i++;
+}
+moved_count = display_count;
+# An older plymouth that does not take a display index answers for the one
+# screen it has; that is the single-head case and it still works.
+if (display_count == 0) {
+  dsp_x[0] = 0;
+  dsp_y[0] = 0;
+  dsp_w[0] = Window.GetWidth();
+  dsp_h[0] = Window.GetHeight();
+  display_count = 1;
+}
+
+# Plymouth centres the heads on each other again after every prompt, message
+# and keystroke (script_lib_update_displays in plugin.c), which would pull the
+# layout above back into the overlap. The refresh puts each head back in its
+# slice; Window.SetX/SetY only redraw when a position actually changes.
+fun place_heads() {
+  d = 0;
+  while (d < moved_count) {
+    Window.SetX(dsp_i[d], dsp_x[d]);
+    Window.SetY(dsp_i[d], dsp_y[d]);
+    d++;
+  }
+}
+
+# The entry and the messages live on the first head; the others carry the
+# clip alone.
+screen.x = dsp_x[0];
+screen.y = dsp_y[0];
+screen.w = dsp_w[0];
+screen.h = dsp_h[0];
+
+# Per head: the frames were rendered at the session monitor's size, which need
+# not be this head's. One scale factor for both axes, filling the head, the
+# leftover centred off its edges -- scaling each axis to the screen
+# independently stretched the clip on any head of a different shape.
+i = 0;
+while (i < display_count) {
+  s = dsp_w[i] / $w;
+  if (dsp_h[i] / $h > s) s = dsp_h[i] / $h;
+  clip_w[i] = Math.Int($w * s);
+  clip_h[i] = Math.Int($h * s);
+  clip_x[i] = dsp_x[i] + (dsp_w[i] - clip_w[i]) / 2;
+  clip_y[i] = dsp_y[i] + (dsp_h[i] - clip_h[i]) / 2;
+  i++;
+}
+
+# The frame for head d: the preloaded one, sized for the first head, or a copy
+# scaled for a head of another size.
+fun clip_frame(image, d) {
+  if (clip_w[d] == clip_w[0] && clip_h[d] == clip_h[0]) return image;
+  return image.Scale(clip_w[d], clip_h[d]);
+}
 
 digits = "0123456789";
 
@@ -109,9 +187,21 @@ fun frame_name(i) {
 }
 
 still.image = Image("still.png");
-if (still.image.GetWidth() != screen.w) still.image = still.image.Scale(screen.w, screen.h);
-still.sprite = Sprite(still.image);
-still.sprite.SetPosition(0, 0, 1);
+if (clip_w[0] != $w || clip_h[0] != $h) still.image = still.image.Scale(clip_w[0], clip_h[0]);
+i = 0;
+while (i < display_count) {
+  still_sprites[i] = Sprite(clip_frame(still.image, i));
+  still_sprites[i].SetPosition(clip_x[i], clip_y[i], 1);
+  i++;
+}
+
+fun show_frame(image) {
+  i = 0;
+  while (i < display_count) {
+    still_sprites[i].SetImage(clip_frame(image, i));
+    i++;
+  }
+}
 
 # The clip only ever plays after a passphrase prompt on the way up; during
 # reboot/shutdown plymouthd runs this theme too, and decoding the whole
@@ -121,7 +211,7 @@ $(emit_downward_gate boot_like)
 if (global.boot_like == 1) {
   for (i = 0; i < num_frames; i++) {
     frames[i] = Image(frame_name(i));
-    if (frames[i].GetWidth() != screen.w) frames[i] = frames[i].Scale(screen.w, screen.h);
+    if (clip_w[0] != $w || clip_h[0] != $h) frames[i] = frames[i].Scale(clip_w[0], clip_h[0]);
   }
 }
 
@@ -129,8 +219,8 @@ if (global.boot_like == 1) {
 
 pill.image = Image("pill.png");
 pill.sprite = Sprite(pill.image);
-pill.x = screen.w / 2 - pill.image.GetWidth() / 2;
-pill.y = screen.h * 0.93 - 10 - pill.image.GetHeight();
+pill.x = screen.x + screen.w / 2 - pill.image.GetWidth() / 2;
+pill.y = screen.y + screen.h * 0.93 - 10 - pill.image.GetHeight();
 pill.sprite.SetPosition(pill.x, pill.y, 10);
 
 placeholder.image = Image.Text("Password", dim.r, dim.g, dim.b, 1, font.body);
@@ -174,7 +264,7 @@ fun display_password_callback(prompt_text, count) {
     global.playing = 0;
     global.tick = 0;
     global.cur_frame = -1;
-    still.sprite.SetImage(still.image);
+    show_frame(still.image);
   }
   set_chrome_opacity(1);
 
@@ -208,19 +298,20 @@ fun display_normal_callback() {
 }
 
 fun refresh_callback() {
+  place_heads();
   if (global.playing == 1) {
     global.tick++;
     f = Math.Int(global.tick * clip.fps / 50);
     if (f >= num_frames) f = num_frames - 1;
     if (f != global.cur_frame) {
       global.cur_frame = f;
-      still.sprite.SetImage(frames[f]);
+      show_frame(frames[f]);
     }
   }
 }
 
 message_sprite = Sprite();
-message_sprite.SetPosition(20, screen.h - 30, 12);
+message_sprite.SetPosition(screen.x + 20, screen.y + screen.h - 30, 12);
 
 fun display_message_callback(text) {
   message_sprite.SetImage(Image.Text(text, dim.r, dim.g, dim.b, 1, font.small));

@@ -55,6 +55,27 @@ mkdir -p "$root/existing"
 allows "overwrite of our own existing file" "$root/existing" out.txt
 allows "second overwrite of the same file"  "$root/existing" out.txt
 
+# --- an existing file's permissions -----------------------------------------
+# Rewriting a file someone restricted must not widen it: bar-icon.sh rewrites
+# the whole of shell.json, and a 0600 one has to stay 0600.
+mode_after() { # mode_after DESC DIR NAME EXPECTED
+  local desc=$1 dir=$2 name=$3 want=$4 got
+  if ! try_put "$dir" "$name"; then bad "$desc (write was refused)"; return; fi
+  got=$(stat -c %a "$dir/$name")
+  if [[ $got == "$want" && $(cat "$dir/$name") == PAYLOAD ]]; then ok "$desc"
+  else bad "$desc (mode $got, expected $want)"; fi
+}
+
+mkdir -p "$root/modes"
+mode_after "new file gets the default mode" "$root/modes" fresh.txt 644
+echo old > "$root/modes/private.txt"; chmod 0600 "$root/modes/private.txt"
+mode_after "owner-only file stays owner-only" "$root/modes" private.txt 600
+mode_after "and stays so on a second rewrite" "$root/modes" private.txt 600
+echo old > "$root/modes/group.txt"; chmod 0640 "$root/modes/group.txt"
+mode_after "group-readable file keeps its mode" "$root/modes" group.txt 640
+echo old > "$root/modes/loose.txt"; chmod 0666 "$root/modes/loose.txt"
+mode_after "a looser file gets no more than the default" "$root/modes" loose.txt 644
+
 # --- symlinked components ---------------------------------------------------
 mkdir -p "$root/elsewhere"
 ln -s "$root/elsewhere" "$root/link"

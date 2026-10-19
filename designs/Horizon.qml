@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // Event horizon: the clock's cells scatter as stars, get pulled into a black
@@ -9,7 +10,7 @@ DesignBase {
   inputItem: field.input
   flashOnFail: false
 
-  Rectangle { anchors.fill: parent; color: lock.deepen(Color.background, 2.2) }
+  Rectangle { anchors.fill: parent; color: lock.deepen(Commons.Color.background, 2.2) }
 
   MouseArea {
     anchors.fill: parent
@@ -30,9 +31,9 @@ DesignBase {
     columns: textColumns + 30
     rows: textRows + 14
     effectOptions: ({
-      blackhole: ["--blackhole-color", Ttfx.hex(Color.lock.borderActive),
-                  "--star-colors", Ttfx.hex(Color.lock.text), Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.muted),
-                  "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)]
+      blackhole: ["--blackhole-color", Ttfx.hex(Commons.Color.lock.borderActive),
+                  "--star-colors", Ttfx.hex(Commons.Color.lock.text), Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.muted),
+                  "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)]
     })
   }
 
@@ -45,7 +46,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("dddd d MMMM").toLowerCase()
-      color: lock.withAlpha(Color.lock.text, 0.5)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.5)
       font.family: Style.font.family
       font.pixelSize: Style.font.heading
       font.letterSpacing: 3
@@ -60,7 +61,7 @@ DesignBase {
       radius: 23
       outlineThickness: 1
       showLockGlyph: false
-      color: Color.lock.background
+      color: Commons.Color.lock.background
     }
   }
 

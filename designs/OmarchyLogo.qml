@@ -11,14 +11,15 @@ Item {
 
   property string text: Ttfx.ICON
 
-  FileView {
+  CappedFile {
     path: Quickshell.env("HOME") + "/.config/omarchy/branding/about.txt"
-    printErrors: false
+    maxBytes: 65536
     onLoaded: source.take(text())
     onLoadFailed: stock.path = "/usr/share/omarchy/icon.txt"
   }
 
-  // Only given a path once the branding copy turns out to be missing.
+  // Only given a path once the branding copy turns out to be missing, and
+  // then a root-owned one under /usr/share/omarchy.
   FileView {
     id: stock
     path: ""

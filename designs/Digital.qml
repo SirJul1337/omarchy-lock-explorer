@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // ttfx's matrix: code rain across the top of the screen that settles into the
@@ -10,7 +11,7 @@ DesignBase {
   inputItem: field.input
   flashOnFail: false
 
-  Rectangle { anchors.fill: parent; color: lock.deepen(Color.background, 1.7) }
+  Rectangle { anchors.fill: parent; color: lock.deepen(Commons.Color.background, 1.7) }
 
   MouseArea {
     anchors.fill: parent
@@ -32,9 +33,9 @@ DesignBase {
     anchorText: "s"
     effectOptions: ({
       matrix: ["--rain-time", "3", "--resolve-delay", "2",
-               "--highlight-color", Ttfx.hex(Color.lock.text),
-               "--rain-color-gradient", Ttfx.hex(Color.muted), Ttfx.hex(Color.lock.borderActive),
-               "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)]
+               "--highlight-color", Ttfx.hex(Commons.Color.lock.text),
+               "--rain-color-gradient", Ttfx.hex(Commons.Color.muted), Ttfx.hex(Commons.Color.lock.borderActive),
+               "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)]
     })
   }
 
@@ -47,7 +48,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("yyyy-MM-dd  ddd").toLowerCase()
-      color: lock.withAlpha(Color.lock.borderActive, 0.8)
+      color: lock.withAlpha(Commons.Color.lock.borderActive, 0.8)
       font.family: Style.font.family
       font.pixelSize: Style.font.title
       font.letterSpacing: 3
@@ -62,7 +63,7 @@ DesignBase {
       radius: 0
       outlineThickness: 1
       showLockGlyph: false
-      color: Color.lock.background
+      color: Commons.Color.lock.background
       placeholder: "access code"
     }
   }

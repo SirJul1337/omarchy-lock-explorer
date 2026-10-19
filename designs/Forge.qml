@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
 
 // The Omarchy logo burns into place in the theme's colors, from the text
@@ -12,8 +13,8 @@ IconLock {
   failRate: 120
   backgroundDarkness: 2
   effectOptions: ({
-    burn: ["--starting-color", Ttfx.hex(Color.muted), "--burn-colors", Ttfx.hex(Qt.lighter(Color.lock.text, 1.25)), Ttfx.hex(Qt.lighter(Color.lock.borderActive, 1.3)),
-           Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.textError), Ttfx.hex(Qt.darker(Color.lock.textError, 2.2)),
-           "--smoke-chance", "0.2", "--final-gradient-stops", Ttfx.hex(Color.lock.borderActive), Ttfx.hex(Color.lock.text)]
+    burn: ["--starting-color", Ttfx.hex(Commons.Color.muted), "--burn-colors", Ttfx.hex(Qt.lighter(Commons.Color.lock.text, 1.25)), Ttfx.hex(Qt.lighter(Commons.Color.lock.borderActive, 1.3)),
+           Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.textError), Ttfx.hex(Qt.darker(Commons.Color.lock.textError, 2.2)),
+           "--smoke-chance", "0.2", "--final-gradient-stops", Ttfx.hex(Commons.Color.lock.borderActive), Ttfx.hex(Commons.Color.lock.text)]
   })
 }

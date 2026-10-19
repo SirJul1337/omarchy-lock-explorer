@@ -12,16 +12,14 @@ source "$(dirname "$(realpath "$0")")/../../extras/safe-paths.sh"
 
 conf="${1:?usage: genlock.sh <layout.conf> <name> [preview-out.png]}"
 name="${2:?missing name}"
+# The name becomes a file name and sits in a QML comment.
+[[ $name =~ ^[A-Za-z0-9_-]{1,64}$ ]] || { echo "Refusing layout name: $name" >&2; exit 1; }
 preview_out="${3:-}"
 [[ -f $conf ]] || { echo "No such layout: $conf" >&2; exit 1; }
 
-conf_get() {
-  awk -F= -v k="$1" '
-    /^[ \t]*#/ { next }
-    { key=$1; gsub(/^[ \t]+|[ \t]+$/,"",key)
-      if (key==k) { sub(/^[^=]*=/,""); gsub(/^[ \t]+|[ \t]+$/,""); print; exit } }' "$conf"
-}
-val() { local v; v=$(conf_get "$1"); printf '%s' "${v:-$2}"; }
+# Every key through layout_val (common.sh): the values are written into the
+# QML below, which the shell then loads as a lock design.
+val() { layout_val "$conf" "$1" "$2"; }
 
 background=$(val background theme)
 logo=$(val logo none)
@@ -47,7 +45,7 @@ subtitle_c=$(qml_color "$(val subtitle_color dim)")
 
 expand_vars() { local s=${1//'$USER'/$USER}; printf '%s' "${s//'$HOST'/$(hostname)}"; }
 esc_qml() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
-title_q=$(esc_qml "$(expand_vars "$title")"); subtitle_q=$(esc_qml "$(expand_vars "$subtitle")")
+title_q=$(esc_qml "$(layout_text "$(expand_vars "$title")")"); subtitle_q=$(esc_qml "$(layout_text "$(expand_vars "$subtitle")")")
 
 # ------------------------------------------------ background block
 case "$background" in
@@ -170,7 +168,7 @@ tc=$(theme_color foreground)
 pv=( -size 720x405 "xc:#$bg_t" )
 if [[ $background == wallpaper || ( $background != theme && $background != '#'* ) ]]; then
   link="$HOME/.local/state/omarchy/current/background"
-  [[ -e $link ]] && pv=( "$(readlink -f "$link")" -resize '720x405^' -gravity center -extent 720x405 -blur 0x10 -fill black -colorize 22 )
+  [[ -e $link ]] && src=$(image_in "$(readlink -f "$link")") && pv=( "$src" -resize '720x405^' -gravity center -extent 720x405 -blur 0x10 -fill black -colorize 22 )
 elif [[ $background == '#'* ]]; then
   pv=( -size 720x405 "xc:$background" )
 fi

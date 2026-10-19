@@ -11,5 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install qmllint
         run: sudo apt-get update -q && sudo apt-get install -qy qt6-declarative-dev-tools
+      - name: Test blocking diagnostic filter
+        run: python3 tests/qml-syntax-report.test.py
       - name: Parse every QML file
         run: bash extras/qml-syntax-check.sh

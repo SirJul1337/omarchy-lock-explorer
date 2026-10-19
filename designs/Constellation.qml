@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 // Each character puts a star in the sky and draws the line to the one before
 // it, so a password writes out its own figure. Backspace takes the last star
@@ -70,7 +71,7 @@ DesignBase {
       radius: width / 2
       x: lock.width * lock.scatter(seed)
       y: lock.height * lock.scatter(seed * 7)
-      color: lock.withAlpha(Color.lock.text, 0.12 + lock.scatter(seed * 11) * 0.35)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.12 + lock.scatter(seed * 11) * 0.35)
 
       SequentialAnimation on opacity {
         loops: Animation.Infinite
@@ -110,7 +111,7 @@ DesignBase {
         height: 2
         transformOrigin: Item.Left
         rotation: prev ? Math.atan2(py - prev.py, px - prev.px) * 180 / Math.PI : 0
-        color: lock.alarm ? Color.lock.textError : lock.withAlpha(Color.lock.borderActive, 0.55)
+        color: lock.alarm ? Commons.Color.lock.textError : lock.withAlpha(Commons.Color.lock.borderActive, 0.55)
         Behavior on color { ColorAnimation { duration: 200 } }
 
         opacity: 0
@@ -132,7 +133,7 @@ DesignBase {
         width: 26
         height: 26
         radius: 13
-        color: lock.withAlpha(lock.alarm ? Color.lock.textError : Color.lock.borderActive, 0.18)
+        color: lock.withAlpha(lock.alarm ? Commons.Color.lock.textError : Commons.Color.lock.borderActive, 0.18)
       }
 
       Rectangle {
@@ -140,7 +141,7 @@ DesignBase {
         width: 9
         height: 9
         radius: 4.5
-        color: lock.alarm ? Color.lock.textError : Color.lock.text
+        color: lock.alarm ? Commons.Color.lock.textError : Commons.Color.lock.text
         Behavior on color { ColorAnimation { duration: 200 } }
       }
 
@@ -160,7 +161,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("HH:mm")
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.baseSize * 7)
       font.weight: Font.Light
@@ -170,7 +171,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.date("dddd d MMMM").toUpperCase()
-      color: lock.withAlpha(Color.lock.text, 0.6)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.6)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
       font.letterSpacing: 5
@@ -193,13 +194,13 @@ DesignBase {
       showLockGlyph: false
       shakeOnFail: false
       placeholder: lock.tr("Password")
-      color: lock.withAlpha(Color.lock.background, 0.55)
+      color: lock.withAlpha(Commons.Color.lock.background, 0.55)
     }
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: stars.count === 0 ? lock.tr("Type to draw") : stars.count + (stars.count === 1 ? " star" : " stars")
-      color: lock.withAlpha(Color.lock.text, 0.5)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.5)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
       font.letterSpacing: 2

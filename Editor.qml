@@ -2,7 +2,9 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import "ExplorerStrings.js" as UiText
+import "designs"
 
 // Code on the left, live preview on the right. Ctrl+S saves and reloads the
 // design everywhere (preview, thumbnails and the lock screen itself).
@@ -14,9 +16,9 @@ Item {
     return UiText.tr(editor.service && editor.service.language !== undefined ? String(editor.service.language) : "en", text)
   }
   property var design: null
-  property color background: Color.menu.background
-  property color foreground: Color.menu.text
-  property color accent: Color.accent
+  property color background: Commons.Color.menu.background
+  property color foreground: Commons.Color.menu.text
+  property color accent: Commons.Color.accent
   property string fontFamily: Style.font.menuFamily
   property real screenWidth: 1920
   property real screenHeight: 1080
@@ -37,7 +39,8 @@ Item {
     dirty = false
     confirmDiscard = false
     status = ""
-    file.reload()
+    // After the bindings settle: the reader's path follows editor.path.
+    Qt.callLater(reader.reload)
   }
 
   function save() {
@@ -59,9 +62,29 @@ Item {
 
   onPathChanged: if (path.length > 0) load()
 
+  // Reads go through CappedFile (a plain file, a link to one is fine, at most
+  // 1 MiB). The FileView writes, and watches for changes made elsewhere, but
+  // never reads the file itself.
+  CappedFile {
+    id: reader
+    path: editor.path
+    allowLinks: true
+    maxBytes: 1048576
+    preload: false
+    onLoaded: {
+      if (editor.dirty) return
+      editor.loadingText = true
+      var t = reader.text()
+      if (code.text !== t) code.text = t
+      editor.loadingText = false
+      if (editor.service && typeof editor.service.reloadDesigns === "function") editor.service.reloadDesigns()
+    }
+  }
+
   FileView {
     id: file
     path: editor.path
+    preload: false
     watchChanges: true
     atomicWrites: true
     printErrors: false
@@ -70,15 +93,7 @@ Item {
       if (editor.service && typeof editor.service.reloadDesigns === "function") editor.service.reloadDesigns()
     }
     onSaveFailed: function(error) { editor.status = editor.tr("Save failed: %1").arg(error) }
-    onFileChanged: reload()
-    onLoaded: {
-      if (editor.dirty) return
-      editor.loadingText = true
-      var t = text()
-      if (code.text !== t) code.text = t
-      editor.loadingText = false
-      if (editor.service && typeof editor.service.reloadDesigns === "function") editor.service.reloadDesigns()
-    }
+    onFileChanged: reader.reload()
   }
 
   Row {
@@ -133,7 +148,7 @@ Item {
           else if (contentY + height <= r.y + r.height) contentY = r.y + r.height - height
         }
 
-        TextEdit {
+        TypedEdit {
           id: code
           readonly property real lineHeightValue: contentHeight > 0 && lineCount > 0 ? contentHeight / lineCount : font.pixelSize * 1.3
           width: Math.max(flick.width, contentWidth)
@@ -143,7 +158,7 @@ Item {
           persistentSelection: true
           color: editor.foreground
           selectionColor: editor.accent
-          selectedTextColor: Color.background
+          selectedTextColor: Commons.Color.background
           font.family: Style.font.family
           font.pixelSize: Style.font.body
           tabStopDistance: font.pixelSize * 1.2
@@ -157,17 +172,6 @@ Item {
               editor.save(); event.accepted = true
             } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_O) {
               editor.openExternalRequested(editor.path); event.accepted = true
-            } else if (event.key === Qt.Key_Tab) {
-              code.insert(code.cursorPosition, "  "); event.accepted = true
-            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-              // keep indentation of the current line
-              var pos = code.cursorPosition
-              var t = code.text
-              var start = t.lastIndexOf("\n", pos - 1) + 1
-              var indent = ""
-              for (var i = start; i < pos && (t.charAt(i) === " " || t.charAt(i) === "\t"); i++) indent += t.charAt(i)
-              code.insert(pos, "\n" + indent)
-              event.accepted = true
             }
           }
         }
@@ -194,7 +198,7 @@ Item {
         width: parent.width
         height: Math.round(width * editor.screenHeight / editor.screenWidth)
         radius: Math.max(6, Style.cornerRadius)
-        color: Color.background
+        color: Commons.Color.background
         border.width: 1
         border.color: Qt.rgba(editor.foreground.r, editor.foreground.g, editor.foreground.b, 0.18)
         clip: true
@@ -212,6 +216,7 @@ Item {
               anchors.fill: parent
               designId: editor.design ? editor.design.id : ""
               revision: editor.service ? editor.service.designsRevision : 0
+              userDesigns: editor.service && editor.service.userDesigns ? editor.service.userDesigns : []
               backgroundPath: editor.service ? editor.service.backgroundPath : ""
               backgroundVersion: editor.service ? editor.service.backgroundVersion : 0
               wallpaperBlur: editor.service && editor.service.wallpaperBlurValue !== undefined ? editor.service.wallpaperBlurValue : -1
@@ -254,7 +259,7 @@ Item {
             width: parent.width
             text: preview.loadError.length > 0 ? preview.loadError : (editor.status.length > 0 ? editor.status : editor.tr(editor.dirty ? "Unsaved changes" : "Saved. Preview updates on Ctrl+S."))
             textFormat: Text.PlainText
-            color: preview.loadError.length > 0 ? Color.urgent : (editor.dirty ? editor.foreground : editor.muted)
+            color: preview.loadError.length > 0 ? Commons.Color.urgent : (editor.dirty ? editor.foreground : editor.muted)
             font.family: editor.fontFamily
             font.pixelSize: Style.font.bodySmall
             wrapMode: Text.Wrap

@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 // Every keystroke drops into the water. Rings spread and fade, a wrong password
 // throws one big red wave, and the surface never sits completely still.
@@ -17,7 +18,7 @@ DesignBase {
     onClicked: function(mouse) {
       lock.wakeRequested()
       lock.forcePasswordFocus()
-      lock.splash(mouse.x, mouse.y, 260, Color.lock.borderActive, 0.4)
+      lock.splash(mouse.x, mouse.y, 260, Commons.Color.lock.borderActive, 0.4)
     }
     onPositionChanged: lock.wakeRequested()
   }
@@ -69,7 +70,7 @@ DesignBase {
   // not stack every ring in the same spot.
   function keySplash() {
     var point = field.mapToItem(lock, field.width * (0.12 + Math.random() * 0.76), field.height / 2)
-    lock.splash(point.x, point.y, 200 + Math.random() * 140, Color.lock.borderActive, 0.55)
+    lock.splash(point.x, point.y, 200 + Math.random() * 140, Commons.Color.lock.borderActive, 0.55)
   }
 
   Typing {
@@ -77,7 +78,7 @@ DesignBase {
     onTyped: lock.keySplash()
     onDeleted: {
       var point = field.mapToItem(lock, field.width / 2, field.height / 2)
-      lock.splash(point.x, point.y, 120, lock.withAlpha(Color.lock.text, 0.9), 0.3)
+      lock.splash(point.x, point.y, 120, lock.withAlpha(Commons.Color.lock.text, 0.9), 0.3)
     }
   }
 
@@ -86,7 +87,7 @@ DesignBase {
     function onFailureMessageChanged() {
       if (lock.failureMessage.length === 0) return
       var point = field.mapToItem(lock, field.width / 2, field.height / 2)
-      lock.splash(point.x, point.y, Math.max(lock.width, lock.height) * 1.1, Color.lock.textError, 0.5)
+      lock.splash(point.x, point.y, Math.max(lock.width, lock.height) * 1.1, Commons.Color.lock.textError, 0.5)
     }
   }
 
@@ -101,7 +102,7 @@ DesignBase {
       lock.splash(lock.width * (0.1 + Math.random() * 0.8),
                   lock.height * (0.1 + Math.random() * 0.8),
                   160 + Math.random() * 220,
-                  lock.withAlpha(Color.lock.text, 0.5), 0.18)
+                  lock.withAlpha(Commons.Color.lock.text, 0.5), 0.18)
     }
   }
 
@@ -113,7 +114,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.clock("HH:mm")
-      color: Color.lock.text
+      color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.baseSize * 9)
       font.weight: Font.Light
@@ -123,7 +124,7 @@ DesignBase {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: lock.date("dddd d MMMM")
-      color: lock.withAlpha(Color.lock.text, 0.7)
+      color: lock.withAlpha(Commons.Color.lock.text, 0.7)
       font.family: Style.font.family
       font.pixelSize: Style.font.title
       font.letterSpacing: 2
@@ -142,6 +143,6 @@ DesignBase {
     showLockGlyph: false
     shakeOnFail: false
     placeholder: lock.tr("Password")
-    color: lock.withAlpha(Color.lock.background, 0.6)
+    color: lock.withAlpha(Commons.Color.lock.background, 0.6)
   }
 }

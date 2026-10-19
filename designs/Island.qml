@@ -1,9 +1,13 @@
 import QtQuick
 import QtQuick.Effects
 import qs.Commons
+import qs.Commons as Commons
 
 DesignBase {
   id: lock
+  // The island is top centre, where the media strip would be.
+  mediaStripAtBottom: true
+  chromeRadius: 20
   inputItem: field.input
 
   Wallpaper { anchors.fill: parent; lock: lock; blur: 0.0; dim: 0.1; vignetteTop: 0.4; vignetteMiddle: 0.05; vignetteBottom: 0.25 }
@@ -23,9 +27,9 @@ DesignBase {
     width: row.implicitWidth + 32
     height: 64
     radius: 32
-    color: lock.withAlpha(Color.lock.background, 0.92)
+    color: lock.withAlpha(Commons.Color.lock.background, 0.92)
     border.width: 1
-    border.color: lock.withAlpha(Color.lock.text, 0.14)
+    border.color: lock.withAlpha(Commons.Color.lock.text, 0.14)
     layer.enabled: true
     layer.effect: MultiEffect { shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.5); shadowBlur: 1.0; shadowVerticalOffset: 8 }
 
@@ -54,15 +58,15 @@ DesignBase {
         shakeOnFail: false
         textAlignment: TextInput.AlignLeft
         placeholder: lock.greeting() + ", " + lock.displayName
-        color: lock.withAlpha(Color.background, 0.5)
+        color: lock.withAlpha(Commons.Color.background, 0.5)
       }
 
-      Rectangle { width: 1; height: 28; anchors.verticalCenter: parent.verticalCenter; color: lock.withAlpha(Color.lock.text, 0.2) }
+      Rectangle { width: 1; height: 28; anchors.verticalCenter: parent.verticalCenter; color: lock.withAlpha(Commons.Color.lock.text, 0.2) }
 
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: lock.clock("HH:mm")
-        color: Color.lock.text
+        color: Commons.Color.lock.text
         font.family: Style.font.family
         font.pixelSize: Style.font.display
         font.weight: Font.DemiBold
@@ -77,7 +81,7 @@ DesignBase {
     text: lock.errorState ? lock.failureMessage
       : (lock.authenticatingPassword ? lock.tr("Checking…") : lock.date("dddd d MMMM"))
     textFormat: Text.PlainText
-    color: lock.errorState ? Color.lock.textError : lock.withAlpha(Color.lock.text, 0.75)
+    color: lock.errorState ? Commons.Color.lock.textError : lock.withAlpha(Commons.Color.lock.text, 0.75)
     font.family: Style.font.family
     font.pixelSize: Style.font.bodySmall
     font.letterSpacing: 2
@@ -90,7 +94,7 @@ DesignBase {
     opacity: lock.snapshotMode ? 0 : 1
     text: lock.fingerprintConfigured ? lock.fingerprintHint(lock.tr("󰆠  Touch sensor or type password")) : "󰌾  " + lock.hostName
     textFormat: Text.PlainText
-    color: lock.withAlpha(Color.lock.text, 0.5)
+    color: lock.withAlpha(Commons.Color.lock.text, 0.5)
     font.family: Style.font.family
     font.pixelSize: Style.font.bodySmall
     font.letterSpacing: 2

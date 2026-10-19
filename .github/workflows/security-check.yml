@@ -17,5 +17,11 @@ jobs:
         run: python3 extras/test-clip-filenames.py
       - name: Test the explorer facade covers the UI
         run: python3 extras/test-service-api.py
+      - name: Test typed text is drawn as plain text only
+        run: python3 extras/test-plain-text.py
       - name: Test safe path writes against symlink and permission attacks
         run: bash extras/test-safe-paths.sh
+      - name: Test what root accepts from a staged boot theme
+        run: bash extras/test-root-theme.sh
+      - name: Test boot layout values against injection
+        run: bash extras/test-layout-values.sh

@@ -40,7 +40,8 @@ safe_dir() {
 }
 
 # put_file DIR NAME [MODE]: replace DIR/NAME with stdin, atomically, relative
-# to a descriptor held on DIR. NAME is a bare file name, never a path.
+# to a descriptor held on DIR. NAME is a bare file name, never a path. A file
+# that already exists keeps its permissions where they are stricter than MODE.
 put_file() {
   _safe_paths put "$1" "$2" "${3:-0644}" || fail "could not write $1/$2"
 }

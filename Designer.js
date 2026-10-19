@@ -17,6 +17,14 @@
 var MARKER = "designer:1:"
 var VERSION = 1
 var DEFAULT_NAME = "My Layout"
+// The corners of the base's chrome (media strip, owner message), 0 to 24 px.
+// A layout from before the setting has none and gets the base default.
+var DEFAULT_CORNERS = 6
+
+function clampCorners(v) {
+  var n = Math.round(Number(v))
+  return isFinite(n) ? Math.max(0, Math.min(24, n)) : DEFAULT_CORNERS
+}
 
 // ------------------------------------------------------------------ anchors
 
@@ -454,7 +462,7 @@ var KINDS = {
     hint: "Write the QML yourself — lock.now, lock.userName and the rest are in scope",
     sized: true,
     w: 300, h: 120,
-    spec: { qml: 'Text {\n  anchors.centerIn: parent\n  text: Qt.formatDate(lock.now, "dddd")\n  color: Color.lock.text\n  font.family: Style.font.family\n  font.pixelSize: 32\n}' },
+    spec: { qml: 'Text {\n  anchors.centerIn: parent\n  text: Qt.formatDate(lock.now, "dddd")\n  color: Commons.Color.lock.text\n  font.family: Style.font.family\n  font.pixelSize: 32\n}' },
     fields: [
       { key: "qml", type: "code", label: "QML" }
     ]
@@ -507,7 +515,7 @@ function nextId(doc) {
 }
 
 function emptyDoc(name) {
-  return { v: VERSION, name: name || DEFAULT_NAME, nodes: [] }
+  return { v: VERSION, name: name || DEFAULT_NAME, corners: DEFAULT_CORNERS, nodes: [] }
 }
 
 // What a brand new design starts as: a wallpaper, the time, the date and a
@@ -532,15 +540,31 @@ function starterDoc(name) {
   return doc
 }
 
+// The name lands in a comment of the generated QML and each id after `id:`,
+// and both can come from a file or a pasted component: the name loses its
+// control characters, and an id has to be n<number>, unique, or gets one.
+function cleanName(name) {
+  var v = String(name || "").replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, " ").trim().substring(0, 80)
+  return v.length > 0 ? v : DEFAULT_NAME
+}
+
 function validate(doc) {
   if (!doc || typeof doc !== "object") return null
   if (!(doc.nodes instanceof Array)) return null
-  var out = { v: VERSION, name: String(doc.name || DEFAULT_NAME), nodes: [] }
+  var out = { v: VERSION, name: cleanName(doc.name), corners: clampCorners(doc.corners), nodes: [] }
+  var used = {}
+  var next = 1
   for (var i = 0; i < doc.nodes.length; i++) {
     var n = doc.nodes[i]
     if (!n || !KINDS[n.kind]) continue
+    var id = String(n.id || "")
+    if (!/^n[0-9]{1,6}$/.test(id) || used[id]) {
+      while (used["n" + next] || doc.nodes.some(function(o) { return o && String(o.id) === "n" + next })) next++
+      id = "n" + next
+    }
+    used[id] = true
     out.nodes.push({
-      id: String(n.id || ("n" + (i + 1))),
+      id: id,
       kind: String(n.kind),
       anchor: ANCHORS.indexOf(n.anchor) === -1 ? "center" : n.anchor,
       dx: Math.round(Number(n.dx) || 0),
@@ -569,8 +593,8 @@ function plainNode(n) {
   }
 }
 
-function docOf(nodes, name) {
-  var out = { v: VERSION, name: String(name || DEFAULT_NAME), nodes: [] }
+function docOf(nodes, name, corners) {
+  var out = { v: VERSION, name: String(name || DEFAULT_NAME), corners: clampCorners(corners), nodes: [] }
   for (var i = 0; i < (nodes || []).length; i++) out.nodes.push(plainNode(nodes[i]))
   return out
 }
@@ -645,6 +669,7 @@ function anchorLines(node, indent) {
 // layout comment above it is what the designer reads back; the code is
 // rewritten from it on every save.
 function generate(doc, pluginId) {
+  doc = validate(doc) || { name: DEFAULT_NAME, corners: 0, nodes: [] }
   var out = []
   var nodes = doc.nodes || []
   var inputNode = null
@@ -658,10 +683,12 @@ function generate(doc, pluginId) {
   out.push("import QtQuick")
   out.push("import QtQuick.Effects")
   out.push("import qs.Commons")
+  out.push("import qs.Commons as Commons")
   out.push('import "../plugins/' + pluginId + '/designs"')
   out.push("")
   out.push("DesignBase {")
   out.push("  id: lock")
+  out.push("  chromeRadius: " + clampCorners(doc.corners))
   out.push("  inputItem: " + (inputNode ? inputNode.id + ".inputItem" : "fallbackInput"))
   out.push("")
   out.push("  MouseArea {")

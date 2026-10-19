@@ -19,13 +19,14 @@ DesignBase {
   // ======================================================================
 
   // ---- Speed and cost -------------------------------------------------
-  // How many steps a second. Each step carves a few cells or draws a few
-  // blocks of the path. 20 is smooth; every step is a redraw, so more costs
-  // GPU (about a quarter of a percent per step a second).
-  property real stepsPerSecond: 12
+  // How many steps a second. Each step carves some cells or draws some blocks
+  // of the path, then redraws what changed. Every step costs about half a percent
+  // of CPU on an Intel UHD 630 (8 is about 4%, 12 about 6%, 20 about 9%), so raise
+  // it with fewer cells per step if you want it smoother.
+  property real stepsPerSecond: 8
   // Cells carved per step, and blocks of the path drawn per step.
-  property int carvePerStep: 50
-  property int solvePerStep: 70
+  property int carvePerStep: 75
+  property int solvePerStep: 105
   // Seconds the finished maze, with its path, is left on screen before it fades
   // and a new one starts, and how long the fade takes (milliseconds).
   property real holdSeconds: 8
@@ -282,7 +283,7 @@ DesignBase {
     id: painter
     anchors.fill: parent
     renderTarget: Canvas.FramebufferObject
-    renderStrategy: Canvas.Cooperative
+    renderStrategy: Canvas.Threaded
     onPaint: {
       var ctx = getContext("2d")
       var src = lock.pix
@@ -310,13 +311,14 @@ DesignBase {
         var ci = src[id]
         var x = ox + (id % cols) * b
         var y = oy + Math.floor(id / cols) * b
-        if (ci === 0) ctx.clearRect(x, y, b, b)
-        else groups[ci].push(x, y)
+        groups[ci].push(x, y)
       }
-      for (var c = 1; c < groups.length; c++) {
+      // Color 0 is the background, drawn over a block that was cleared. Painting it
+      // as one path with the rest is much cheaper than clearing block by block.
+      for (var c = 0; c < groups.length; c++) {
         var g = groups[c]
         if (g.length === 0) continue
-        ctx.fillStyle = lock.palette[c]
+        ctx.fillStyle = c === 0 ? Color.background : lock.palette[c]
         ctx.beginPath()
         for (var j = 0; j < g.length; j += 2) ctx.rect(g[j], g[j + 1], b, b)
         ctx.fill()

@@ -25,7 +25,7 @@ against a leak or a huge image or video.
 
 ### Where the limits come from
 
-69 designs measured on 2026-10-19 (full results in
+78 designs measured on 2026-10-19 (full results in
 `tests/bench-results/full-1080p.csv`):
 
 ```
@@ -151,9 +151,9 @@ so refresh the CSV whenever a design changes.
 
 ## All designs, ranked
 
-Rank 0 uses the least resources and rank 68 the most. Rank sorts by CPU % plus
+Rank 0 uses the least resources and rank 77 the most. Rank sorts by CPU % plus
 GPU %, then memory, so the 0.0 / 0.0 designs are ordered by memory. The z-scores
-say how far a design sits from the average of the 69, in standard deviations,
+say how far a design sits from the average of the 78, in standard deviations,
 on a log scale: negative is cheaper than average, +1 is the limit's neighbourhood.
 Status is against the limit above. `disabled` designs are not in `Designs.js`.
 
@@ -161,74 +161,83 @@ Regenerate with `python3 tests/bench-table.py` after refreshing the CSV.
 
 | Rank | Design | CPU % | GPU % | MB | CPU z | GPU z | Status |
 |---:|---|---:|---:|---:|---:|---:|---|
-| 0 | classic | 0.0 | 0.0 | 200 | -1.16 | -1.23 | ok |
-| 1 | frame | 0.0 | 0.0 | 202 | -1.16 | -1.23 | ok |
-| 2 | cinema | 0.0 | 0.0 | 203 | -1.16 | -1.23 | ok |
-| 3 | clockwall | 0.0 | 0.0 | 203 | -1.16 | -1.23 | ok |
-| 4 | dock | 0.0 | 0.0 | 204 | -1.16 | -1.23 | ok |
-| 5 | flip | 0.0 | 0.0 | 204 | -1.16 | -1.23 | ok |
-| 6 | system | 0.0 | 0.0 | 204 | -1.16 | -1.23 | ok |
-| 7 | weather | 0.0 | 0.0 | 204 | -1.16 | -1.23 | ok |
-| 8 | wordclock | 0.0 | 0.0 | 206 | -1.16 | -1.23 | ok |
-| 9 | music | 0.0 | 0.0 | 213 | -1.16 | -1.23 | ok |
-| 10 | editorial | 0.0 | 0.0 | 214 | -1.16 | -1.23 | ok |
-| 11 | poster | 0.0 | 0.0 | 214 | -1.16 | -1.23 | ok |
-| 12 | profile | 0.0 | 0.0 | 214 | -1.16 | -1.23 | ok |
-| 13 | sheet | 0.0 | 0.0 | 214 | -1.16 | -1.23 | ok |
-| 14 | split | 0.0 | 0.0 | 214 | -1.16 | -1.23 | ok |
-| 15 | card | 0.0 | 0.0 | 220 | -1.16 | -1.23 | ok |
-| 16 | storm | 0.0 | 0.0 | 242 | -1.16 | -1.23 | ok |
-| 17 | river | 0.0 | 0.0 | 243 | -1.16 | -1.23 | ok |
-| 18 | neon | 0.0 | 0.0 | 255 | -1.16 | -1.23 | ok |
-| 19 | calendar | 0.1 | 0.0 | 200 | -0.89 | -1.23 | ok |
-| 20 | island | 0.0 | 0.1 | 214 | -1.16 | -0.84 | ok |
-| 21 | motion | 0.1 | 0.0 | 217 | -0.89 | -1.23 | ok |
-| 22 | predator | 0.0 | 0.1 | 219 | -1.16 | -0.84 | ok |
-| 23 | eyes | 0.1 | 0.0 | 243 | -0.89 | -1.23 | ok |
-| 24 | dayline | 0.1 | 0.2 | 203 | -0.89 | -0.61 | ok |
-| 25 | companion | 0.1 | 0.3 | 199 | -0.89 | -0.45 | ok |
-| 26 | ring | 0.1 | 0.3 | 219 | -0.89 | -0.45 | ok |
-| 27 | analog | 0.5 | 0.2 | 225 | -0.47 | -0.61 | ok |
-| 28 | etch | 1.0 | 0.1 | 234 | -0.24 | -0.84 | ok |
-| 29 | ringwordclock | 0.7 | 0.5 | 213 | -0.36 | -0.22 | ok |
-| 30 | terminator | 1.2 | 1.8 | 301 | -0.17 | +0.43 | ok |
-| 31 | pond | 1.2 | 1.9 | 202 | -0.17 | +0.46 | ok |
-| 32 | cipher | 5.2 | 1.0 | 222 | +0.37 | +0.12 | ok |
-| 33 | terminal | 2.5 | 5.0 | 236 | +0.09 | +0.98 | ok |
-| 34 | zen | 3.0 | 4.9 | 210 | +0.16 | +0.97 | ok |
-| 35 | solclock | 2.2 | 5.8 | 206 | +0.05 | +1.07 | ok |
-| 36 | sparks | 3.3 | 5.0 | 200 | +0.20 | +0.98 | ok |
-| 37 | waves | 3.0 | 5.4 | 210 | +0.16 | +1.03 | ok |
-| 38 | bounce | 7.4 | 1.2 | 241 | +0.50 | +0.21 | ok |
-| 39 | lightspeed | 3.0 | 6.8 | 208 | +0.16 | +1.15 | ok |
-| 40 | ember | 9.1 | 2.0 | 220 | +0.58 | +0.48 | ok |
-| 41 | constellation | 6.2 | 5.0 | 210 | +0.43 | +0.98 | ok |
-| 42 | core | 12.8 | 1.2 | 240 | +0.71 | +0.21 | ok |
-| 43 | orbit | 13.2 | 2.4 | 242 | +0.72 | +0.58 | ok |
-| 44 | aurora | 3.7 | 13.5 | 210 | +0.24 | +1.54 | over limit |
-| 45 | mazeclock | 14.2 | 6.3 | 235 | +0.75 | +1.11 | ok |
-| 46 | vhs | 15.4 | 7.3 | 262 | +0.78 | +1.19 | ok |
-| 47 | horizon | 21.9 | 2.5 | 236 | +0.91 | +0.60 | ok |
-| 48 | login | 23.6 | 3.8 | 233 | +0.94 | +0.83 | ok |
-| 49 | forge | 26.6 | 2.1 | 239 | +0.99 | +0.51 | ok |
-| 50 | mainframe | 27.5 | 2.2 | 239 | +1.00 | +0.53 | ok |
-| 51 | tracking | 30.8 | 1.8 | 238 | +1.04 | +0.43 | ok |
-| 52 | spotlight | 29.1 | 4.0 | 244 | +1.02 | +0.86 | ok |
-| 53 | keycode | 32.3 | 4.1 | 230 | +1.06 | +0.87 | ok |
-| 54 | synthwave | 34.0 | 2.7 | 243 | +1.08 | +0.65 | ok |
-| 55 | supernova | 36.7 | 3.8 | 239 | +1.11 | +0.83 | over limit |
-| 56 | fireworks | 36.2 | 4.3 | 241 | +1.10 | +0.90 | over limit |
-| 57 | panel | 37.7 | 4.5 | 237 | +1.12 | +0.92 | over limit |
-| 58 | beacon | 39.7 | 2.8 | 243 | +1.14 | +0.66 | over limit |
-| 59 | binary | 41.9 | 2.6 | 244 | +1.16 | +0.62 | over limit |
-| 60 | screensaver | 42.5 | 3.8 | 246 | +1.17 | +0.83 | over limit |
-| 61 | rain | 43.2 | 9.7 | 239 | +1.17 | +1.35 | over limit |
-| 62 | circuits | 52.0 | 9.5 | 245 | +1.24 | +1.34 | over limit, disabled |
-| 63 | bullet | 92.7 | 10.1 | 234 | +1.47 | +1.37 | over limit, disabled |
-| 64 | digital | 120.6 | 6.5 | 249 | +1.57 | +1.13 | over limit |
-| 65 | tracker | 129.3 | 7.1 | 243 | +1.59 | +1.18 | over limit, disabled |
-| 66 | statusline | 140.1 | 5.1 | 264 | +1.62 | +0.99 | over limit |
-| 67 | proton | 162.9 | 5.7 | 244 | +1.68 | +1.06 | over limit, disabled |
+| 0 | classic | 0.0 | 0.0 | 200 | -1.15 | -1.21 | ok |
+| 1 | frame | 0.0 | 0.0 | 202 | -1.15 | -1.21 | ok |
+| 2 | cinema | 0.0 | 0.0 | 203 | -1.15 | -1.21 | ok |
+| 3 | clockwall | 0.0 | 0.0 | 203 | -1.15 | -1.21 | ok |
+| 4 | dock | 0.0 | 0.0 | 204 | -1.15 | -1.21 | ok |
+| 5 | flip | 0.0 | 0.0 | 204 | -1.15 | -1.21 | ok |
+| 6 | system | 0.0 | 0.0 | 204 | -1.15 | -1.21 | ok |
+| 7 | weather | 0.0 | 0.0 | 204 | -1.15 | -1.21 | ok |
+| 8 | wordclock | 0.0 | 0.0 | 206 | -1.15 | -1.21 | ok |
+| 9 | music | 0.0 | 0.0 | 213 | -1.15 | -1.21 | ok |
+| 10 | editorial | 0.0 | 0.0 | 214 | -1.15 | -1.21 | ok |
+| 11 | poster | 0.0 | 0.0 | 214 | -1.15 | -1.21 | ok |
+| 12 | profile | 0.0 | 0.0 | 214 | -1.15 | -1.21 | ok |
+| 13 | sheet | 0.0 | 0.0 | 214 | -1.15 | -1.21 | ok |
+| 14 | split | 0.0 | 0.0 | 214 | -1.15 | -1.21 | ok |
+| 15 | ticket | 0.0 | 0.0 | 214 | -1.15 | -1.21 | ok |
+| 16 | card | 0.0 | 0.0 | 220 | -1.15 | -1.21 | ok |
+| 17 | storm | 0.0 | 0.0 | 242 | -1.15 | -1.21 | ok |
+| 18 | river | 0.0 | 0.0 | 243 | -1.15 | -1.21 | ok |
+| 19 | blueprint | 0.0 | 0.0 | 249 | -1.15 | -1.21 | ok |
+| 20 | neon | 0.0 | 0.0 | 255 | -1.15 | -1.21 | ok |
+| 21 | calendar | 0.1 | 0.0 | 200 | -0.89 | -1.21 | ok |
+| 22 | island | 0.0 | 0.1 | 214 | -1.15 | -0.83 | ok |
+| 23 | meridian | 0.1 | 0.0 | 216 | -0.89 | -1.21 | ok |
+| 24 | motion | 0.1 | 0.0 | 217 | -0.89 | -1.21 | ok |
+| 25 | predator | 0.0 | 0.1 | 219 | -1.15 | -0.83 | ok |
+| 26 | eyes | 0.1 | 0.0 | 243 | -0.89 | -1.21 | ok |
+| 27 | marquee | 0.1 | 0.1 | 247 | -0.89 | -0.83 | ok |
+| 28 | dayline | 0.1 | 0.2 | 203 | -0.89 | -0.61 | ok |
+| 29 | companion | 0.1 | 0.3 | 199 | -0.89 | -0.45 | ok |
+| 30 | ring | 0.1 | 0.3 | 219 | -0.89 | -0.45 | ok |
+| 31 | analog | 0.5 | 0.2 | 225 | -0.47 | -0.61 | ok |
+| 32 | etch | 1.0 | 0.1 | 234 | -0.24 | -0.83 | ok |
+| 33 | ringwordclock | 0.7 | 0.5 | 213 | -0.37 | -0.22 | ok |
+| 34 | terminator | 1.3 | 1.7 | 300 | -0.15 | +0.38 | ok |
+| 35 | pond | 1.2 | 1.9 | 202 | -0.18 | +0.44 | ok |
+| 36 | metro | 3.3 | 0.6 | 236 | +0.18 | -0.14 | ok |
+| 37 | cipher | 5.2 | 1.0 | 222 | +0.35 | +0.11 | ok |
+| 38 | terminal | 2.5 | 5.0 | 236 | +0.08 | +0.96 | ok |
+| 39 | zen | 3.0 | 4.9 | 210 | +0.15 | +0.95 | ok |
+| 40 | solclock | 2.2 | 5.8 | 206 | +0.04 | +1.04 | ok |
+| 41 | sparks | 3.3 | 5.0 | 200 | +0.18 | +0.96 | ok |
+| 42 | waves | 3.0 | 5.4 | 210 | +0.15 | +1.00 | ok |
+| 43 | bounce | 7.4 | 1.2 | 241 | +0.48 | +0.20 | ok |
+| 44 | lightspeed | 3.0 | 6.8 | 208 | +0.15 | +1.13 | ok |
+| 45 | receipt | 3.6 | 6.4 | 210 | +0.22 | +1.09 | ok |
+| 46 | ember | 9.1 | 2.0 | 220 | +0.56 | +0.47 | ok |
+| 47 | constellation | 6.2 | 5.0 | 210 | +0.42 | +0.96 | ok |
+| 48 | core | 12.8 | 1.2 | 240 | +0.69 | +0.20 | ok |
+| 49 | orbit | 13.2 | 2.4 | 242 | +0.70 | +0.57 | ok |
+| 50 | aurora | 3.7 | 13.5 | 210 | +0.23 | +1.50 | over limit |
+| 51 | mazeclock | 14.2 | 6.3 | 235 | +0.73 | +1.08 | ok |
+| 52 | vhs | 15.4 | 7.3 | 262 | +0.76 | +1.16 | ok |
+| 53 | horizon | 21.9 | 2.5 | 236 | +0.89 | +0.59 | ok |
+| 54 | login | 23.6 | 3.8 | 233 | +0.92 | +0.81 | ok |
+| 55 | forge | 26.6 | 2.1 | 239 | +0.96 | +0.49 | ok |
+| 56 | mainframe | 27.5 | 2.2 | 239 | +0.98 | +0.52 | ok |
+| 57 | tracking | 30.8 | 1.8 | 238 | +1.02 | +0.41 | ok |
+| 58 | spotlight | 29.1 | 4.0 | 244 | +1.00 | +0.84 | ok |
+| 59 | keycode | 32.3 | 4.1 | 230 | +1.04 | +0.85 | ok |
+| 60 | synthwave | 34.0 | 2.7 | 243 | +1.06 | +0.63 | ok |
+| 61 | supernova | 36.7 | 3.8 | 239 | +1.09 | +0.81 | over limit |
+| 62 | fireworks | 36.2 | 4.3 | 241 | +1.08 | +0.88 | over limit |
+| 63 | panel | 37.7 | 4.5 | 237 | +1.10 | +0.90 | over limit |
+| 64 | beacon | 39.7 | 2.8 | 243 | +1.12 | +0.65 | over limit |
+| 65 | binary | 41.9 | 2.6 | 244 | +1.14 | +0.61 | over limit |
+| 66 | screensaver | 42.5 | 3.8 | 246 | +1.14 | +0.81 | over limit |
+| 67 | rain | 43.2 | 9.7 | 239 | +1.15 | +1.32 | over limit |
+| 68 | circuits | 52.0 | 9.5 | 245 | +1.22 | +1.31 | over limit, disabled |
+| 69 | seismograph | 69.0 | 5.0 | 233 | +1.33 | +0.96 | over limit |
+| 70 | ghosts | 85.3 | 16.8 | 259 | +1.41 | +1.62 | over limit |
+| 71 | bullet | 92.7 | 10.1 | 234 | +1.44 | +1.34 | over limit, disabled |
+| 72 | digital | 120.6 | 6.5 | 249 | +1.54 | +1.10 | over limit |
+| 73 | tracker | 129.3 | 7.1 | 243 | +1.56 | +1.15 | over limit, disabled |
+| 74 | statusline | 140.1 | 5.1 | 264 | +1.59 | +0.97 | over limit |
+| 75 | cobweb | 146.4 | 9.6 | 258 | +1.61 | +1.31 | over limit |
+| 76 | proton | 162.9 | 5.7 | 244 | +1.65 | +1.03 | over limit, disabled |
 
 ## Known offenders
 
@@ -236,5 +245,6 @@ These measured over the limit when the standards were written. They are
 legacy and should be brought under it (rules 1 to 3 usually do it).
 
 `statusline`, `digital`, `fireworks`, `binary`, `screensaver`,
-`supernova`, `panel`, `beacon`, `rain` (CPU) and `aurora` (GPU). The disabled work-in-progress designs `proton`, `tracker`,
-`bullet` and `circuits` are over too and stay disabled until they are not.
+`supernova`, `panel`, `beacon`, `rain` (CPU), `aurora` (GPU) and, from upstream,
+`seismograph`, `ghosts` and `cobweb`. The disabled work-in-progress designs `proton`,
+`tracker`, `bullet` and `circuits` are over too and stay disabled until they are not.

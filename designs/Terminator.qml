@@ -171,30 +171,33 @@ DesignBase {
         if (m) sys.osName = m[1]
       }
     }
-    FileView {
+    CappedFile {
       id: cpuTempFile
+      maxBytes: 4096
       path: sys.cpuTempPath
-      printErrors: false
       onLoaded: sys.cpuTemp = Math.round(parseInt(text()) / 1000)
     }
-    FileView {
+    CappedFile {
       id: gpuTempFile
+      maxBytes: 4096
       path: sys.gpuTempPath
-      printErrors: false
       onLoaded: sys.gpuTemp = Math.round(parseInt(text()) / 1000)
     }
-    FileView {
+    CappedFile {
       id: gpuMhzFile
+      maxBytes: 4096
       path: sys.gpuMhzPath
-      printErrors: false
       onLoaded: sys.gpuMhz = parseInt(text())
     }
-    FileView {
+    CappedFile {
       id: gpuBusyFile
+      maxBytes: 4096
       path: sys.gpuBusyPath
-      printErrors: false
       onLoaded: sys.gpuBusy = parseInt(text())
     }
+
+    // The sensor files are read through CappedFile (a child process, regular files
+    // only, a byte cap) because their paths are found at run time.
 
     // Which sensors this machine has: CPU and GPU temperature, and the GPU
     // clock or load where the driver exposes one.

@@ -23,6 +23,10 @@ const LEGACY = {
   panel: { cpu: 45, gpu: 10 },
   beacon: { cpu: 45, gpu: 10 },
   aurora: { cpu: 35, gpu: 15 },
+  // Came in from upstream with the resource standards. Over the limit when they were measured.
+  seismograph: { cpu: 80, gpu: 10 },
+  ghosts: { cpu: 100, gpu: 20 },
+  cobweb: { cpu: 160, gpu: 12 },
 };
 
 // Enabled designs from Designs.js, as { id: file }. Commented-out entries are

@@ -44,7 +44,7 @@ omarchy-shell lock explore
 </table>
 
 Weather fetches from wttr.in (same location as the bar widget), Music reads MPRIS players, System shows uptime, memory, load and battery.
-Motion loops a video you pick. Pond, Constellation and Sparks react to your typing. Storm, Eyes and River play their clip when you unlock.
+Motion loops a video you pick. Pond, Constellation, Sparks and Lightspeed react to your typing. Storm, Eyes and River play their clip when you unlock.
 
 Ghosts and Cobweb are seasonal: they keep their own colors instead of the theme's and sit under the Seasonal nav
 in the explorer and the side panel. Blueprint dimensions the time on a drafting sheet in the theme's colors, Receipt

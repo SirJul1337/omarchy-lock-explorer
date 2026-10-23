@@ -44,7 +44,21 @@ omarchy-shell lock explore
 </table>
 
 Weather fetches from wttr.in (same location as the bar widget), Music reads MPRIS players, System shows uptime, memory, load and battery.
-Motion loops a video you pick. Pond, Constellation and Sparks react to your typing. Storm, Eyes and River play their clip when you unlock.
+Motion loops a video you pick. Pond, Constellation, Sparks, Waves, Lightspeed, Terminator, SolClock, Predator Clock and the typing-reactive designs react to your typing. Storm, Eyes and River play their clip when you unlock.
+
+New in this release (all measured against the resource limits in [standards.md](standards.md)):
+
+- **Terminator**: your wallpaper tinted red under a grid, with this machine's specs and live CPU and GPU readout in big white text, and a target box that closes in as you type.
+- **Lightspeed**: stars stretch into streaks as you jump to hyperspace, drawn by a shader.
+- **Waves**: slow silk ribbons in your theme colors that swell as you type. Every number that shapes them is a named setting at the top of `designs/Waves.qml`.
+- **Clock Wall**: a clock made of 24 little clocks whose hands draw the time.
+- **Word Clock**: a letter grid that lights the time in words, with four corner dots for the minutes (English).
+- **Ring Word Clock**: hours, minutes and seconds on turning rings that line up as a sentence (English), after Simon Heys' Word Clock.
+- **SolClock**: the time over concentric rings centred on a sun that circles the screen once a day; every key sends a ring out from the sun.
+- **Maze Clock**: a maze builds itself and then solves itself, with the time in a box in the middle.
+- **Predator Clock**: the time as four glowing alien glyphs; how to read them is in the file.
+
+Tracker, Time Circuits, Proton Stream and Bullet Time are in `designs/` but switched off in `Designs.js` until they meet the same resource standards.
 
 Ghosts and Cobweb are seasonal: they keep their own colors instead of the theme's and sit under the Seasonal nav
 in the explorer and the side panel. Blueprint dimensions the time on a drafting sheet in the theme's colors, Receipt
@@ -724,6 +738,12 @@ also shown on the cards in the explorer.
 MIT, see [LICENSE](LICENSE). `Service.qml` is based on the built-in `omarchy.lock` plugin from Omarchy (MIT).
 
 ## Development
+
+Every design has a CPU, GPU and memory budget, since a lock screen runs for as long as the
+machine sits locked. The limits, how they were measured and how to build a design that stays
+under them are in [standards.md](standards.md). `node --test tests/*.test.cjs` checks them.
+`tests/run-in-window.sh <id>` runs one design in a normal window (`list` prints the ids and names),
+handy for trying a change without locking.
 
 ```sh
 omarchy plugin validate ~/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer

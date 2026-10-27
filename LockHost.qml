@@ -122,6 +122,10 @@ Item {
   // inputEnabled: false, so this never pulls focus away from the explorer.
   readonly property bool windowActive: Window.active
   onWindowActiveChanged: if (windowActive && inputEnabled) Qt.callLater(forcePasswordFocus)
+  // And when a wake from blank lets go of the keyboard: the window never went
+  // inactive across a blanked suspend, so the claim above has nothing to fire
+  // on, and the key that woke the panel landed while the field was inert.
+  onInputBlockedChanged: if (!inputBlocked && inputEnabled) Qt.callLater(forcePasswordFocus)
 
   onDesignIdChanged: designFallback = false
 

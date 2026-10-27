@@ -3017,6 +3017,12 @@ echo "$out"
   // the wake has run and the panel has had wakeInputGrace to light up, so the
   // keystrokes that switched the screen on never land in the password.
   property bool inputBlocked: false
+  // One grace per wake from blank. Every key and pointer move while blocked
+  // asks for a wake, and each wake that finished used to start the grace
+  // again, so someone typing into the woken screen kept it inert for as long
+  // as they typed (issues #85, #86). Set when the panel blanks, spent by the
+  // first wake that finishes after it.
+  property bool wakeGracePending: false
 
   // With `misc:session_lock_xray` the compositor keeps drawing the desktop
   // under the lock surface, so the unlock fades straight into it and the
@@ -3224,6 +3230,7 @@ echo "$out"
     cancelUnlockAnimation()
     resetAuthenticationState()
     inputBlocked = false
+    wakeGracePending = false
     inputUnblockTimer.stop()
     lockRequested = true
     lockedAt = Date.now()
@@ -3358,6 +3365,7 @@ echo "$out"
     if (keepDisplayOn) return
     screenBlanked = !displayBlankingSuppressed
     inputBlocked = screenBlanked
+    wakeGracePending = screenBlanked
     inputUnblockTimer.stop()
     // Nothing to authenticate to while the panel is dark: drop the scan and
     // let go of the camera until it comes back.
@@ -4412,7 +4420,8 @@ echo "$out"
     id: wakeProcess
     command: ["bash", "-c", "rm -f \"$1/display-off\"; omarchy-system-wake", "bash", root.blankMarkerDir]
     onExited: {
-      if (!root.inputBlocked || root.screenBlanked) return
+      if (!root.inputBlocked || root.screenBlanked || !root.wakeGracePending) return
+      root.wakeGracePending = false
       inputUnblockTimer.interval = root.wakeInputGrace
       inputUnblockTimer.restart()
     }

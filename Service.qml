@@ -3023,6 +3023,9 @@ echo "$out"
   // the field stayed inert for as long as anyone kept typing (#86). A shell
   // started over a panel left dark still owes it one.
   property bool wakePending: true
+  // Set for the wake that a resume from suspend runs. Nothing typed lit the
+  // panel then, so that wake skips the grace (#85).
+  property bool resumeWake: false
 
   // With `misc:session_lock_xray` the compositor keeps drawing the desktop
   // under the lock surface, so the unlock fades straight into it and the
@@ -3361,6 +3364,21 @@ echo "$out"
       wakeProcess.running = true
     }
     if (lockRequested) armBlankTimer()
+  }
+
+  // A lock that comes back from suspend comes back lit and ready to type,
+  // whether its own blank or hypridle left the panel dark before the sleep.
+  // A key that already woke it has started the grace; that ends here too.
+  function wakeFromResume() {
+    if (!lockRequested) return
+    logEvent("resume")
+    if (inputBlocked && !screenBlanked) {
+      inputUnblockTimer.stop()
+      inputBlocked = false
+    }
+    resumeWake = inputBlocked
+    if (!wakeProcess.running) wakePending = true
+    runWake()
   }
 
   function runBlank() {
@@ -4422,9 +4440,28 @@ echo "$out"
     id: wakeProcess
     command: ["bash", "-c", "rm -f \"$1/display-off\"; omarchy-system-wake", "bash", root.blankMarkerDir]
     onExited: {
+      var grace = root.resumeWake ? 0 : root.wakeInputGrace
+      root.resumeWake = false
       if (!root.inputBlocked || root.screenBlanked) return
-      inputUnblockTimer.interval = root.wakeInputGrace
+      inputUnblockTimer.interval = grace
       inputUnblockTimer.restart()
+    }
+  }
+
+  // Suspend stops the monotonic clock the timers run on but not the wall
+  // clock, so the first tick after a resume finds the wall clock far ahead.
+  // A clock step looks the same, and at worst lights the lock.
+  Timer {
+    id: resumeWatch
+    interval: 1000
+    repeat: true
+    running: root.lockRequested
+    property double lastTick: 0
+    onRunningChanged: lastTick = running ? Date.now() : 0
+    onTriggered: {
+      var now = Date.now()
+      if (lastTick > 0 && now - lastTick > interval + 3000) root.wakeFromResume()
+      lastTick = now
     }
   }
 

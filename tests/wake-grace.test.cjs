@@ -36,3 +36,17 @@ test("the field takes focus back when the wake grace ends", () => {
   assert.match(read("LockHost.qml"),
     /onInputBlockedChanged: if \(!inputBlocked && inputEnabled\) Qt\.callLater\(forcePasswordFocus\)/);
 });
+
+// Coming back from suspend, the lock was still dark from the blank before it,
+// and the key that lit it started the grace, so the first keystrokes after a
+// resume went nowhere (issue #85). A resume lights the lock itself, with no
+// grace, and ends one a key already started.
+test("a resume wakes the lock without the grace", () => {
+  const svc = read("Service.qml");
+  assert.match(svc, /running: root\.lockRequested[\s\S]{0,400}now - lastTick > interval \+ \d+\) root\.wakeFromResume\(\)/);
+  const resume = body(svc, "wakeFromResume");
+  assert.match(resume, /inputUnblockTimer\.stop\(\)\s*inputBlocked = false/);
+  assert.match(resume, /resumeWake = inputBlocked/);
+  assert.match(resume, /if \(!wakeProcess\.running\) wakePending = true\s*runWake\(\)/);
+  assert.match(svc, /var grace = root\.resumeWake \? 0 : root\.wakeInputGrace\s*root\.resumeWake = false/);
+});

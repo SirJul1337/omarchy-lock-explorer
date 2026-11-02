@@ -729,11 +729,28 @@ Item {
   // snapshot can run before the explorer has ever been mapped, when
   // panel.screen may still be empty and the grab would fall to 1920x1080.
   readonly property var snapshotScreen: snapshotWindow.screen || panel.screen || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
-  readonly property int snapshotWidth: snapshotScreen && snapshotScreen.width > 0 ? snapshotScreen.width : 1920
-  readonly property int snapshotHeight: snapshotScreen && snapshotScreen.height > 0 ? snapshotScreen.height : 1080
+  // A design is laid out for the size it is rendered at, so one capture only
+  // fits monitors of that shape: with a 3440x1440 and a 2560x1440 display the
+  // second showed the ultrawide layout shrunk to fit, banded top and bottom
+  // (issue #38). Every other monitor size gets a pass of its own; pass 0 is
+  // the snapshot screen and keeps the old file names, the others are saved
+  // as <id>@<W>x<H>.png and apply.sh hands them to the boot theme, which
+  // gives each head the capture whose shape matches it.
+  // Every pass, the first included, has its size fixed when the flow starts:
+  // the snapshot window is not mapped yet then and lands on another screen
+  // once it is, so a size read from it mid-flow made the "other" pass repeat
+  // the main one and the second monitor's size was never captured.
+  property var snapshotPasses: []
+  property int snapshotPass: 0
+  property string snapshotExtraRects: ""
+  property var snapshotQueued: null
+  readonly property var snapshotPassSize: snapshotPass < snapshotPasses.length ? snapshotPasses[snapshotPass] : null
+  readonly property string snapshotSuffix: snapshotPass > 0 && snapshotPassSize ? "@" + snapshotPassSize.key : ""
+  readonly property int snapshotWidth: snapshotPassSize ? snapshotPassSize.w : (snapshotScreen && snapshotScreen.width > 0 ? snapshotScreen.width : 1920)
+  readonly property int snapshotHeight: snapshotPassSize ? snapshotPassSize.h : (snapshotScreen && snapshotScreen.height > 0 ? snapshotScreen.height : 1080)
   // grabToImage wants device pixels; the item is sized in logical ones, so a
   // scaled display still writes a capture at its true framebuffer resolution.
-  readonly property real snapshotScale: snapshotScreen && snapshotScreen.devicePixelRatio > 0 ? snapshotScreen.devicePixelRatio : 1
+  readonly property real snapshotScale: snapshotPassSize ? snapshotPassSize.scale : (snapshotScreen && snapshotScreen.devicePixelRatio > 0 ? snapshotScreen.devicePixelRatio : 1)
   readonly property int snapshotPixelWidth: Math.round(snapshotWidth * snapshotScale)
   readonly property int snapshotPixelHeight: Math.round(snapshotHeight * snapshotScale)
 
@@ -744,10 +761,39 @@ Item {
     var sid = String(id || "")
     if (!/^[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}$/.test(sid) || sid.indexOf("..") !== -1) return
     if (!root.service) return
+    // A flow already running would be reset halfway by a second one -- two
+    // settings resyncs on shell start came two seconds apart, and the boxed
+    // and box-free main captures ended up at different monitor sizes. The
+    // newer request waits and runs once this flow is done, in its place.
+    if (root.snapshotBusy) {
+      root.snapshotQueued = { id: sid, persist: persist }
+      root.service.logEvent("snapshot-queued " + sid)
+      return
+    }
     root.snapshotBusy = true
     snapshotHost.designId = sid
+    // One pass per distinct monitor size, the snapshot screen's first: its
+    // capture is the main one, the fallback for a head no capture matches.
+    root.snapshotPass = 0
+    root.snapshotExtraRects = ""
+    var passes = []
+    var seen = {}
+    var screens = [root.snapshotScreen].concat(Quickshell.screens)
+    for (var si = 0; si < screens.length; si++) {
+      var scr = screens[si]
+      if (!scr || !(scr.width > 0) || !(scr.height > 0)) continue
+      var dpr = scr.devicePixelRatio > 0 ? scr.devicePixelRatio : 1
+      var key = Math.round(scr.width * dpr) + "x" + Math.round(scr.height * dpr)
+      if (seen[key] || passes.length >= 4) continue
+      seen[key] = true
+      passes.push({ w: scr.width, h: scr.height, scale: dpr, key: key })
+    }
+    root.snapshotPasses = passes
+    if (root.service) root.service.logEvent("snapshot-passes " + passes.map(function(p) { return p.key }).join(","))
+    // No link left where a grab is saved, and no capture left over from a
+    // monitor that is no longer connected.
     snapshotMkdirProc.command = ["bash", "-c",
-      'source "$1" && safe_dir "$2" && for f in "$2/$3.png" "$2/$3-plain.png"; do [ ! -L "$f" ] || rm -f -- "$f"; done',
+      'source "$1" && safe_dir "$2" && for f in "$2/$3.png" "$2/$3-plain.png"; do [ ! -L "$f" ] || rm -f -- "$f"; done && for f in "$2/$3"@*.png; do [ ! -e "$f" ] && [ ! -L "$f" ] || rm -f -- "$f"; done',
       "--", root.service.safePathsLib,
       Quickshell.env("HOME") + "/.local/state/omarchy/lock-explorer-snapshots", sid]
     // Flip snapshot mode before the render delay so any layout it causes has
@@ -765,7 +811,7 @@ Item {
     // The folder through safe-paths, and no link left where a grab is saved
     // (saveToFile writes through one).
     onExited: function(code) {
-      if (code !== 0) { root.snapshotBusy = false; return }
+      if (code !== 0) { root.snapshotAbort(); return }
       snapshotRenderTimer.restart()
     }
   }
@@ -776,7 +822,8 @@ Item {
     interval: 1100
     onTriggered: {
       var id = snapshotHost.designId
-      var path = Quickshell.env("HOME") + "/.local/state/omarchy/lock-explorer-snapshots/" + id + ".png"
+      var pass = root.snapshotPass
+      var path = Quickshell.env("HOME") + "/.local/state/omarchy/lock-explorer-snapshots/" + id + root.snapshotSuffix + ".png"
       // The design keeps its input box but empties it (see snapshotMode); the
       // boot theme puts its bullets inside that box, so the boot screen uses
       // the design's own field instead of a generic pill.
@@ -801,9 +848,12 @@ Item {
       }
       var grabOk = snapshotSource.grabToImage(function(result) {
         var saved = result && result.saveToFile(path)
-        if (root.service) root.service.logEvent("snapshot-grab " + id + (saved ? " ok rect=" + rect : " save-failed"))
-        if (!saved) { root.snapshotBusy = false; return }
-        root.snapshotRect = rect
+        if (root.service) root.service.logEvent("snapshot-grab " + id + root.snapshotSuffix + (saved ? " ok rect=" + rect : " save-failed"))
+        // A failed extra pass just leaves that monitor on the primary capture.
+        if (!saved) { if (pass > 0) root.snapshotApply(); else root.snapshotAbort(); return }
+        if (pass === 0) root.snapshotRect = rect
+        else if (rect !== "")
+          root.snapshotExtraRects += (root.snapshotExtraRects === "" ? "" : ";") + root.snapshotPassSize.key + "=" + rect
         // Second, box-free grab: apply.sh picks it up as the background for
         // reboot/shutdown and promptless stretches of boot, so the splash
         // never shows a dead entry box (see snapshotBare in DesignBase).
@@ -814,12 +864,14 @@ Item {
           root.snapshotFinish()
         }
       }, Qt.size(root.snapshotPixelWidth, root.snapshotPixelHeight))
+      if (!grabOk && pass > 0) { root.snapshotApply(); return }
       if (!grabOk) {
-        root.snapshotBusy = false
+        var deferredPersist = root.snapshotPersist
+        root.snapshotAbort()
         if (root.service) root.service.logEvent("snapshot-grab-deferred " + id)
         // Never-shown window: park the request for the next open and say so.
         if (!root.pendingResnapshot) {
-          root.pendingResnapshot = { id: id, persist: root.snapshotPersist }
+          root.pendingResnapshot = { id: id, persist: deferredPersist }
           Quickshell.execDetached(["notify-send", "-a", "Lock Screen Explorer",
             root.tr("Boot screen is out of date"),
             root.tr("The background changed. Open the lock screen explorer once and it refreshes itself.")])
@@ -832,11 +884,38 @@ Item {
   // frame(s) to the service. Split out because the box-free second grab
   // arrives asynchronously.
   function snapshotFinish() {
-    root.snapshotBusy = false
     var it = snapshotHost.item
     if (it && it.snapshotBare !== undefined) it.snapshotBare = false
+    // Next monitor size: resize the render surface and let it lay out again.
+    if (root.snapshotPass + 1 < root.snapshotPasses.length) {
+      root.snapshotPass++
+      snapshotRenderTimer.restart()
+      return
+    }
+    root.snapshotApply()
+  }
+
+  // Ends a flow without applying; a request that came in meanwhile runs now.
+  function snapshotAbort() {
+    root.snapshotBusy = false
+    root.snapshotPass = 0
+    root.snapshotPasses = []
+    var q = root.snapshotQueued
+    root.snapshotQueued = null
+    if (q) root.snapshotAndApply(q.id, q.persist)
+  }
+
+  function snapshotApply() {
+    var it = snapshotHost.item
+    if (it && it.snapshotBare !== undefined) it.snapshotBare = false
+    // A newer request supersedes these captures: grab again instead of
+    // applying twice (one polkit prompt, not two).
+    if (root.snapshotQueued) { root.snapshotAbort(); return }
+    root.snapshotBusy = false
+    root.snapshotPass = 0
+    root.snapshotPasses = []
     if (root.service && typeof root.service.applyBootSnapshot === "function")
-      root.service.applyBootSnapshot(snapshotHost.designId, root.snapshotPersist, root.snapshotRect)
+      root.service.applyBootSnapshot(snapshotHost.designId, root.snapshotPersist, root.snapshotRect, root.snapshotExtraRects)
   }
 
   // One frame is not reliably enough for the opacity change to land in the
@@ -848,10 +927,10 @@ Item {
     interval: 150
     onTriggered: {
       var id = snapshotHost.designId
-      var ppath = Quickshell.env("HOME") + "/.local/state/omarchy/lock-explorer-snapshots/" + id + "-plain.png"
+      var ppath = Quickshell.env("HOME") + "/.local/state/omarchy/lock-explorer-snapshots/" + id + root.snapshotSuffix + "-plain.png"
       var ok = snapshotSource.grabToImage(function(result) {
         var saved = result && result.saveToFile(ppath)
-        if (root.service) root.service.logEvent("snapshot-grab-plain " + id + (saved ? " ok" : " save-failed"))
+        if (root.service) root.service.logEvent("snapshot-grab-plain " + id + root.snapshotSuffix + (saved ? " ok" : " save-failed"))
         root.snapshotFinish()
       }, Qt.size(root.snapshotPixelWidth, root.snapshotPixelHeight))
       if (!ok) root.snapshotFinish()

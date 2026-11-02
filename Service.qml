@@ -451,6 +451,14 @@ Item {
   readonly property bool configuredWakeOnKeyInsert: pluginFlag("wakeOnKeyInsert")
   readonly property bool wakeOnKeyInsert: wakeOnKeyInsertOverride >= 0 ? wakeOnKeyInsertOverride === 1 : configuredWakeOnKeyInsert
 
+  // On by default: the reader keeps listening behind a dark panel, so a touch
+  // unlocks it. Off rests the reader until the panel wakes, for readers that
+  // reset on every claim. Saved on the plugin entry as `fingerprintDarkOff`,
+  // only when off.
+  property int fingerprintDarkOffOverride: -1
+  readonly property bool configuredFingerprintDarkOff: pluginFlag("fingerprintDarkOff")
+  readonly property bool fingerprintInDark: !(fingerprintDarkOffOverride >= 0 ? fingerprintDarkOffOverride === 1 : configuredFingerprintDarkOff)
+
   function pluginFlag(name) {
     var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
@@ -467,6 +475,7 @@ Item {
     if (!on && !off) return false
     if (name === "lockOnKeyRemoval") lockOnKeyRemovalOverride = on ? 1 : 0
     else if (name === "wakeOnKeyInsert") wakeOnKeyInsertOverride = on ? 1 : 0
+    else if (name === "fingerprintDarkOff") fingerprintDarkOffOverride = on ? 1 : 0
     else return false
     if (shell && typeof shell.updateEntryInline === "function") {
       var current = pluginEntry()
@@ -480,6 +489,15 @@ Item {
 
   function setLockOnKeyRemoval(value) { return setPluginFlag("lockOnKeyRemoval", value) }
   function setWakeOnKeyInsert(value) { return setPluginFlag("wakeOnKeyInsert", value) }
+
+  function setFingerprintInDark(value) {
+    var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
+    var off = value === false || value === "false" || value === 0 || value === "0" || value === "off"
+    if (!on && !off) return false
+    setPluginFlag("fingerprintDarkOff", !on)
+    if (on) Qt.callLater(startFingerprint)
+    return true
+  }
 
   function setAwayReport(value) {
     var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
@@ -3406,6 +3424,12 @@ echo "$out"
     // Nothing to authenticate to while the panel is dark: drop the scan and
     // let go of the camera until it comes back.
     if (screenBlanked) stopFace()
+    // A reader kept listening in the dark starts over there, even one that
+    // paused on misses while the panel was lit.
+    if (screenBlanked && fingerprintInDark && lockRequested && fingerprintConfigured) {
+      fingerprintMisses = 0
+      Qt.callLater(startFingerprint)
+    }
     if (!blankProcess.running) blankProcess.running = true
   }
 
@@ -3451,10 +3475,10 @@ echo "$out"
 
   function startFingerprint() {
     if (!lockRequested || !sessionLock.secure || !fingerprintConfigured) return
-    // A dark panel means nobody is in front of it, and a round there still
-    // claims the reader and resets it. Blanking stops the rounds; the wake
-    // starts a fresh one.
-    if (screenBlanked) return
+    // Unless the reader is to keep listening in the dark, a round behind a
+    // dark panel only claims the reader and resets it. Blanking stops the
+    // rounds; the wake starts a fresh one.
+    if (screenBlanked && !fingerprintInDark) return
     if (fingerprintPam.active || fingerprintAuthenticating) return
 
     fingerprintAuthenticating = true
@@ -3473,6 +3497,9 @@ echo "$out"
       finishUnlock()
     } else if (!screenBlanked) {
       fingerprintMissed()
+    } else if (fingerprintInDark && fingerprintConfigured) {
+      // Nobody can be counted as missing in the dark: keep listening.
+      fingerprintRetryTimer.restart()
     }
   }
 
@@ -4664,6 +4691,7 @@ echo "$out"
       readonly property bool tourSeen: root.tourSeen
       readonly property bool lockOnKeyRemoval: root.lockOnKeyRemoval
       readonly property bool wakeOnKeyInsert: root.wakeOnKeyInsert
+      readonly property bool fingerprintInDark: root.fingerprintInDark
       readonly property var favorites: root.favorites
       readonly property bool showLayoutBadge: root.showLayoutBadge
       readonly property string accountName: root.accountName
@@ -4767,6 +4795,7 @@ echo "$out"
       function setTourSeen(value) { return root.setTourSeen(value) }
       function setLockOnKeyRemoval(value) { return root.setLockOnKeyRemoval(value) }
       function setWakeOnKeyInsert(value) { return root.setWakeOnKeyInsert(value) }
+      function setFingerprintInDark(value) { return root.setFingerprintInDark(value) }
       function toggleFavorite(id) { return root.toggleFavorite(id) }
       function setFieldItem(name, show) { return root.setFieldItem(name, show) }
       function installPackages(names) { return root.installPackages(names) }
@@ -4958,6 +4987,7 @@ echo "$out"
         powerActions: root.powerActions,
         mediaControls: root.mediaControls,
         awayReport: root.awayReport,
+        fingerprintInDark: root.fingerprintInDark,
         wallpaperBlur: root.wallpaperBlur,
         wallpaperDim: root.wallpaperDim,
         reduceMotion: root.reduceMotion,
@@ -5115,6 +5145,14 @@ echo "$out"
 
     function setWakeOnKeyInsert(value: string): string {
       return root.setWakeOnKeyInsert(value) ? "ok" : "invalid-value"
+    }
+
+    function fingerprintInDark(): string {
+      return root.fingerprintInDark ? "on" : "off"
+    }
+
+    function setFingerprintInDark(value: string): string {
+      return root.setFingerprintInDark(value) ? "ok" : "invalid-value"
     }
 
     function favorites(): string {

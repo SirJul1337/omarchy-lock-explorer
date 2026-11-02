@@ -394,6 +394,14 @@ was. Wrong attempts that run straight into your own unlock, each within 30 secon
 are you getting it wrong on the way in and are left out. By hand:
 `omarchy-shell lock setAwayReport off`.
 
+"Fingerprint on a dark screen", on by default and shown once a finger is enrolled, keeps the
+reader listening while the display is off, so a touch unlocks a dark lock screen. Some readers
+reset their USB device on every try, which fills the kernel log twice a minute for as long as the
+screen stays locked; off rests the reader until the screen wakes, and the first key, click or
+pointer move starts it again. On a lit screen the reader pauses after five misses either way, and
+the next key, click or pointer move brings it back. By hand:
+`omarchy-shell lock setFingerprintInDark off`.
+
 **Never** keeps the lock screen lit for the whole lock: video designs keep playing, and slow
 monitors are never re-blanked mid-wake on resume — the display was never off to begin with.
 

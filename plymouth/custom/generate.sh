@@ -93,6 +93,36 @@ if [[ -n $background_plain ]] && src=$(image_in "$background_plain"); then
   magick "$src" -resize "${canvas_max}>" "$staging/bg-plain.png"
 fi
 
+# The same design captured at the other monitor sizes (a snapshot taken on a
+# multi-monitor setup, see apply.sh): <background>@WxH.png next to the main
+# one, each with its own input box rect. A design lays itself out for the
+# size it is rendered at, so a 21:9 capture fitted onto a 16:9 head is the
+# wrong composition, banded top and bottom (issue #38); the script below
+# gives each head the capture whose shape is closest to its own. A variant
+# goes in only with the same plain/boxed pair the main capture has.
+variants=$(val variants "")
+v_keys=(); v_iw=(); v_ih=(); v_ex=(); v_ey=(); v_ew=(); v_eh=()
+if [[ -n $variants && $entry == embedded && $background == /*.png && -f $staging/bg.png ]]; then
+  IFS=';' read -ra vlist <<< "$variants"
+  for v in "${vlist[@]}"; do
+    IFS=, read -r vkey vex vey vew veh <<< "$v"
+    vsrc="${background%.png}@$vkey.png"
+    src=$(image_in "$vsrc") || continue
+    magick "$src" -resize "${canvas_max}>" "$staging/bg-$vkey.png"
+    if [[ -f $staging/bg-plain.png ]]; then
+      vplain="${background%.png}@$vkey-plain.png"
+      if [[ -f $vplain && $vplain -nt $vsrc ]] && psrc=$(image_in "$vplain"); then
+        magick "$psrc" -resize "${canvas_max}>" "$staging/bg-plain-$vkey.png"
+      else
+        rm -f "$staging/bg-$vkey.png"; continue
+      fi
+    fi
+    vsize=$(magick identify -format '%w %h' "$staging/bg-$vkey.png[0]")
+    v_keys+=("$vkey"); v_iw+=("${vsize% *}"); v_ih+=("${vsize#* }")
+    v_ex+=("$vex"); v_ey+=("$vey"); v_ew+=("$vew"); v_eh+=("$veh")
+  done
+fi
+
 [[ $scanlines == on ]] && magick -size 8x3 xc:none -fill 'rgba(0,0,0,0.12)' -draw 'rectangle 0,2 7,2' "$staging/scanline.png"
 
 case "$logo" in
@@ -260,7 +290,49 @@ EOF
 # Captures are taken at the display's own geometry, so this is normally an
 # identity transform; it earns its keep when Plymouth comes up on a mode the
 # session was not using.
-[[ -f $staging/bg.png ]] && cat <<EOF
+if [[ -f $staging/bg.png ]]; then
+cat <<EOF
+# The captures of the design: 0 is the main one, any others the same design
+# rendered at another monitor size. Head i shows capture hs[i]: one of its
+# exact size, else the one closest to its aspect ratio, so each monitor gets
+# the layout the design makes for its shape (issue #38).
+bg_n = $(( 1 + ${#v_keys[@]} ));
+src_file[0] = "bg.png"; src_plain[0] = "bg-plain.png";
+src_iw[0] = $bg_iw; src_ih[0] = $bg_ih;
+src_ex[0] = $entry_x; src_ey[0] = $entry_y; src_ew[0] = $entry_wp; src_eh[0] = $entry_hp;
+EOF
+for n in "${!v_keys[@]}"; do
+  k=$((n + 1))
+  cat <<EOF
+src_file[$k] = "bg-${v_keys[n]}.png"; src_plain[$k] = "bg-plain-${v_keys[n]}.png";
+src_iw[$k] = ${v_iw[n]}; src_ih[$k] = ${v_ih[n]};
+src_ex[$k] = ${v_ex[n]}; src_ey[$k] = ${v_ey[n]}; src_ew[$k] = ${v_ew[n]}; src_eh[$k] = ${v_eh[n]};
+EOF
+done
+cat <<EOF
+i = 0;
+while (i < display_count) {
+  hs[i] = 0;
+  best = 0;
+  n = 0;
+  while (n < bg_n) {
+    dd = dsp_w[i] / dsp_h[i] - src_iw[n] / src_ih[n];
+    if (dd < 0) dd = -dd;
+    if (dsp_w[i] == src_iw[n] && dsp_h[i] == src_ih[n]) dd = -1;
+    if (n == 0 || dd < best) {
+      hs[i] = n;
+      best = dd;
+    }
+    n++;
+  }
+  i++;
+}
+n = 0;
+while (n < bg_n) {
+  plain_ok[n] = 0;
+  global.boxed_ok[n] = 0;
+  n++;
+}
 # Per head: one scale factor for both axes, the leftover centred on that head.
 # Scaling each axis to the head independently distorted any background whose
 # aspect ratio did not match it -- 1920x1080 blown up to an ultrawide came out
@@ -269,15 +341,18 @@ EOF
 # creates a local, so the sizes would never reach the sprites below.
 i = 0;
 while (i < display_count) {
-  s = dsp_w[i] / $bg_iw;
-  if (dsp_h[i] / $bg_ih $bg_fit s) s = dsp_h[i] / $bg_ih;
-  bg_w[i] = $bg_iw * s;
-  bg_h[i] = $bg_ih * s;
+  iw = src_iw[hs[i]];
+  ih = src_ih[hs[i]];
+  s = dsp_w[i] / iw;
+  if (dsp_h[i] / ih $bg_fit s) s = dsp_h[i] / ih;
+  bg_w[i] = iw * s;
+  bg_h[i] = ih * s;
   bg_x[i] = dsp_x[i] + (dsp_w[i] - bg_w[i]) / 2;
   bg_y[i] = dsp_y[i] + (dsp_h[i] - bg_h[i]) / 2;
   i++;
 }
 EOF
+fi
 
 if [[ -n $bg_has_box && -f $staging/bg-plain.png ]]; then
 cat <<'EOF'
@@ -286,10 +361,14 @@ cat <<'EOF'
 # prompt up -- and bg.png with the box overlays it exactly while a passphrase
 # prompt is live, so the box is never dead chrome. The boxed image loads
 # lazily; a run that never prompts never decodes it.
-bg.plain_image = Image("bg-plain.png");
+# Each capture is decoded once, and only when a head shows it.
 i = 0;
 while (i < display_count) {
-  bg_plain_sprites[i] = Sprite(bg.plain_image.Scale(bg_w[i], bg_h[i]));
+  if (plain_ok[hs[i]] != 1) {
+    plain_img[hs[i]] = Image(src_plain[hs[i]]);
+    plain_ok[hs[i]] = 1;
+  }
+  bg_plain_sprites[i] = Sprite(plain_img[hs[i]].Scale(bg_w[i], bg_h[i]));
   bg_plain_sprites[i].SetPosition(bg_x[i], bg_y[i], 0);
   bg_sprites[i] = Sprite();
   bg_sprites[i].SetPosition(bg_x[i], bg_y[i], 1);
@@ -299,10 +378,13 @@ while (i < display_count) {
 global.bg_loaded = 0;
 fun bg_prompt() {
   if (global.bg_loaded == 0) {
-    boxed = Image("bg.png");
     i = 0;
     while (i < display_count) {
-      bg_sprites[i].SetImage(boxed.Scale(bg_w[i], bg_h[i]));
+      if (global.boxed_ok[hs[i]] != 1) {
+        global.boxed_img[hs[i]] = Image(src_file[hs[i]]);
+        global.boxed_ok[hs[i]] = 1;
+      }
+      bg_sprites[i].SetImage(global.boxed_img[hs[i]].Scale(bg_w[i], bg_h[i]));
       i++;
     }
     global.bg_loaded = 1;
@@ -338,10 +420,13 @@ while (i < display_count) {
 global.bg_loaded = 0;
 fun bg_prompt() {
   if (global.bg_loaded == 0) {
-    boxed = Image("bg.png");
     i = 0;
     while (i < display_count) {
-      bg_sprites[i].SetImage(boxed.Scale(bg_w[i], bg_h[i]));
+      if (global.boxed_ok[hs[i]] != 1) {
+        global.boxed_img[hs[i]] = Image(src_file[hs[i]]);
+        global.boxed_ok[hs[i]] = 1;
+      }
+      bg_sprites[i].SetImage(global.boxed_img[hs[i]].Scale(bg_w[i], bg_h[i]));
       i++;
     }
     global.bg_loaded = 1;
@@ -442,12 +527,13 @@ while (d < display_count) {
   entry_sprites[d] = Sprite();
   # Relative to the drawn background, not to the screen: the box is painted
   # into the image, so the bullets have to follow wherever the image landed.
-  ent_cx[d] = bg_x[d] + bg_w[d] * $entry_x / 100;
-  ent_cy[d] = bg_y[d] + bg_h[d] * $entry_y / 100;
-  ent_iw[d] = bg_w[d] * $entry_wp / 100;
+  # Each head's capture has its own box position.
+  ent_cx[d] = bg_x[d] + bg_w[d] * src_ex[hs[d]] / 100;
+  ent_cy[d] = bg_y[d] + bg_h[d] * src_ey[hs[d]] / 100;
+  ent_iw[d] = bg_w[d] * src_ew[hs[d]] / 100;
   # The measured input area's height; 0 in a snapshot conf from before it was
   # recorded, which leaves the wait arc at its minimum size below.
-  ent_ih[d] = bg_h[d] * $entry_hp / 100;
+  ent_ih[d] = bg_h[d] * src_eh[hs[d]] / 100;
   d++;
 }
 EOF

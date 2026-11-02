@@ -56,6 +56,9 @@ layout_val() {
       re='^(theme|wallpaper|#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?|/[A-Za-z0-9._/@+ -]{1,255})$' ;;
     logo) re='^(theme|none|/[A-Za-z0-9._/@+ -]{1,255})$' ;;
     background_plain) re='^/[A-Za-z0-9._/@+ -]{1,255}$' ;;
+    # Captures of a snapshot at other monitor sizes: "WxH,cx,cy,w,h" each,
+    # up to three, separated by ';' (see apply.sh).
+    variants) re='^[0-9]{2,5}x[0-9]{2,5}(,-?[0-9]{1,4}(\.[0-9]{1,3})?){4}(;[0-9]{2,5}x[0-9]{2,5}(,-?[0-9]{1,4}(\.[0-9]{1,3})?){4}){0,2}$' ;;
     # Text: no quote, backslash, backtick or control character, at most 80
     # characters, and no leading @ (magick -annotate reads @file).
     title | subtitle | hint) re='^([^@"\`[:cntrl:]][^"\`[:cntrl:]]{0,79})?$' ;;

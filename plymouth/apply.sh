@@ -111,6 +111,25 @@ case $target in
     # itself -- an older file is a leftover from a previous grab.
     plain="$HOME/.local/state/omarchy/lock-explorer-snapshots/${target#snapshot:}-plain.png"
     [[ -f $plain && $plain -nt $snap ]] || plain=""
+    # Captures of the design at the other monitor sizes, <id>@<W>x<H>.png,
+    # taken in the same flow right after the main one (so newer than it): the
+    # boot theme gives each head the one whose shape matches (issue #38).
+    # Each carries its own input box rect from SNAPSHOT_ENTRY_EXTRA
+    # ("WxH=cx,cy,w,h,align;..."); a capture without one is left out, since
+    # its bullets would have nowhere to go.
+    variants=""
+    num='^-?[0-9]{1,4}(\.[0-9]{1,3})?$'
+    for vf in "${snap%.png}"@*.png; do
+      [[ -f $vf && ! -L $vf && $vf -nt $snap ]] || continue
+      key=${vf##*@}; key=${key%.png}
+      [[ $key =~ ^[0-9]{2,5}x[0-9]{2,5}$ ]] || continue
+      vrect=""
+      IFS=';' read -ra extra <<< "${SNAPSHOT_ENTRY_EXTRA:-}"
+      for e in "${extra[@]}"; do [[ ${e%%=*} == "$key" ]] && vrect=${e#*=}; done
+      IFS=, read -r ex ey ew eh ea <<< "$vrect"
+      [[ $ex =~ $num && $ey =~ $num && $ew =~ $num && $eh =~ $num && ${ea:-center} =~ ^(left|center|right)$ ]] || continue
+      variants+="${variants:+;}$key,$ex,$ey,$ew,$eh"
+    done
     tmpconf=$(mktemp)
     if [[ -n ${SNAPSHOT_ENTRY:-} ]]; then
       # The design's own input box is in the snapshot; put the bullets inside
@@ -127,6 +146,7 @@ case $target in
     else
       printf 'background = %s\nbackground_plain = %s\nlogo = none\ntitle =\nsubtitle =\nclock = off\nentry = pill\nentry_y = 82\nhint =\n' "$snap" "$plain" > "$tmpconf"
     fi
+    [[ -z $variants || -z ${SNAPSHOT_ENTRY:-} ]] || printf 'variants = %s\n' "$variants" >> "$tmpconf"
     bash "$here/custom/generate.sh" "$staging" "$tmpconf" "$target"
     rm -f "$tmpconf"
     ;;

@@ -2665,7 +2665,9 @@ echo "$out"
   // saved boot setting alone (used by follow mode, which stays "follow").
   // entryRect ("cx,cy,w,h" in percent) is where the design's own input box
   // sits in the snapshot; the boot theme puts its bullets there.
-  function applyBootSnapshot(id, persist, entryRect) {
+  // extraRects ("WxH=cx,cy,w,h,align;...") are the same for the captures of
+  // the other monitor sizes (<id>@WxH.png, see the explorer's snapshot flow).
+  function applyBootSnapshot(id, persist, entryRect, extraRects) {
     if (bootApplying) return
     if (persist === undefined) persist = true
     if (persist) {
@@ -2680,6 +2682,7 @@ echo "$out"
     bootApplyTarget = "snapshot:" + id
     bootApplyProc.command = ["env", "BOOT_CLIP_SECONDS=0", "BOOT_SHUTDOWN=" + bootShutdown,
       "SNAPSHOT_ENTRY=" + String(entryRect || ""),
+      "SNAPSHOT_ENTRY_EXTRA=" + String(extraRects || ""),
       "bash", pluginDir + "/plymouth/apply.sh", "snapshot:" + id]
     bootApplyProc.running = true
     logEvent("boot-snapshot=" + id + (persist ? "" : " (follow)"))
@@ -4761,7 +4764,7 @@ echo "$out"
       function logEvent(event) { return root.logEvent(event) }
       function setBoot(value) { return root.setBoot(value) }
       function applyBoot(force, explicitTarget) { return root.applyBoot(force, explicitTarget) }
-      function applyBootSnapshot(id, persist, entryRect) { return root.applyBootSnapshot(id, persist, entryRect) }
+      function applyBootSnapshot(id, persist, entryRect, extraRects) { return root.applyBootSnapshot(id, persist, entryRect, extraRects) }
       function setBootResync(on) { return root.setBootResync(on) }
       function refreshBootPreviews() { return root.refreshBootPreviews() }
       function setBootClipSeconds(n) { return root.setBootClipSeconds(n) }

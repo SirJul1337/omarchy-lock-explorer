@@ -3363,7 +3363,10 @@ echo "$out"
     if (wasBlanked && lockRequested && sessionLock.secure) Qt.callLater(retryFido2)
     // The panel coming back is the first moment a finger can be on the reader
     // again, and the misses from before the blank no longer describe this round.
-    if (wasBlanked && lockRequested && sessionLock.secure && fingerprintConfigured) {
+    // A reader that paused on misses comes back the same way: any key, click or
+    // pointer move lands here, and under Never no blank ever follows.
+    if ((wasBlanked || fingerprintMisses >= fingerprintRetryLimit)
+        && lockRequested && sessionLock.secure && fingerprintConfigured) {
       fingerprintMisses = 0
       Qt.callLater(startFingerprint)
     }
@@ -3408,9 +3411,6 @@ echo "$out"
 
   function submitPassword(value) {
     var password = String(value || "")
-    // Somebody is typing, so the reader is worth another round even if it
-    // paused on misses while the panel was lit.
-    fingerprintMisses = 0
     // A password submitted while on the key (emergency field, custom design)
     // is a password: leave key mode first so it never meets fido2Pam.
     if (password.length > 0 && fido2Active) setAuthMode("password")
@@ -3467,12 +3467,11 @@ echo "$out"
     fingerprintAuthenticating = false
 
     if (!lockRequested) return
-    // A result from a round the blanking cut short says nothing about who is
-    // in front of the screen now.
-    if (screenBlanked) return
+    // A match is a match even if the panel went dark mid-round. A miss from
+    // that round says nothing about who is in front of the screen now.
     if (result === PamResult.Success) {
       finishUnlock()
-    } else {
+    } else if (!screenBlanked) {
       fingerprintMissed()
     }
   }
@@ -4007,9 +4006,9 @@ echo "$out"
       root.handleFingerprintFinished(result)
     }
 
+    // completed(PamResult.Error) follows every error and counts the miss.
     onError: function(error) {
       root.fingerprintAuthenticating = false
-      if (root.lockRequested && root.fingerprintConfigured) root.fingerprintMissed()
     }
   }
 

@@ -2847,6 +2847,12 @@ echo "$out"
   // or the face button starts a fresh round.
   readonly property int faceRetryLimit: 5
   property int faceMisses: 0
+  // Every fingerprint round is a PAM claim on the reader, and pam_fprintd resets
+  // the device on each claim (the kernel logs a USB port reset per round). On a
+  // dark panel nobody is there to touch it, so the rounds have to stop with the
+  // screen: same accounting as face.
+  readonly property int fingerprintRetryLimit: 5
+  property int fingerprintMisses: 0
   property bool passwordPamConfigured: false
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
@@ -3209,6 +3215,7 @@ echo "$out"
     authenticatingPassword = false
     fingerprintAuthenticating = false
     fingerprintRetryTimer.stop()
+    fingerprintMisses = 0
     clearFingerprintStatus()
     faceMisses = 0
     faceRetryTimer.stop()
@@ -3354,6 +3361,12 @@ echo "$out"
         Qt.callLater(retryFace)
     }
     if (wasBlanked && lockRequested && sessionLock.secure) Qt.callLater(retryFido2)
+    // The panel coming back is the first moment a finger can be on the reader
+    // again, and the misses from before the blank no longer describe this round.
+    if (wasBlanked && lockRequested && sessionLock.secure && fingerprintConfigured) {
+      fingerprintMisses = 0
+      Qt.callLater(startFingerprint)
+    }
     // Failsafe: a wake that never exits must not leave the field inert.
     if (inputBlocked && !inputUnblockTimer.running) {
       inputUnblockTimer.interval = 3000
@@ -3395,6 +3408,9 @@ echo "$out"
 
   function submitPassword(value) {
     var password = String(value || "")
+    // Somebody is typing, so the reader is worth another round even if it
+    // paused on misses while the panel was lit.
+    fingerprintMisses = 0
     // A password submitted while on the key (emergency field, custom design)
     // is a password: leave key mode first so it never meets fido2Pam.
     if (password.length > 0 && fido2Active) setAuthMode("password")
@@ -3435,6 +3451,10 @@ echo "$out"
 
   function startFingerprint() {
     if (!lockRequested || !sessionLock.secure || !fingerprintConfigured) return
+    // A dark panel means nobody is in front of it, and a round there still
+    // claims the reader and resets it. Blanking stops the rounds; the wake
+    // starts a fresh one.
+    if (screenBlanked) return
     if (fingerprintPam.active || fingerprintAuthenticating) return
 
     fingerprintAuthenticating = true
@@ -3447,11 +3467,21 @@ echo "$out"
     fingerprintAuthenticating = false
 
     if (!lockRequested) return
+    // A result from a round the blanking cut short says nothing about who is
+    // in front of the screen now.
+    if (screenBlanked) return
     if (result === PamResult.Success) {
       finishUnlock()
-    } else if (fingerprintConfigured) {
-      fingerprintRetryTimer.restart()
+    } else {
+      fingerprintMissed()
     }
+  }
+
+  function fingerprintMissed() {
+    if (!lockRequested || !fingerprintConfigured || screenBlanked) return
+    fingerprintMisses += 1
+    if (fingerprintMisses < fingerprintRetryLimit) fingerprintRetryTimer.restart()
+    else logEvent("fingerprint-paused after " + fingerprintMisses + " misses")
   }
 
   // The camera runs only behind a lock screen someone can actually see: a
@@ -3979,7 +4009,7 @@ echo "$out"
 
     onError: function(error) {
       root.fingerprintAuthenticating = false
-      if (root.lockRequested && root.fingerprintConfigured) fingerprintRetryTimer.restart()
+      if (root.lockRequested && root.fingerprintConfigured) root.fingerprintMissed()
     }
   }
 

@@ -451,6 +451,14 @@ Item {
   readonly property bool configuredWakeOnKeyInsert: pluginFlag("wakeOnKeyInsert")
   readonly property bool wakeOnKeyInsert: wakeOnKeyInsertOverride >= 0 ? wakeOnKeyInsertOverride === 1 : configuredWakeOnKeyInsert
 
+  // On by default: the reader keeps listening behind a dark panel, so a touch
+  // unlocks it. Off rests the reader until the panel wakes, for readers that
+  // reset on every claim. Saved on the plugin entry as `fingerprintDarkOff`,
+  // only when off.
+  property int fingerprintDarkOffOverride: -1
+  readonly property bool configuredFingerprintDarkOff: pluginFlag("fingerprintDarkOff")
+  readonly property bool fingerprintInDark: !(fingerprintDarkOffOverride >= 0 ? fingerprintDarkOffOverride === 1 : configuredFingerprintDarkOff)
+
   function pluginFlag(name) {
     var cfg = root.settingsConfig
     var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
@@ -467,6 +475,7 @@ Item {
     if (!on && !off) return false
     if (name === "lockOnKeyRemoval") lockOnKeyRemovalOverride = on ? 1 : 0
     else if (name === "wakeOnKeyInsert") wakeOnKeyInsertOverride = on ? 1 : 0
+    else if (name === "fingerprintDarkOff") fingerprintDarkOffOverride = on ? 1 : 0
     else return false
     if (shell && typeof shell.updateEntryInline === "function") {
       var current = pluginEntry()
@@ -480,6 +489,15 @@ Item {
 
   function setLockOnKeyRemoval(value) { return setPluginFlag("lockOnKeyRemoval", value) }
   function setWakeOnKeyInsert(value) { return setPluginFlag("wakeOnKeyInsert", value) }
+
+  function setFingerprintInDark(value) {
+    var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
+    var off = value === false || value === "false" || value === 0 || value === "0" || value === "off"
+    if (!on && !off) return false
+    setPluginFlag("fingerprintDarkOff", !on)
+    if (on) Qt.callLater(startFingerprint)
+    return true
+  }
 
   function setAwayReport(value) {
     var on = value === true || value === "true" || value === 1 || value === "1" || value === "on"
@@ -2847,6 +2865,12 @@ echo "$out"
   // or the face button starts a fresh round.
   readonly property int faceRetryLimit: 5
   property int faceMisses: 0
+  // Every fingerprint round is a PAM claim on the reader, and pam_fprintd resets
+  // the device on each claim (the kernel logs a USB port reset per round). On a
+  // dark panel nobody is there to touch it, so the rounds have to stop with the
+  // screen: same accounting as face.
+  readonly property int fingerprintRetryLimit: 5
+  property int fingerprintMisses: 0
   property bool passwordPamConfigured: false
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
@@ -3209,6 +3233,7 @@ echo "$out"
     authenticatingPassword = false
     fingerprintAuthenticating = false
     fingerprintRetryTimer.stop()
+    fingerprintMisses = 0
     clearFingerprintStatus()
     faceMisses = 0
     faceRetryTimer.stop()
@@ -3354,6 +3379,15 @@ echo "$out"
         Qt.callLater(retryFace)
     }
     if (wasBlanked && lockRequested && sessionLock.secure) Qt.callLater(retryFido2)
+    // The panel coming back is the first moment a finger can be on the reader
+    // again, and the misses from before the blank no longer describe this round.
+    // A reader that paused on misses comes back the same way: any key, click or
+    // pointer move lands here, and under Never no blank ever follows.
+    if ((wasBlanked || fingerprintMisses >= fingerprintRetryLimit)
+        && lockRequested && sessionLock.secure && fingerprintConfigured) {
+      fingerprintMisses = 0
+      Qt.callLater(startFingerprint)
+    }
     // Failsafe: a wake that never exits must not leave the field inert.
     if (inputBlocked && !inputUnblockTimer.running) {
       inputUnblockTimer.interval = 3000
@@ -3390,6 +3424,12 @@ echo "$out"
     // Nothing to authenticate to while the panel is dark: drop the scan and
     // let go of the camera until it comes back.
     if (screenBlanked) stopFace()
+    // A reader kept listening in the dark starts over there, even one that
+    // paused on misses while the panel was lit.
+    if (screenBlanked && fingerprintInDark && lockRequested && fingerprintConfigured) {
+      fingerprintMisses = 0
+      Qt.callLater(startFingerprint)
+    }
     if (!blankProcess.running) blankProcess.running = true
   }
 
@@ -3435,6 +3475,10 @@ echo "$out"
 
   function startFingerprint() {
     if (!lockRequested || !sessionLock.secure || !fingerprintConfigured) return
+    // Unless the reader is to keep listening in the dark, a round behind a
+    // dark panel only claims the reader and resets it. Blanking stops the
+    // rounds; the wake starts a fresh one.
+    if (screenBlanked && !fingerprintInDark) return
     if (fingerprintPam.active || fingerprintAuthenticating) return
 
     fingerprintAuthenticating = true
@@ -3447,11 +3491,23 @@ echo "$out"
     fingerprintAuthenticating = false
 
     if (!lockRequested) return
+    // A match is a match even if the panel went dark mid-round. A miss from
+    // that round says nothing about who is in front of the screen now.
     if (result === PamResult.Success) {
       finishUnlock()
-    } else if (fingerprintConfigured) {
+    } else if (!screenBlanked) {
+      fingerprintMissed()
+    } else if (fingerprintInDark && fingerprintConfigured) {
+      // Nobody can be counted as missing in the dark: keep listening.
       fingerprintRetryTimer.restart()
     }
+  }
+
+  function fingerprintMissed() {
+    if (!lockRequested || !fingerprintConfigured || screenBlanked) return
+    fingerprintMisses += 1
+    if (fingerprintMisses < fingerprintRetryLimit) fingerprintRetryTimer.restart()
+    else logEvent("fingerprint-paused after " + fingerprintMisses + " misses")
   }
 
   // The camera runs only behind a lock screen someone can actually see: a
@@ -3977,9 +4033,9 @@ echo "$out"
       root.handleFingerprintFinished(result)
     }
 
+    // completed(PamResult.Error) follows every error and counts the miss.
     onError: function(error) {
       root.fingerprintAuthenticating = false
-      if (root.lockRequested && root.fingerprintConfigured) fingerprintRetryTimer.restart()
     }
   }
 
@@ -4635,6 +4691,7 @@ echo "$out"
       readonly property bool tourSeen: root.tourSeen
       readonly property bool lockOnKeyRemoval: root.lockOnKeyRemoval
       readonly property bool wakeOnKeyInsert: root.wakeOnKeyInsert
+      readonly property bool fingerprintInDark: root.fingerprintInDark
       readonly property var favorites: root.favorites
       readonly property bool showLayoutBadge: root.showLayoutBadge
       readonly property string accountName: root.accountName
@@ -4738,6 +4795,7 @@ echo "$out"
       function setTourSeen(value) { return root.setTourSeen(value) }
       function setLockOnKeyRemoval(value) { return root.setLockOnKeyRemoval(value) }
       function setWakeOnKeyInsert(value) { return root.setWakeOnKeyInsert(value) }
+      function setFingerprintInDark(value) { return root.setFingerprintInDark(value) }
       function toggleFavorite(id) { return root.toggleFavorite(id) }
       function setFieldItem(name, show) { return root.setFieldItem(name, show) }
       function installPackages(names) { return root.installPackages(names) }
@@ -4929,6 +4987,7 @@ echo "$out"
         powerActions: root.powerActions,
         mediaControls: root.mediaControls,
         awayReport: root.awayReport,
+        fingerprintInDark: root.fingerprintInDark,
         wallpaperBlur: root.wallpaperBlur,
         wallpaperDim: root.wallpaperDim,
         reduceMotion: root.reduceMotion,
@@ -5086,6 +5145,14 @@ echo "$out"
 
     function setWakeOnKeyInsert(value: string): string {
       return root.setWakeOnKeyInsert(value) ? "ok" : "invalid-value"
+    }
+
+    function fingerprintInDark(): string {
+      return root.fingerprintInDark ? "on" : "off"
+    }
+
+    function setFingerprintInDark(value: string): string {
+      return root.setFingerprintInDark(value) ? "ok" : "invalid-value"
     }
 
     function favorites(): string {

@@ -400,6 +400,7 @@ Item {
   readonly property bool awayReport: !service || service.awayReport !== false
   readonly property bool lockOnKeyRemoval: service && service.lockOnKeyRemoval === true
   readonly property bool wakeOnKeyInsert: service && service.wakeOnKeyInsert === true
+  readonly property bool fingerprintInDark: !service || service.fingerprintInDark !== false
   readonly property string wallpaperBlur: service && service.wallpaperBlur !== undefined ? String(service.wallpaperBlur) : "design"
   readonly property string wallpaperDim: service && service.wallpaperDim !== undefined ? String(service.wallpaperDim) : "design"
   readonly property real wallpaperBlurValue: service && service.wallpaperBlurValue !== undefined ? service.wallpaperBlurValue : -1
@@ -1288,6 +1289,11 @@ Item {
   function setWakeOnKeyInsert(on) {
     if (!root.service || typeof root.service.setWakeOnKeyInsert !== "function") return
     root.service.setWakeOnKeyInsert(on)
+  }
+
+  function setFingerprintInDark(on) {
+    if (!root.service || typeof root.service.setFingerprintInDark !== "function") return
+    root.service.setFingerprintInDark(on)
   }
 
   function setWakeGrace(ms) {
@@ -2552,6 +2558,19 @@ Item {
                   options: [{ id: "wake", name: root.tr("On wake") }, { id: "always", name: root.tr("Always") }, { id: "off", name: root.tr("On request") }]
                   current: root.faceStart
                   onPicked: function(id) { root.setFaceStart(id) }
+                }
+
+                // Only with an enrolled finger: without one there is no reader to rest.
+                SettingRow {
+                  explorer: root
+                  visible: root.service ? root.service.fingerprintConfigured === true : false
+                  label: root.tr("Fingerprint on a dark screen")
+                  help: root.fingerprintInDark
+                        ? root.tr("The reader keeps listening while the display is off, so a touch unlocks a dark screen.")
+                        : root.tr("The reader rests while the display is off; wake the screen first. For readers that reset on every try.")
+                  options: root.onOffOptions
+                  current: root.fingerprintInDark ? "on" : "off"
+                  onPicked: function(id) { root.setFingerprintInDark(id === "on") }
                 }
 
                 // Only once /etc/pam.d/omarchy-lock-fido2 is in place; off sends

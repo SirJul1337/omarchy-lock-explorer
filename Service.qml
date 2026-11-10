@@ -184,11 +184,15 @@ Item {
 
   // Omarchy's own commands, so a lock screen reboot is the reboot the menu
   // does. Nothing here runs without the setting on and a second click.
+  // Current Omarchy ships `omarchy-system <reboot|shutdown>`; the standalone
+  // omarchy-system-<action> scripts are only a fallback for older installs.
   function runPowerAction(action) {
     if (!powerActions) return false
     if (action === "suspend") Quickshell.execDetached(["systemctl", "suspend"])
-    else if (action === "reboot") Quickshell.execDetached(["omarchy-system-reboot"])
-    else if (action === "shutdown") Quickshell.execDetached(["omarchy-system-shutdown"])
+    else if (action === "reboot" || action === "shutdown")
+      Quickshell.execDetached(["bash", "-c",
+        "if command -v omarchy-system >/dev/null; then exec omarchy-system \"$1\"; else exec \"omarchy-system-$1\"; fi",
+        "bash", action])
     else return false
     logEvent("power-action=" + action)
     return true

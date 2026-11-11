@@ -1489,7 +1489,15 @@ Item {
     root.dismiss()
   }
 
+  // ExplorerHost.qml hands over the requests that came before this explorer
+  // was built, by the name of the handler below.
+  function replayServiceEvent(handler, args) {
+    if (handler.indexOf("on") === 0 && typeof serviceEvents[handler] === "function")
+      serviceEvents[handler].apply(serviceEvents, args)
+  }
+
   Connections {
+    id: serviceEvents
     target: root.service
     ignoreUnknownSignals: true
     function onBootDesignLoaded(name, content) {

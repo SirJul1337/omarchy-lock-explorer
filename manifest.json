@@ -13,7 +13,7 @@
   "keepLoaded": true,
   "entryPoints": {
     "service": "Service.qml",
-    "overlay": "Explorer.qml"
+    "overlay": "ExplorerHost.qml"
   },
   "omarchy": {
     "clonedFrom": "omarchy.lock"

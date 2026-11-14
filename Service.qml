@@ -9,6 +9,7 @@ import "Designs.js" as Designs
 import "DisplayPower.js" as DisplayPower
 import "Bridge.js" as Bridge
 import "designs/Strings.js" as Strings
+import "designs/Bounded.js" as Bounded
 import "designs" as Parts
 
 Item {
@@ -884,13 +885,13 @@ Item {
   // check, so a file growing in between still cannot get past it.
   Process {
     id: settingsCopyRead
-    command: ["bash", "-c",
+    command: Bounded.run(["bash", "-c",
       "f=$1; max=$2; " +
       "[ -e \"$f\" ] || [ -L \"$f\" ] || exit 1; " +
       "[ -f \"$f\" ] && [ ! -L \"$f\" ] || exit 2; " +
       "[ \"$(stat -c %s -- \"$f\")\" -le \"$max\" ] || exit 3; " +
       "head -c \"$max\" -- \"$f\"",
-      "bash", root.settingsBackupPath, String(root.settingsCopyMaxBytes)]
+      "bash", root.settingsBackupPath, String(root.settingsCopyMaxBytes)], { deadline: 10, cap: 1048576 })
     stdout: StdioCollector { id: settingsCopyOut; waitForEnd: true }
     onExited: function(exitCode) { root.applySettingsCopy(exitCode, String(settingsCopyOut.text || "")) }
   }
@@ -1297,9 +1298,9 @@ Item {
   Process {
     id: shippedClipsProc
     running: true
-    command: ["bash", "-c",
+    command: Bounded.run(["bash", "-c",
       "dst=\"$HOME/.config/omarchy/lock-videos\"; mkdir -p \"$dst\"; for f in \"$0\"/videos/*.mp4; do [ -e \"$f\" ] || continue; b=$(basename \"$f\"); [ -e \"$dst/$b\" ] || ln -s \"$f\" \"$dst/$b\"; done",
-      root.pluginDir]
+      root.pluginDir], { deadline: 30 })
   }
 
   // Bumps the revision so every LockHost showing a user design reloads it.
@@ -1323,10 +1324,10 @@ Item {
     // The id is matched in the manifest rather than parsed out of it: a
     // grep says whether this file claims the same id, which is the whole
     // question. Hidden directories count, and a backup copy is usually one.
-    command: ["bash", "-c",
+    command: Bounded.run(["bash", "-c",
       "find \"$1\" -mindepth 2 -maxdepth 2 -name manifest.json -type f 2>/dev/null | while read -r m; do " +
       "grep -D skip -q \"\\\"id\\\"[[:space:]]*:[[:space:]]*\\\"$2\\\"\" \"$m\" && dirname \"$m\"; done",
-      "bash", Quickshell.env("HOME") + "/.config/omarchy/plugins", root.pluginId]
+      "bash", Quickshell.env("HOME") + "/.config/omarchy/plugins", root.pluginId], { deadline: 15, cap: 1048576 })
     stdout: StdioCollector { id: duplicatePluginStdout; waitForEnd: true }
     onExited: {
       var found = String(duplicatePluginStdout.text || "").split("\n")
@@ -1358,7 +1359,7 @@ Item {
 
   Process {
     id: rivalLockProc
-    command: ["omarchy-shell", "shell", "listPlugins"]
+    command: Bounded.run(["omarchy-shell", "shell", "listPlugins"], { deadline: 15, cap: 1048576 })
     stdout: StdioCollector { id: rivalLockStdout; waitForEnd: true }
     onExited: {
       var plugins = []
@@ -1407,7 +1408,7 @@ Item {
   function openInTerminal(command, fallback) {
     if (terminalProc.running) return false
     terminalFallback = fallback || command
-    terminalProc.command = ["bash", "-c", "count() { hyprctl clients -j 2>/dev/null | jq '[.[] | select(.class == \"org.omarchy.terminal\")] | length' 2>/dev/null; }; launch() { setsid -f omarchy-launch-floating-terminal-with-presentation \"$1\" >/dev/null 2>&1; }; if ! command -v hyprctl >/dev/null || ! command -v jq >/dev/null; then launch \"$1\"; exit 0; fi; before=$(count); before=${before:-0}; launch \"$1\"; for _ in $(seq 24); do sleep 0.25; now=$(count); (( ${now:-0} > before )) && exit 0; done; exit 1", "bash", command]
+    terminalProc.command = Bounded.run(["bash", "-c", "count() { hyprctl clients -j 2>/dev/null | jq '[.[] | select(.class == \"org.omarchy.terminal\")] | length' 2>/dev/null; }; launch() { setsid -f omarchy-launch-floating-terminal-with-presentation \"$1\" >/dev/null 2>&1; }; if ! command -v hyprctl >/dev/null || ! command -v jq >/dev/null; then launch \"$1\"; exit 0; fi; before=$(count); before=${before:-0}; launch \"$1\"; for _ in $(seq 24); do sleep 0.25; now=$(count); (( ${now:-0} > before )) && exit 0; done; exit 1", "bash", command], { deadline: 30 })
     terminalProc.running = true
     return true
   }
@@ -1427,7 +1428,7 @@ Item {
   property bool movingCopies: false
   Process {
     id: moveCopiesProc
-    command: ["bash", root.doctorPath, "--fix"]
+    command: Bounded.run(["bash", root.doctorPath, "--fix"], { deadline: 60 })
     onExited: {
       root.movingCopies = false
       root.logEvent("doctor-fix exit=" + exitCode)
@@ -1465,7 +1466,7 @@ Item {
   function setBarIcon(v) {
     var on = v === true || v === 1 || v === "true" || v === "on" || v === "1"
     if (barIconApplyProc.running) return false
-    barIconApplyProc.command = on ? ["bash", barIconPath] : ["bash", barIconPath, "--remove"]
+    barIconApplyProc.command = Bounded.run(on ? ["bash", barIconPath] : ["bash", barIconPath, "--remove"], { deadline: 30 })
     barIconApplyProc.running = true
     logEvent("bar-icon=" + (on ? "on" : "off"))
     return true
@@ -1489,7 +1490,7 @@ Item {
   function setMenuEntry(v) {
     var on = v === true || v === 1 || v === "true" || v === "on" || v === "1"
     if (menuEntryApplyProc.running) return false
-    menuEntryApplyProc.command = on ? [menuInstallPath] : [menuInstallPath, "--remove"]
+    menuEntryApplyProc.command = Bounded.run(on ? [menuInstallPath] : [menuInstallPath, "--remove"], { deadline: 30 })
     menuEntryApplyProc.running = true
     logEvent("menu-entry=" + (on ? "on" : "off"))
     return true
@@ -1497,7 +1498,7 @@ Item {
 
   Process {
     id: menuEntryStatusProc
-    command: [root.menuInstallPath, "--status"]
+    command: Bounded.run([root.menuInstallPath, "--status"], { deadline: 15, cap: 65536 })
     stdout: StdioCollector { id: menuEntryStatusOut; waitForEnd: true }
     onExited: root.menuEntryInstalled = String(menuEntryStatusOut.text || "").trim() === "installed"
   }
@@ -1520,7 +1521,7 @@ Item {
     var source = d.template ? pluginDir + "/extras/lock-designs/" + d.file : pluginDir + "/designs/" + d.file
     if (customizeProc.running) return false
     var importLine = 'import "../plugins/' + pluginId + '/designs"'
-    customizeProc.command = ["bash", "-c", customizeScript, safePathsLib, source, userDesignsDir, d.file.replace(/\.qml$/, ""), d.template ? "" : importLine, d.name, fresh || d.template ? "fresh" : ""]
+    customizeProc.command = Bounded.run(["bash", "-c", customizeScript, safePathsLib, source, userDesignsDir, d.file.replace(/\.qml$/, ""), d.template ? "" : importLine, d.name, fresh || d.template ? "fresh" : ""], { deadline: 30, cap: 65536 })
     customizeProc.running = true
     return true
   }
@@ -1584,7 +1585,7 @@ echo "$target"
   // into the designer on it.
   function createDesignerDesign(content) {
     if (designerCreateProc.running) return false
-    designerCreateProc.command = ["bash", "-c", designerCreateScript, safePathsLib, userDesignsDir, String(content)]
+    designerCreateProc.command = Bounded.run(["bash", "-c", designerCreateScript, safePathsLib, userDesignsDir, String(content)], { deadline: 30, cap: 65536 })
     designerCreateProc.running = true
     return true
   }
@@ -1636,8 +1637,8 @@ echo "$target"
     if (safe.length === 0 || String(json || "").length === 0) return false
     if (componentSaveProc.running) return false
     if (String(json).length > 65536) return false
-    componentSaveProc.command = ["bash", "-c",
-      'source "$4" && safe_dir "$1" && printf %s "$3" | put_file "$1" "$2.json"', "savecomponent", componentsDir, safe, String(json), safePathsLib]
+    componentSaveProc.command = Bounded.run(["bash", "-c",
+      'source "$4" && safe_dir "$1" && printf %s "$3" | put_file "$1" "$2.json"', "savecomponent", componentsDir, safe, String(json), safePathsLib], { deadline: 15 })
     componentSaveProc.running = true
     logEvent("component-saved=" + safe)
     return true
@@ -1647,8 +1648,8 @@ echo "$target"
     var safe = String(slug || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "")
     if (safe.length === 0) return false
     if (componentDeleteProc.running) return false
-    componentDeleteProc.command = ["bash", "-c",
-      'rm -f -- "$1/$2.json"', "delcomponent", componentsDir, safe]
+    componentDeleteProc.command = Bounded.run(["bash", "-c",
+      'rm -f -- "$1/$2.json"', "delcomponent", componentsDir, safe], { deadline: 15 })
     componentDeleteProc.running = true
     logEvent("component-deleted=" + safe)
     return true
@@ -1661,9 +1662,9 @@ echo "$target"
     // have no newlines in them; tr keeps a hand-edited one from splitting the
     // listing across lines. Plain files of at most 64 KiB only: a FIFO or a
     // huge file would hold the scan up.
-    command: ["bash", "-c",
+    command: Bounded.run(["bash", "-c",
       'dir="$1"; mkdir -p "$dir"; for f in "$dir"/*.json; do [ -f "$f" ] && [ ! -L "$f" ] && [ "$(stat -c %s -- "$f")" -le 65536 ] || continue; printf "%s\\t" "$(basename "$f" .json)"; head -c 65536 -- "$f" | tr -d "\\n"; printf "\\n"; done',
-      "components", root.componentsDir]
+      "components", root.componentsDir], { deadline: 15, cap: 1048576 })
     stdout: StdioCollector {
       id: componentsOut
       waitForEnd: true
@@ -1712,7 +1713,7 @@ echo "$target"
 
   Process {
     id: imagePickProc
-    command: ["omarchy-file-select", "--title", "Pick an image for the design", "--extensions", "png jpg jpeg webp svg"]
+    command: Bounded.run(["omarchy-file-select", "--title", "Pick an image for the design", "--extensions", "png jpg jpeg webp svg"], { deadline: 1800, cap: 65536 })
     stdout: StdioCollector {
       id: imagePickOut
       waitForEnd: true
@@ -1786,7 +1787,7 @@ done
 
   Process {
     id: detectAvatarProc
-    command: ["bash", "-c", root.detectAvatarScript]
+    command: Bounded.run(["bash", "-c", root.detectAvatarScript], { deadline: 15, cap: 65536 })
     stdout: StdioCollector {
       id: detectAvatarOut
       waitForEnd: true
@@ -1802,7 +1803,7 @@ done
 
   Process {
     id: avatarPickProc
-    command: ["omarchy-file-select", "--title", "Pick a lock screen avatar", "--extensions", "png jpg jpeg webp"]
+    command: Bounded.run(["omarchy-file-select", "--title", "Pick a lock screen avatar", "--extensions", "png jpg jpeg webp"], { deadline: 1800, cap: 65536 })
     stdout: StdioCollector {
       id: avatarPickOut
       waitForEnd: true
@@ -1874,11 +1875,11 @@ done
     if (videoPickProc.running) return false
     videoPickTarget = String(target || "video")
     videoPickReopens = reopenExplorer === true
-    videoPickProc.command = ["omarchy-file-select",
+    videoPickProc.command = Bounded.run(["omarchy-file-select",
       "--title", videoPickTarget === "sting" ? "Pick an unlock clip"
         : videoPickTarget === "clip" ? "Pick a video for a new clip design"
         : "Pick a lock screen video",
-      "--extensions", "mp4 mkv webm mov m4v"]
+      "--extensions", "mp4 mkv webm mov m4v"], { deadline: 1800, cap: 65536 })
     videoPickProc.running = true
     return true
   }
@@ -1912,8 +1913,8 @@ done
     if (src.indexOf("file://") === 0) src = decodeURIComponent(src.replace(/^file:\/\//, ""))
     if (src.length === 0 || clipDesignProc.running) return false
     var importLine = 'import "../plugins/' + pluginId + '/designs"'
-    clipDesignProc.command = ["bash", "-c", clipDesignScript, safePathsLib,
-      src, home + "/.config/omarchy/lock-videos", userDesignsDir, importLine]
+    clipDesignProc.command = Bounded.run(["bash", "-c", clipDesignScript, safePathsLib,
+      src, home + "/.config/omarchy/lock-videos", userDesignsDir, importLine], { deadline: 900, cap: 65536 })
     clipDesignProc.running = true
     return true
   }
@@ -2012,8 +2013,8 @@ printf "%s\\t%s\\n" "$target" "$base"
       if (keep) clip = ""
     }
     if (designId === d.id) setDesign(Designs.DEFAULT_ID)
-    deleteDesignProc.command = ["bash", "-c", deleteDesignScript, "deldesign",
-      file, home + "/.config/omarchy/lock-videos", clip, userDesignsDir]
+    deleteDesignProc.command = Bounded.run(["bash", "-c", deleteDesignScript, "deldesign",
+      file, home + "/.config/omarchy/lock-videos", clip, userDesignsDir], { deadline: 30 })
     deleteDesignProc.running = true
     logEvent("delete-design=" + d.id)
     return true
@@ -2050,10 +2051,10 @@ fi
         || (stingPath.length >= tail.length && stingPath.lastIndexOf(tail) === stingPath.length - tail.length)) return false
     }
     if (bootSetting === v) setBoot("stock")
-    deleteBootItemProc.command = ["bash", "-c", deleteBootItemScript, "delboot",
+    deleteBootItemProc.command = Bounded.run(["bash", "-c", deleteBootItemScript, "delboot",
       v, home + "/.config/omarchy/lock-videos", home + "/.config/omarchy/boot-designs",
       home + "/.config/omarchy/lock-designs",
-      home + "/.local/state/omarchy/lock-explorer-boot-previews"]
+      home + "/.local/state/omarchy/lock-explorer-boot-previews"], { deadline: 30 })
     deleteBootItemProc.running = true
     logEvent("delete-boot=" + v)
     return true
@@ -2147,8 +2148,8 @@ esac
     if (!clipWallpaper || !path || String(path).length === 0) return
     if (clipWallPrepProc.running) return
     preparedClipWallpaper = ""
-    clipWallPrepProc.command = ["bash", "-c", clipWallScript, safePathsLib,
-      String(path), home + "/.local/state/omarchy/lock-explorer-clip-wallpapers"]
+    clipWallPrepProc.command = Bounded.run(["bash", "-c", clipWallScript, safePathsLib,
+      String(path), home + "/.local/state/omarchy/lock-explorer-clip-wallpapers"], { deadline: 300, cap: 65536 })
     clipWallPrepProc.running = true
   }
 
@@ -2259,7 +2260,7 @@ echo "$out"
     if (!force && target === bootApplied) return
     bootApplying = true
     bootApplyTarget = target
-    bootApplyProc.command = ["env", "BOOT_CLIP_SECONDS=" + bootClipSeconds, "BOOT_SHUTDOWN=" + bootShutdown, "bash", pluginDir + "/plymouth/apply.sh", target]
+    bootApplyProc.command = Bounded.run(["env", "BOOT_CLIP_SECONDS=" + bootClipSeconds, "BOOT_SHUTDOWN=" + bootShutdown, "bash", pluginDir + "/plymouth/apply.sh", target], { deadline: 1200, cap: 1048576 })
     bootApplyProc.running = true
   }
 
@@ -2405,7 +2406,7 @@ echo "$out"
     // rendered the state before this change and would leave stale previews.
     if (bootPreviewsRunning) { bootPreviewsPending = true; return }
     bootPreviewsRunning = true
-    bootPreviewsProc.command = ["bash", pluginDir + "/plymouth/previews.sh"]
+    bootPreviewsProc.command = Bounded.run(["bash", pluginDir + "/plymouth/previews.sh"], { deadline: 600, cap: 1048576 })
     bootPreviewsProc.running = true
   }
 
@@ -2432,7 +2433,7 @@ echo "$out"
 
   Process {
     id: bootListsProc
-    command: ["bash", "-c", "ls -1 \"$HOME/.config/omarchy/lock-videos\" 2>/dev/null; echo ::; for f in \"$HOME\"/.config/omarchy/boot-designs/*.conf; do [ -f \"$f\" ] && basename \"$f\" .conf; done"]
+    command: Bounded.run(["bash", "-c", "ls -1 \"$HOME/.config/omarchy/lock-videos\" 2>/dev/null; echo ::; for f in \"$HOME\"/.config/omarchy/boot-designs/*.conf; do [ -f \"$f\" ] && basename \"$f\" .conf; done"], { deadline: 15, cap: 1048576 })
     stdout: StdioCollector {
       id: bootListsOut
       waitForEnd: true
@@ -2564,9 +2565,9 @@ echo "$out"
   function loadBootDesign(name) {
     if (!layoutNameValid(name)) return false
     bootDesignPendingLoad = String(name)
-    bootLoadProc.command = ["bash", "-c",
+    bootLoadProc.command = Bounded.run(["bash", "-c",
       'f="$1"; [ -f "$f" ] && [ ! -L "$f" ] && [ "$(stat -c %s -- "$f")" -le 65536 ] && head -c 65536 -- "$f"',
-      "--", home + "/.config/omarchy/boot-designs/" + bootDesignPendingLoad + ".conf"]
+      "--", home + "/.config/omarchy/boot-designs/" + bootDesignPendingLoad + ".conf"], { deadline: 15, cap: 1048576 })
     bootLoadProc.running = true
     return true
   }
@@ -2586,9 +2587,9 @@ echo "$out"
     var text = String(content || "")
     if (text.length > 65536) return false
     bootSaveName = String(name)
-    bootSaveProc.command = ["bash", "-c",
+    bootSaveProc.command = Bounded.run(["bash", "-c",
       'source "$1" && d="$HOME/.config/omarchy/boot-designs" && safe_dir "$d" && printf %s "$2" | put_file "$d" "$3.conf"',
-      "--", safePathsLib, text, bootSaveName]
+      "--", safePathsLib, text, bootSaveName], { deadline: 15 })
     bootSaveProc.running = true
     return true
   }
@@ -2599,9 +2600,9 @@ echo "$out"
       // Generate the matching lock screen QML + its preview from the same
       // layout, so the pair stays in sync.
       var previews = root.stateHome + "/omarchy/lock-explorer-boot-previews"
-      lockGenProc.command = ["bash", "-c",
+      lockGenProc.command = Bounded.run(["bash", "-c",
         'mkdir -p "$3" && bash "$1" "$HOME/.config/omarchy/boot-designs/$2.conf" "$2" "$3/custom-$2-lock-$4.png"',
-        "--", root.pluginDir + "/plymouth/custom/genlock.sh", root.bootSaveName, previews, root.bootCurrentTheme]
+        "--", root.pluginDir + "/plymouth/custom/genlock.sh", root.bootSaveName, previews, root.bootCurrentTheme], { deadline: 600 })
       lockGenProc.running = true
     }
   }
@@ -2616,9 +2617,9 @@ echo "$out"
   }
 
   function createBootDesign() {
-    bootCreateProc.command = ["bash", "-c",
+    bootCreateProc.command = Bounded.run(["bash", "-c",
       'source "$2" || exit 1; dir="$HOME/.config/omarchy/boot-designs"; safe_dir "$dir"; n="my-boot"; i=2; while [ -e "$dir/$n.conf" ] || [ -L "$dir/$n.conf" ]; do n="my-boot-$i"; i=$((i+1)); done; put_file "$dir" "$n.conf" < "$1" && echo "$n"',
-      "--", pluginDir + "/plymouth/custom/template.conf", safePathsLib]
+      "--", pluginDir + "/plymouth/custom/template.conf", safePathsLib], { deadline: 600, cap: 65536 })
     bootCreateProc.running = true
   }
 
@@ -2702,10 +2703,10 @@ echo "$out"
     }
     bootApplying = true
     bootApplyTarget = "snapshot:" + id
-    bootApplyProc.command = ["env", "BOOT_CLIP_SECONDS=0", "BOOT_SHUTDOWN=" + bootShutdown,
+    bootApplyProc.command = Bounded.run(["env", "BOOT_CLIP_SECONDS=0", "BOOT_SHUTDOWN=" + bootShutdown,
       "SNAPSHOT_ENTRY=" + String(entryRect || ""),
       "SNAPSHOT_ENTRY_EXTRA=" + String(extraRects || ""),
-      "bash", pluginDir + "/plymouth/apply.sh", "snapshot:" + id]
+      "bash", pluginDir + "/plymouth/apply.sh", "snapshot:" + id], { deadline: 1200, cap: 1048576 })
     bootApplyProc.running = true
     logEvent("boot-snapshot=" + id + (persist ? "" : " (follow)"))
   }
@@ -2726,7 +2727,7 @@ echo "$out"
 
   function removeBootRotationHelper() {
     if (bootRotateRemoveProc.running) return false
-    bootRotateRemoveProc.command = ["pkexec", "bash", pluginDir + "/plymouth/rotate-setup.sh", "remove"]
+    bootRotateRemoveProc.command = Bounded.run(["pkexec", "bash", pluginDir + "/plymouth/rotate-setup.sh", "remove"], { deadline: 600, cap: 65536 })
     bootRotateRemoveProc.running = true
     return true
   }
@@ -2747,7 +2748,7 @@ echo "$out"
   Process {
     id: bootRotateCheckProc
     // Any piece of it: the path unit, its service or the helper script.
-    command: ["bash", "-c", "for f in /etc/systemd/system/omarchy-lock-explorer-boot.path /etc/systemd/system/omarchy-lock-explorer-boot.service /usr/local/lib/omarchy-lock-explorer-rotate.sh; do [ -e \"$f\" ] && { echo yes; exit; }; done; echo no"]
+    command: Bounded.run(["bash", "-c", "for f in /etc/systemd/system/omarchy-lock-explorer-boot.path /etc/systemd/system/omarchy-lock-explorer-boot.service /usr/local/lib/omarchy-lock-explorer-rotate.sh; do [ -e \"$f\" ] && { echo yes; exit; }; done; echo no"], { deadline: 10, cap: 65536 })
     stdout: StdioCollector {
       id: bootRotateCheckOut
       waitForEnd: true
@@ -2776,7 +2777,7 @@ echo "$out"
 
   Process {
     id: bootRotateStampProc
-    command: ["bash", "-c", "bid=$(cat /proc/sys/kernel/random/boot_id); f=\"$HOME/.local/state/omarchy/lock-explorer-boot-rotated\"; [ -f \"$f\" ] && [ ! -L \"$f\" ] && [ \"$(head -c 64 -- \"$f\")\" = \"$bid\" ] && echo skip || { [ ! -L \"$f\" ] || rm -f -- \"$f\"; echo \"$bid\" > \"$f\"; echo go; }"]
+    command: Bounded.run(["bash", "-c", "bid=$(cat /proc/sys/kernel/random/boot_id); f=\"$HOME/.local/state/omarchy/lock-explorer-boot-rotated\"; [ -f \"$f\" ] && [ ! -L \"$f\" ] && [ \"$(head -c 64 -- \"$f\")\" = \"$bid\" ] && echo skip || { [ ! -L \"$f\" ] || rm -f -- \"$f\"; echo \"$bid\" > \"$f\"; echo go; }"], { deadline: 10, cap: 65536 })
     stdout: StdioCollector {
       id: bootRotateStampOut
       waitForEnd: true
@@ -3029,7 +3030,7 @@ echo "$out"
 
   Process {
     id: switchLayoutProc
-    command: ["hyprctl", "switchxkblayout", root.keyboardDevice.length > 0 ? root.keyboardDevice : "all", "next"]
+    command: Bounded.run(["hyprctl", "switchxkblayout", root.keyboardDevice.length > 0 ? root.keyboardDevice : "all", "next"], { deadline: 10 })
     onExited: root.refreshKeyboardLayout()
   }
 
@@ -3146,7 +3147,7 @@ echo "$out"
   Process {
     id: accountNameProc
     running: true
-    command: ["bash", "-c", "getent passwd -- \"$(id -un)\" | cut -d: -f5 | cut -d, -f1"]
+    command: Bounded.run(["bash", "-c", "getent passwd -- \"$(id -un)\" | cut -d: -f5 | cut -d, -f1"], { deadline: 10, cap: 65536 })
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.accountName = String(text || "").trim().substring(0, 80)
@@ -4153,7 +4154,7 @@ echo "$out"
     id: fido2HotplugWatch
     running: root.lockRequested && root.fido2Configured
       && (!root.fido2Exhausted || root.wakeOnKeyInsert)
-    command: ["udevadm", "monitor", "--udev", "--subsystem-match=hidraw"]
+    command: Bounded.run(["udevadm", "monitor", "--udev", "--subsystem-match=hidraw"], { deadline: 0, line: 4096 })
     stdout: SplitParser {
       // "UDEV  [123.4] add  /devices/.../hidraw/hidraw0 (hidraw)"
       onRead: function(line) {
@@ -4186,7 +4187,7 @@ echo "$out"
   Process {
     id: keyEventWatch
     running: root.fido2Configured && root.lockOnKeyRemoval && !root.lockRequested
-    command: ["udevadm", "monitor", "--udev", "--subsystem-match=hidraw"]
+    command: Bounded.run(["udevadm", "monitor", "--udev", "--subsystem-match=hidraw"], { deadline: 0, line: 4096 })
     // Lock-on-removal compares against the last answer, so that answer has
     // to be current from the moment the watch starts -- after an unlock the
     // key may have come or gone while the lock was up.
@@ -4234,7 +4235,7 @@ echo "$out"
     // Files built on ClipDesign are tagged (with their clip file when it is
     // named inline) so they keep their animation flag and their video across
     // rescans.
-    command: ["bash", "-c", "for f in \"$0\"/*.qml; do [ -f \"$f\" ] || continue; c=$(grep -o 'clipName: \"[^\"]*\"' \"$f\" 2>/dev/null | head -1 | cut -d'\"' -f2); if [ -n \"$c\" ]; then printf '%s\\tclip\\t%s\\n' \"$f\" \"$c\"; elif grep -q ClipDesign \"$f\" 2>/dev/null; then printf '%s\\tclip\\n' \"$f\"; elif grep -q '// designer:1:' \"$f\" 2>/dev/null; then printf '%s\\tdesigner\\n' \"$f\"; else printf '%s\\n' \"$f\"; fi; done", root.userDesignsDir]
+    command: Bounded.run(["bash", "-c", "for f in \"$0\"/*.qml; do [ -f \"$f\" ] || continue; c=$(grep -o 'clipName: \"[^\"]*\"' \"$f\" 2>/dev/null | head -1 | cut -d'\"' -f2); if [ -n \"$c\" ]; then printf '%s\\tclip\\t%s\\n' \"$f\" \"$c\"; elif grep -q ClipDesign \"$f\" 2>/dev/null; then printf '%s\\tclip\\n' \"$f\"; elif grep -q '// designer:1:' \"$f\" 2>/dev/null; then printf '%s\\tdesigner\\n' \"$f\"; else printf '%s\\n' \"$f\"; fi; done", root.userDesignsDir], { deadline: 30, cap: 1048576 })
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -4261,7 +4262,7 @@ echo "$out"
 
   Process {
     id: readlinkProc
-    command: ["readlink", "-f", root.currentBackgroundLink]
+    command: Bounded.run(["readlink", "-f", root.currentBackgroundLink], { deadline: 10, cap: 65536 })
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -4306,7 +4307,7 @@ echo "$out"
   // gives a short code without a table to look it up in.
   Process {
     id: keyboardLayoutProc
-    command: ["hyprctl", "-j", "devices"]
+    command: Bounded.run(["hyprctl", "-j", "devices"], { deadline: 10, cap: 1048576 })
     stdout: StdioCollector { id: keyboardLayoutStdout; waitForEnd: true }
     onExited: function(exitCode) {
       if (exitCode !== 0) { root.keyboardLayout = ""; return }
@@ -4354,7 +4355,7 @@ echo "$out"
 
   Process {
     id: fingerprintCheckProc
-    command: ["bash", "-c", "if [[ -f /etc/pam.d/omarchy-lock-fingerprint ]] && command -v fprintd-list >/dev/null 2>&1 && fprintd-list \"$USER\" 2>/dev/null | grep -qi finger; then echo yes; else echo no; fi"]
+    command: Bounded.run(["bash", "-c", "if [[ -f /etc/pam.d/omarchy-lock-fingerprint ]] && command -v fprintd-list >/dev/null 2>&1 && fprintd-list \"$USER\" 2>/dev/null | grep -qi finger; then echo yes; else echo no; fi"], { deadline: 20, cap: 65536 })
     stdout: StdioCollector { id: fingerprintCheckStdout; waitForEnd: true }
     onExited: {
       root.fingerprintConfigured = String(fingerprintCheckStdout.text || "").trim() === "yes"
@@ -4365,7 +4366,7 @@ echo "$out"
 
   Process {
     id: faceCheckProc
-    command: [root.checkFaceAuthPath, "--yes"]
+    command: Bounded.run([root.checkFaceAuthPath, "--yes"], { deadline: 20, cap: 65536 })
     stdout: StdioCollector { id: faceCheckStdout; waitForEnd: true }
     onExited: {
       root.faceConfigured = String(faceCheckStdout.text || "").trim() === "yes"
@@ -4376,7 +4377,7 @@ echo "$out"
 
   Process {
     id: fido2CheckProc
-    command: [root.checkFido2AuthPath]
+    command: Bounded.run([root.checkFido2AuthPath], { deadline: 20, cap: 65536 })
     stdout: StdioCollector { id: fido2CheckStdout; waitForEnd: true }
     onExited: {
       // A request that arrived while this probe ran may be about a change
@@ -4456,7 +4457,7 @@ echo "$out"
 
   Process {
     id: sessionLockXrayProc
-    command: ["hyprctl", "getoption", "misc:session_lock_xray", "-j"]
+    command: Bounded.run(["hyprctl", "getoption", "misc:session_lock_xray", "-j"], { deadline: 10, cap: 65536 })
     stdout: StdioCollector {
       id: sessionLockXrayOut
       waitForEnd: true
@@ -4474,13 +4475,13 @@ echo "$out"
     id: strandedLockCheckProc
     // 0 locked and nobody holds it, 1 not locked, 2 no answer yet,
     // 3 locked and another copy of this service still holds it.
-    command: ["bash", "-c",
+    command: Bounded.run(["bash", "-c",
       "omarchy-hyprland-session-locked || exit $?; " +
       "[[ -s $1 ]] || exit 0; " +
       "[[ $(head -n1 -- \"$1\") == \"$2\" ]] && exit 0; " +
       "age=$(( $(date +%s) - $(stat -c %Y -- \"$1\") )); " +
       "(( age <= 2 )) && exit 3; exit 0",
-      "bash", root.lockClaimPath, root.instanceToken]
+      "bash", root.lockClaimPath, root.instanceToken], { deadline: 10 })
     onExited: function(exitCode) {
       // No output to read the lock off yet.
       if (exitCode === 2) return
@@ -4501,7 +4502,7 @@ echo "$out"
 
   Process {
     id: wakeProcess
-    command: ["bash", "-c", "rm -f \"$1/display-off\"; omarchy-system-wake", "bash", root.blankMarkerDir]
+    command: Bounded.run(["bash", "-c", "rm -f \"$1/display-off\"; omarchy-system-wake", "bash", root.blankMarkerDir], { deadline: 30 })
     onExited: {
       var grace = root.resumeWake ? 0 : root.wakeInputGrace
       root.resumeWake = false
@@ -4538,10 +4539,10 @@ echo "$out"
     id: blankProcess
     // The marker goes down before the display does: the shell can be gone
     // within two seconds of the output dropping.
-    command: ["bash", "-c", root.displayBlankingSuppressed
+    command: Bounded.run(["bash", "-c", root.displayBlankingSuppressed
       ? "omarchy-brightness-keyboard off"
       : "mkdir -p \"$1\" && : > \"$1/display-off\"; omarchy-brightness-keyboard off; omarchy-brightness-display off",
-      "bash", root.blankMarkerDir]
+      "bash", root.blankMarkerDir], { deadline: 30 })
   }
 
   // Runs once at startup. A display-off marker still there means the last
@@ -4549,9 +4550,9 @@ echo "$out"
   // relaunch in this login sees it too (the runtime dir goes with the login).
   Process {
     id: blankCrashCheckProc
-    command: ["bash", "-c",
+    command: Bounded.run(["bash", "-c",
       "[[ -e $1/display-off ]] && mv -f \"$1/display-off\" \"$1/blank-crashed\"; [[ -e $1/blank-crashed ]]",
-      "bash", root.blankMarkerDir]
+      "bash", root.blankMarkerDir], { deadline: 10 })
     onExited: function(exitCode) {
       if (exitCode !== 0) return
       root.blankCrashed = true
@@ -4911,7 +4912,7 @@ echo "$out"
 
   Process {
     id: launchOsdStateProc
-    command: ["omarchy-shell", "osd", "state"]
+    command: Bounded.run(["omarchy-shell", "osd", "state"], { deadline: 10, cap: 65536 })
     stdout: StdioCollector { id: launchOsdStateOut; waitForEnd: true }
     onExited: function(code) {
       if (String(launchOsdStateOut.text || "").trim() !== "open") return

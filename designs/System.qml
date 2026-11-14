@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell.Io
+import "Bounded.js" as Bounded
 import Quickshell.Services.UPower
 import qs.Commons
 import qs.Commons as Commons
@@ -56,7 +57,7 @@ DesignBase {
   }
   Process {
     id: unameProc
-    command: ["uname", "-r"]
+    command: Bounded.run(["uname", "-r"], { deadline: 10, cap: 4096 })
     running: true
     stdout: StdioCollector { id: unameOut; waitForEnd: true; onStreamFinished: lock.kernel = String(unameOut.text).trim() }
   }

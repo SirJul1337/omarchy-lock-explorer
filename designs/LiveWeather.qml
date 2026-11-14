@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "Bounded.js" as Bounded
 
 // Current weather for the designer's Weather piece, from wttr.in for the place
 // set in Omarchy's weather settings. The answer is kept for half an hour in the
@@ -79,7 +80,7 @@ Item {
     id: fetchProc
     // Everything the script needs travels as arguments: the URL, the cap and
     // the cache file (keyed by place and language).
-    command: ["bash", "-c",
+    command: Bounded.run(["bash", "-c",
       'set -o pipefail; c="$3"; '
       + 'if [ -z "$c" ]; then curl -fsS --max-time 15 --max-filesize "$2" "$1" | head -c "$2"; exit; fi; '
       + 'exec 9>>"$c.lock"; flock -w 30 9 || true; '
@@ -90,7 +91,7 @@ Item {
       + 'curl -fsS --max-time 15 --max-filesize "$2" "$1" | head -c "$2" > "$t" && mv -f "$t" "$c" && head -c "$2" -- "$c" || { rm -f -- "$t"; exit 1; }',
       "weather", "https://wttr.in/" + weather.locationQuery + "?format=j1&lang=" + weather.language, String(weather.responseCap),
       weather.cacheDir.length > 0
-        ? weather.cacheDir + "/omarchy-lock-explorer-weather-" + Qt.md5(weather.locationQuery + "|" + weather.language) + ".json" : ""]
+        ? weather.cacheDir + "/omarchy-lock-explorer-weather-" + Qt.md5(weather.locationQuery + "|" + weather.language) + ".json" : ""], { deadline: 60 })
     stdout: StdioCollector { id: fetchOut; waitForEnd: true }
     onExited: function(code) {
       var body = String(fetchOut.text || "")

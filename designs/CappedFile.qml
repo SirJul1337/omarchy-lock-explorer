@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell.Io
+import "Bounded.js" as Bounded
 
 // A text file the account itself can write, read by a child process: only a
 // regular file, at most maxBytes of it, so a FIFO, a device or a huge file
@@ -35,10 +36,10 @@ Item {
     if (proc.running) { pending = true; return }
     exited = false
     streamed = false
-    proc.command = ["bash", "-c",
+    proc.command = Bounded.run(["bash", "-c",
       'f="$1"; n="$2"; [ -f "$f" ] || exit 3; [ "$3" = 1 ] || [ ! -L "$f" ] || exit 3; '
       + '[ "$(stat -L -c %s -- "$f")" -le "$n" ] || exit 4; head -c "$n" -- "$f"',
-      "cappedfile", path, String(maxBytes), allowLinks ? "1" : "0"]
+      "cappedfile", path, String(maxBytes), allowLinks ? "1" : "0"], { deadline: 10, cap: maxBytes })
     proc.running = true
   }
 

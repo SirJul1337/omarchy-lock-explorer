@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "Bounded.js" as Bounded
 import qs.Commons
 import qs.Commons as Commons
 
@@ -70,9 +71,9 @@ DesignBase {
   Process {
     id: weatherProc
     // The URL and the cap travel as arguments, never inside the script text.
-    command: ["bash", "-c",
+    command: Bounded.run(["bash", "-c",
       "set -o pipefail; curl -fsS --max-time 15 --max-filesize \"$2\" \"$1\" | head -c \"$2\"",
-      "wttr", "https://wttr.in/" + lock.locationQuery + "?format=j1", String(lock.responseCap)]
+      "wttr", "https://wttr.in/" + lock.locationQuery + "?format=j1", String(lock.responseCap)], { deadline: 60, cap: 1048576 })
     stdout: StdioCollector {
       id: weatherOut
       waitForEnd: true

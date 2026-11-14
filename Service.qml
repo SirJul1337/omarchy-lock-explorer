@@ -3058,6 +3058,8 @@ echo "$out"
   // Set for the wake that a resume from suspend runs. Nothing typed lit the
   // panel then, so that wake skips the grace (#85).
   property bool resumeWake: false
+  // A wake that came while the blank was still running, held until it is done.
+  property bool wakeAfterBlank: false
 
   // With `misc:session_lock_xray` the compositor keeps drawing the desktop
   // under the lock surface, so the unlock fades straight into it and the
@@ -3403,7 +3405,15 @@ echo "$out"
     }
     if (wakePending && !wakeProcess.running) {
       wakePending = false
-      wakeProcess.running = true
+      // A key while the blank is still on its way would light the displays
+      // before the blank switches them off, leaving the lock awake on dark
+      // screens (#87). The wake follows the blank instead.
+      if (blankProcess.running) {
+        wakeAfterBlank = true
+        logEvent("wake: after the blank")
+      } else {
+        wakeProcess.running = true
+      }
     }
     if (lockRequested) armBlankTimer()
   }
@@ -3429,6 +3439,7 @@ echo "$out"
     inputBlocked = screenBlanked
     inputUnblockTimer.stop()
     wakePending = true
+    wakeAfterBlank = false
     // Nothing to authenticate to while the panel is dark: drop the scan and
     // let go of the camera until it comes back.
     if (screenBlanked) stopFace()
@@ -4543,6 +4554,11 @@ echo "$out"
       ? "omarchy-brightness-keyboard off"
       : "mkdir -p \"$1\" && : > \"$1/display-off\"; omarchy-brightness-keyboard off; omarchy-brightness-display off",
       "bash", root.blankMarkerDir], { deadline: 30 })
+    onExited: {
+      if (!root.wakeAfterBlank) return
+      root.wakeAfterBlank = false
+      if (!wakeProcess.running) wakeProcess.running = true
+    }
   }
 
   // Runs once at startup. A display-off marker still there means the last

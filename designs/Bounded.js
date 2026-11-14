@@ -25,8 +25,11 @@
 var SCRIPT = 'd="$1"; c="$2"; l="$3"; shift 3\n'
   + 'set -o pipefail\n'
   + 'run() { setpriv --pdeathsig TERM timeout -k 2 "$d" "$@"; }\n'
-  + 'if [ "$c" -gt 0 ]; then run "$@" | head -c "$c"\n'
-  + 'elif [ "$l" -gt 0 ]; then run "$@" | stdbuf -oL cut -b "1-$l"\n'
+  // In a pipeline bash runs the helper in a subshell of its own, which would
+  // be timeout's parent and outlive this bash: exec it away.
+  + 'piped() { exec setpriv --pdeathsig TERM timeout -k 2 "$d" "$@"; }\n'
+  + 'if [ "$c" -gt 0 ]; then piped "$@" | head -c "$c"\n'
+  + 'elif [ "$l" -gt 0 ]; then piped "$@" | stdbuf -oL cut -b "1-$l"\n'
   + 'else run "$@"\n'
   + 'fi\n'
   // A plain last command would be exec'd in place of this bash, and the

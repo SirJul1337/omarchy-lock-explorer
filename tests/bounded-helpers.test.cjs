@@ -68,9 +68,10 @@ test("the ttfx stream caps a frame at the canvas height", () => {
 test("root reads the theme under deadlines and caps", () => {
   const src = read("plymouth/install-root.sh");
   assert.match(src, /timeout -k 5 \d+ head -c "\$\(\(max_theme_bytes \+ 1\)\)" > "\$work\/theme\.tar"/);
-  assert.match(src, /timeout -k 5 \d+ tar -tvf[^\n]*head -c "\$max_err_bytes"[\s\S]{0,80}\| head -c "\$\(\(max_list_bytes \+ 1\)\)"/);
-  assert.match(src, /stat -c %s "\$work\/theme\.list"\) <= max_list_bytes/);
-  assert.match(src, /timeout -k 5 \d+ tar -xmf/);
+  assert.match(src, /\( ulimit -f "\$\(\(max_list_bytes \/ 1024\)\)"\s*LC_ALL=C exec timeout -k 5 \d+ tar -tvf "\$work\/theme\.tar" > "\$work\/theme\.list" \) 2>&1 \\\s*\| head -c "\$max_err_bytes" > "\$work\/tar\.err" \|\| return 1/);
+  assert.match(src, /timeout -k 5 \d+ tar -xmf[^\n]*\\\s*\n[^\n]*2>&1 \| head -c "\$max_err_bytes" > "\$work\/tar\.err" \|\| return 1/);
+  // A process substitution leaves nothing to wait on under set -u.
+  assert.doesNotMatch(src, /2> >\(|wait \$!/);
   assert.match(src, /trap '[^']*pkill -TERM -P \$\$[^']*' TERM HUP INT/);
 });
 
@@ -111,11 +112,17 @@ test("exit codes come through", { skip: !linux }, () => {
   assert.equal(runSync(sh("exit 2", { deadline: 5 })).status, 2);
 });
 
-for (const sig of ["SIGTERM", "SIGKILL"]) {
-  test(`a helper stopped with ${sig} takes its children with it`, { skip: !linux }, async () => {
-    const argv = sh("sleep 60 & echo $!; wait", { deadline: 0, line: 100 });
-    const p = spawn(argv[0], argv.slice(1));
-    const child = await new Promise((resolve) => p.stdout.once("data", (d) => resolve(Number(String(d).trim()))));
+const shapes = { "no cap": { deadline: 30 }, "a cap": { deadline: 30, cap: 1000 }, "a line cap": { deadline: 0, line: 100 } };
+for (const sig of ["SIGTERM", "SIGKILL"]) for (const [shape, opts] of Object.entries(shapes)) {
+  test(`a helper with ${shape} stopped with ${sig} takes its children with it`, { skip: !linux }, async () => {
+    // The pid goes to a file: under a cap, head holds stdout until the end.
+    const file = path.join(require("node:os").tmpdir(), `bounded-${process.pid}-${sig}-${shape.replace(/ /g, "")}`);
+    fs.rmSync(file, { force: true });
+    const argv = sh(`sleep 60 & echo $! > '${file}'; wait`, opts);
+    const p = spawn(argv[0], argv.slice(1), { stdio: "ignore" });
+    for (let i = 0; i < 50 && !(fs.existsSync(file) && fs.readFileSync(file, "utf8").trim()); i++) await new Promise((r) => setTimeout(r, 100));
+    const child = Number(fs.readFileSync(file, "utf8").trim());
+    fs.rmSync(file, { force: true });
     assert.ok(alive(child));
     p.kill(sig);
     for (let i = 0; i < 50 && alive(child); i++) await new Promise((r) => setTimeout(r, 100));

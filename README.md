@@ -40,14 +40,16 @@ omarchy-shell lock explore
 <tr><td align="center"><img src="media/designs/binary.jpg" width="200" alt="Binary"><br><sub>Binary</sub></td><td align="center"><img src="media/designs/tracking.jpg" width="200" alt="Tracking"><br><sub>Tracking</sub></td><td align="center"><img src="media/designs/login.jpg" width="200" alt="Login"><br><sub>Login</sub></td><td align="center"><img src="media/designs/keycode.jpg" width="200" alt="Keycode"><br><sub>Keycode</sub></td></tr>
 <tr><td align="center"><img src="media/designs/core.jpg" width="200" alt="Core"><br><sub>Core</sub></td><td align="center"><img src="media/designs/panel.jpg" width="200" alt="Panel"><br><sub>Panel</sub></td><td align="center"><img src="media/designs/statusline.jpg" width="200" alt="Statusline"><br><sub>Statusline</sub></td><td align="center"><img src="media/designs/blueprint.jpg" width="200" alt="Blueprint"><br><sub>Blueprint</sub></td></tr>
 <tr><td align="center"><img src="media/designs/ghosts.jpg" width="200" alt="Ghosts"><br><sub>Ghosts</sub></td><td align="center"><img src="media/designs/cobweb.jpg" width="200" alt="Cobweb"><br><sub>Cobweb</sub></td><td align="center"><img src="media/designs/receipt.jpg" width="200" alt="Receipt"><br><sub>Receipt</sub></td><td align="center"><img src="media/designs/metro.jpg" width="200" alt="Metro"><br><sub>Metro</sub></td></tr>
-<tr><td align="center"><img src="media/designs/seismograph.jpg" width="200" alt="Seismograph"><br><sub>Seismograph</sub></td></tr>
+<tr><td align="center"><img src="media/designs/seismograph.jpg" width="200" alt="Seismograph"><br><sub>Seismograph</sub></td><td align="center"><img src="media/designs/snowfall.jpg" width="200" alt="Snowfall"><br><sub>Snowfall</sub></td><td align="center"><img src="media/designs/fairylights.jpg" width="200" alt="Fairy Lights"><br><sub>Fairy Lights</sub></td><td align="center"><img src="media/designs/snowglobe.jpg" width="200" alt="Snow Globe"><br><sub>Snow Globe</sub></td></tr>
 </table>
 
 Weather fetches from wttr.in (same location as the bar widget), Music reads MPRIS players, System shows uptime, memory, load and battery.
 Motion loops a video you pick. Pond, Constellation and Sparks react to your typing. Storm, Eyes and River play their clip when you unlock.
 
 Ghosts and Cobweb are seasonal: they keep their own colors instead of the theme's and sit under the Seasonal nav
-in the explorer and the side panel. Blueprint dimensions the time on a drafting sheet in the theme's colors, Receipt
+in the explorer and the side panel. So are the Christmas ones: Snowfall lets the snow settle into a drift that a
+wrong password blows away, Fairy Lights turns one more bulb up for every key, and Snow Globe puts the time inside a
+globe that every key gives a shake. Through November and December they count the days to Christmas under the date. Blueprint dimensions the time on a drafting sheet in the theme's colors, Receipt
 prints it on till paper, Metro lays the day out as a transit line, and Seismograph records every key on a strip chart.
 
 Cipher through Statusline are drawn by `ttfx`, the terminal text effects Omarchy ships: the clock or
@@ -92,7 +94,7 @@ right section, and `omarchy bar move lock-explorer` moves it. *Opens as*, in the
 the two `omarchy-shell lock explore` opens first. An install from before the side panel keeps opening the full explorer. `omarchy-shell lock
 explorePanel` and `exploreFull` open one or the other whatever the setting says.
 
-In the full explorer: arrows (or H J K L) to browse, Tab to go through Styling, Animation and Favorites, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, and `B` the boot screen. `?` lists every key the explorer takes.
+In the full explorer: arrows (or H J K L) to browse, Tab to go through Styling, Animation, Seasonal and Favorites, Space for full-size preview, Enter to select, Esc to close. Scroll with the mouse wheel or PageUp/PageDown. `U` opens Settings, and `B` the boot screen. `?` lists every key the explorer takes.
 
 Settings is one page in sections -- Unlock, Look, Password field, Screen and power, Sign-in and
 security, System -- with a line of help under every choice. It scrolls with the mouse wheel, the

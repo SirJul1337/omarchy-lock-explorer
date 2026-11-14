@@ -116,9 +116,19 @@ restore_limine_backdrop() {
 # any of it reaches $theme_root.
 max_theme_bytes=$((1024 * 1024 * 1024))
 max_theme_members=4096
+# Every step on what the account sends has a deadline, and what root keeps
+# of a step's output is capped: a sender that stalls, or a tar whose listing
+# or complaints run on, cannot keep root waiting or fill /var/tmp. A listing
+# line is at most a few kilobytes, escaped name included.
+max_list_bytes=$((max_theme_members * 8192))
+max_err_bytes=4096
 work=""
 cleanup_work() { [[ -n $work ]] && rm -rf "$work"; return 0; }
 trap cleanup_work EXIT
+# Ended from outside (the user side can no longer signal root once pkexec has
+# run this), end the steps still running too: each is a timeout, which takes
+# its own process group down with it.
+trap 'trap - TERM HUP INT; pkill -TERM -P $$ 2>/dev/null; exit 1' TERM HUP INT
 
 # receive_theme <marker file>: the tar on stdin, unpacked into $work/theme
 # and sealed (seal_theme): root writes the .plymouth, and anything but the
@@ -126,11 +136,16 @@ trap cleanup_work EXIT
 receive_theme() {
   local marker="$1"
   work=$(mktemp -d -p /var/tmp omarchy-lock-explorer.XXXXXX)
-  head -c "$((max_theme_bytes + 1))" > "$work/theme.tar"
+  timeout -k 5 120 head -c "$((max_theme_bytes + 1))" > "$work/theme.tar" || return 1
   (( $(stat -c %s "$work/theme.tar") <= max_theme_bytes )) || return 1
   # tar -tv prints one line per member, type first and size third, with
-  # unusual characters in names escaped, so a name cannot add a line.
-  LC_ALL=C tar -tvf "$work/theme.tar" 2>"$work/tar.err" > "$work/theme.list" || return 1
+  # unusual characters in names escaped, so a name cannot add a line. The
+  # listing stops at max_list_bytes (ulimit -f counts KiB): tar is stopped
+  # there and fails. Its complaints come through the pipe, the first few
+  # KiB kept, which is all it takes to refuse.
+  ( ulimit -f "$((max_list_bytes / 1024))"
+    LC_ALL=C exec timeout -k 5 60 tar -tvf "$work/theme.tar" > "$work/theme.list" ) 2>&1 \
+    | head -c "$max_err_bytes" > "$work/tar.err" || return 1
   [[ ! -s $work/tar.err ]] || return 1
   awk -v max_bytes="$max_theme_bytes" -v max_members="$max_theme_members" '
     { kind = substr($1, 1, 1); if (kind != "-" && kind != "d") bad = 1; total += $3; n++ }
@@ -139,8 +154,8 @@ receive_theme() {
   # Anything tar has to complain about -- a member it had to rename or
   # leave out -- is not a theme apply.sh made, so a word on stderr refuses.
   # Timestamps are not restored, so a clock that moved cannot cause one.
-  tar -xmf "$work/theme.tar" -C "$work/theme" --no-same-owner --no-same-permissions \
-    --warning=no-timestamp 2>"$work/tar.err" || return 1
+  timeout -k 5 120 tar -xmf "$work/theme.tar" -C "$work/theme" --no-same-owner --no-same-permissions \
+    --warning=no-timestamp 2>&1 | head -c "$max_err_bytes" > "$work/tar.err" || return 1
   [[ ! -s $work/tar.err ]] || return 1
   rm -f "$work/theme.tar" "$work/theme.list"
   [[ -f $work/theme/$marker && ! -L $work/theme/$marker ]] || return 1

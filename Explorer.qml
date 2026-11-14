@@ -7,6 +7,7 @@ import qs.Commons as Commons
 import qs.Ui
 import "designs"
 import "Designs.js" as Designs
+import "designs/Bounded.js" as Bounded
 import "Designer.js" as Layout
 import "Bridge.js" as Bridge
 import "ExplorerStrings.js" as UiText
@@ -792,10 +793,10 @@ Item {
     if (root.service) root.service.logEvent("snapshot-passes " + passes.map(function(p) { return p.key }).join(","))
     // No link left where a grab is saved, and no capture left over from a
     // monitor that is no longer connected.
-    snapshotMkdirProc.command = ["bash", "-c",
+    snapshotMkdirProc.command = Bounded.run(["bash", "-c",
       'source "$1" && safe_dir "$2" && for f in "$2/$3.png" "$2/$3-plain.png"; do [ ! -L "$f" ] || rm -f -- "$f"; done && for f in "$2/$3"@*.png; do [ ! -e "$f" ] && [ ! -L "$f" ] || rm -f -- "$f"; done',
       "--", root.service.safePathsLib,
-      Quickshell.env("HOME") + "/.local/state/omarchy/lock-explorer-snapshots", sid]
+      Quickshell.env("HOME") + "/.local/state/omarchy/lock-explorer-snapshots", sid], { deadline: 10 })
     // Flip snapshot mode before the render delay so any layout it causes has
     // settled long before the geometry is measured and the frame grabbed.
     if (snapshotHost.item && snapshotHost.item.snapshotHideClock !== undefined)
@@ -1564,7 +1565,7 @@ Item {
     // The authentication service is intentionally private in Omarchy 4.0.3.
     // Use its existing settings command, never expose the PAM service to UI.
     selectDesignProc.dismissAfter = dismissAfter
-    selectDesignProc.command = ["omarchy-shell", "lock", how === "all" ? "setDesignForAll" : "setDesign", String(id)]
+    selectDesignProc.command = Bounded.run(["omarchy-shell", "lock", how === "all" ? "setDesignForAll" : "setDesign", String(id)], { deadline: 15, cap: 65536 })
     selectDesignProc.running = true
   }
 

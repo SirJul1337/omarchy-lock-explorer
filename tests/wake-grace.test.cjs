@@ -28,7 +28,7 @@ test("only the wake after a blank runs the wake process", () => {
   const wake = body(svc, "runWake");
   const starts = wake.match(/wakeProcess\.running = true/g) || [];
   assert.equal(starts.length, 1);
-  assert.match(wake, /if \(wakePending && !wakeProcess\.running\) \{\s*wakePending = false\s*wakeProcess\.running = true/);
+  assert.match(wake, /if \(wakePending && !wakeProcess\.running\) \{\s*wakePending = false[\s\S]{0,400}?else \{\s*wakeProcess\.running = true/);
   assert.match(body(svc, "runBlank"), /wakePending = true/);
 });
 
@@ -49,4 +49,17 @@ test("a resume wakes the lock without the grace", () => {
   assert.match(resume, /resumeWake = inputBlocked/);
   assert.match(resume, /if \(!wakeProcess\.running\) wakePending = true\s*runWake\(\)/);
   assert.match(svc, /var grace = root\.resumeWake \? 0 : root\.wakeInputGrace\s*root\.resumeWake = false/);
+});
+
+// A key that lands while the blank is still running used to start the wake
+// at once: Omarchy's `brightness-display on` found every display still lit and
+// did nothing, then the blank's `off` went through, and the lock sat awake on
+// dark screens with no wake left to run (issue #87). The wake waits for the
+// blank to finish, and a new blank drops a wake still waiting.
+test("a wake during the blank runs after it", () => {
+  const svc = read("Service.qml");
+  assert.match(body(svc, "runWake"), /if \(blankProcess\.running\) \{\s*wakeAfterBlank = true/);
+  assert.match(body(svc, "runBlank"), /wakeAfterBlank = false/);
+  const blank = svc.slice(svc.indexOf("id: blankProcess"), svc.indexOf("id: blankCrashCheckProc"));
+  assert.match(blank, /onExited: \{\s*if \(!root\.wakeAfterBlank\) return\s*root\.wakeAfterBlank = false\s*if \(!wakeProcess\.running\) wakeProcess\.running = true/);
 });

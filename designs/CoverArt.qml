@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell.Io
+import "Bounded.js" as Bounded
 
 // A media player's cover art, made safe to show. The URL comes from whichever
 // program on the session bus claims to be a player, so the shell never hands
@@ -37,7 +38,7 @@ Item {
     // A change while one runs is picked up when it finishes.
     if (proc.running) return
     proc.target = wanted
-    proc.command = ["bash", "-c",
+    proc.command = Bounded.run(["bash", "-c",
       'set -o pipefail; src="$1"; cap="$2"; outcap="$3"; '
       + 'ulimit -v 1048576; ulimit -t 15; export MAGICK_THREAD_LIMIT=1; '
       + 'command -v magick >/dev/null || exit 2; '
@@ -61,7 +62,7 @@ Item {
       + '  -auto-orient -strip -thumbnail "512x512>" -define png:exclude-chunks=all "png:$d/out" || exit 6; '
       + '[ "$(stat -c %s -- "$d/out")" -le "$outcap" ] || exit 7; '
       + 'base64 -w0 -- "$d/out"',
-      "coverart", wanted, String(maxBytes), String(maxOutput)]
+      "coverart", wanted, String(maxBytes), String(maxOutput)], { deadline: 60, cap: Math.ceil(maxOutput * 4 / 3) + 16 })
     proc.running = true
   }
 

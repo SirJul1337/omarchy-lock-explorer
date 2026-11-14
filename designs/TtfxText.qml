@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "Bounded.js" as Bounded
 import qs.Commons
 import qs.Commons as Commons
 import "Ttfx.js" as Ttfx
@@ -138,7 +139,7 @@ Item {
     var extra = option ? (option.effect ? option.args || [] : option) : Ttfx.effectArgs(name, palette())
     frameRows = []
     frameStarted = false
-    proc.command = [
+    proc.command = Bounded.run([
       "sh", "-c", "t=$1; shift; exec ttfx \"$@\" <<__TTFX_TEXT__\n$t\n__TTFX_TEXT__", "ttfx",
       text,
       "--ignore-terminal-dimensions",
@@ -149,7 +150,7 @@ Item {
       "--frame-rate", String(rate),
       "--terminal-background-color", Ttfx.hex(backgroundColor),
       ttfxEffect
-    ].concat(extra)
+    ].concat(extra), { deadline: 300, line: 65536 })
     proc.running = true
   }
 
@@ -180,20 +181,23 @@ Item {
     }
   }
 
+  // A frame is canvasRows lines; a stream that never moves the cursor back up
+  // would otherwise keep adding to one frame for as long as it runs.
   function feed(line) {
     var re = /\x1b\[\d+A/
+    var most = canvasRows + 2
     for (;;) {
       var m = re.exec(line)
       if (!m) break
       if (frameStarted) {
-        frameRows.push(line.substring(0, m.index))
+        if (frameRows.length < most) frameRows.push(line.substring(0, m.index))
         latestRows = frameRows
       }
       frameRows = []
       frameStarted = true
       line = line.substring(m.index + m[0].length)
     }
-    if (frameStarted) frameRows.push(line)
+    if (frameStarted && frameRows.length < most) frameRows.push(line)
   }
 
   FrameAnimation {

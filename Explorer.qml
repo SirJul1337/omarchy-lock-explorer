@@ -1764,7 +1764,7 @@ Item {
           event.accepted = true
         } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
           // Through the grid entries in the sidebar, as if clicking the next.
-          var tabs = ["styling", "animation", "favorites"]
+          var tabs = ["styling", "animation", "seasonal", "favorites"]
           var step = event.key === Qt.Key_Backtab ? tabs.length - 1 : 1
           root.mainTab = tabs[(Math.max(0, tabs.indexOf(root.mainTab)) + step) % tabs.length]
           event.accepted = true

@@ -83,6 +83,9 @@ var DESIGNS = [
   // Seasonal: their own palettes, listed under the Seasonal nav.
   { id: "ghosts", file: "Ghosts.qml", name: "Ghosts", description: "Sheet ghosts drift over your wallpaper, eyes on the field, a BOO on a wrong password", tags: ["seasonal", "reactive"], anim: true },
   { id: "cobweb", file: "Cobweb.qml", name: "Cobweb", description: "A dewy web in the corner and a spider that comes down as you type", tags: ["seasonal", "dark", "reactive"], anim: true },
+  { id: "snowfall", file: "Snowfall.qml", name: "Snowfall", description: "Snow over your wallpaper, settling into a drift; a wrong password blows it away", tags: ["seasonal", "reactive"], anim: true },
+  { id: "fairylights", file: "FairyLights.qml", name: "Fairy Lights", description: "Strings of bulbs across the top, one more lit for every key; a wrong password blows the fuse", tags: ["seasonal", "dark", "reactive"], anim: true },
+  { id: "snowglobe", file: "SnowGlobe.qml", name: "Snow Globe", description: "The time inside a snow globe that every key gives a shake", tags: ["seasonal", "clock", "reactive"], anim: true },
 ]
 
 // Not listed in the explorer, used for monitors without input.

@@ -21,6 +21,11 @@ TextInput {
   // itself, at the point where a key is allowed to change the text.
   property bool typing: true
 
+  // Auto-repeat is ordinary typing in a name or a search box, but a password
+  // field that repeats one character because the key-up was late is a flood.
+  // Fields that take a secret set this, and only Backspace/Delete may repeat.
+  property bool passwordField: false
+
   readOnly: true
 
   // Qt drives the cursor of writable fields only, so this one is drawn here.
@@ -60,6 +65,12 @@ TextInput {
   }
 
   Keys.onPressed: function(event) {
-    if (input.typing) input.editKey(event)
+    if (!input.typing) return
+    if (input.passwordField && event.isAutoRepeat
+        && event.key !== Qt.Key_Backspace && event.key !== Qt.Key_Delete) {
+      event.accepted = true
+      return
+    }
+    input.editKey(event)
   }
 }

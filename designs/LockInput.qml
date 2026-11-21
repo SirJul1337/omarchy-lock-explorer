@@ -89,6 +89,16 @@ TypedInput {
       return
     }
 
+    // A key-up delayed by a stalled compositor (a display modeset, swap, a
+    // starved input method) arrives as auto-repeat and would type that
+    // character over and over into the field. A held key has no business
+    // typing a password; only Backspace/Delete stay useful to clear it. Same
+    // guard as omarchy.lock's LockView.qml.
+    if (event.isAutoRepeat && event.key !== Qt.Key_Backspace && event.key !== Qt.Key_Delete) {
+      event.accepted = true
+      return
+    }
+
     if (lock.fido2Configured && (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab)) {
       if (lock.fido2Active) lock.passwordRequested()
       else lock.fido2Requested()

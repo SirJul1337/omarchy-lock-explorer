@@ -23,6 +23,10 @@
 // or exits altogether, timeout is told and takes the group down with it.
 
 var SCRIPT = 'd="$1"; c="$2"; l="$3"; shift 3\n'
+  // timeout 0 means no deadline, but the uutils timeout then stops passing
+  // a TERM on to the group, so a watcher would outlive its stop. infinity
+  // keeps the forwarding in both GNU and uutils.
+  + '[ "$d" -gt 0 ] || d=infinity\n'
   + 'set -o pipefail\n'
   + 'run() { setpriv --pdeathsig TERM timeout -k 2 "$d" "$@"; }\n'
   // In a pipeline bash runs the helper in a subshell of its own, which would
